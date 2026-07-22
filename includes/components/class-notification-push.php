@@ -404,14 +404,17 @@ final class Notification_Push extends Component {
 			return;
 		}
 
-		// Send request.
+		// Send request. The endpoint is user-supplied, so unsafe URLs are rejected: a real push
+		// service is always a public host, and this stops a crafted subscription from making the
+		// server call something internal.
 		$response = wp_remote_post(
 			$endpoint,
 			[
-				'timeout'  => 5,
-				'blocking' => false,
+				'timeout'            => 5,
+				'blocking'           => false,
+				'reject_unsafe_urls' => true,
 
-				'headers'  => [
+				'headers'            => [
 					'Authorization'  => 'vapid t=' . $token . ', k=' . $this->get_keys()['public'],
 					'TTL'            => 86400,
 					'Content-Length' => '0',

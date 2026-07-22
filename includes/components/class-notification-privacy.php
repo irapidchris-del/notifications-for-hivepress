@@ -95,47 +95,57 @@ final class Notification_Privacy extends Component {
 
 		$page = max( 1, absint( $page ) );
 
-		// Get notifications.
-		$notifications = Models\Notification::query()->filter( [ 'user' => $user->ID ] )
-			->order( [ 'created_date' => 'desc' ] )
-			->limit( $this->number )
-			->offset( ( $page - 1 ) * $this->number )
-			->get();
+		// Get notifications. The comments are read directly rather than through the model query,
+		// because a deleted-with-undo notification sits in the trash for up to thirty days and the
+		// model query can't see the trash, yet it's still stored personal data that has to come out.
+		$notifications = get_comments(
+			[
+				'type'    => 'hp_notification',
+				'user_id' => $user->ID,
+				'status'  => [ 'all', 'trash' ],
+				'number'  => $this->number,
+				'offset'  => ( $page - 1 ) * $this->number,
+				'orderby' => 'comment_date',
+				'order'   => 'DESC',
+			]
+		);
 
 		foreach ( $notifications as $notification ) {
+			$url = (string) get_comment_meta( (int) $notification->comment_ID, 'hp_url', true );
+
 			$items = [
 				[
 					'name'  => esc_html__( 'Date', 'notifications-for-hivepress' ),
-					'value' => (string) $notification->get_created_date(),
+					'value' => (string) $notification->comment_date,
 				],
 
 				[
 					'name'  => esc_html__( 'Type', 'notifications-for-hivepress' ),
-					'value' => hivepress()->notification->get_type_label( $notification->get_type() ),
+					'value' => hivepress()->notification->get_type_label( (string) get_comment_meta( (int) $notification->comment_ID, 'hp_type', true ) ),
 				],
 
 				[
 					'name'  => esc_html__( 'Text', 'notifications-for-hivepress' ),
-					'value' => (string) $notification->get_text(),
+					'value' => (string) $notification->comment_content,
 				],
 
 				[
 					'name'  => esc_html__( 'Read', 'notifications-for-hivepress' ),
-					'value' => $notification->get_read() ? esc_html__( 'Yes', 'notifications-for-hivepress' ) : esc_html__( 'No', 'notifications-for-hivepress' ),
+					'value' => absint( $notification->comment_karma ) ? esc_html__( 'Yes', 'notifications-for-hivepress' ) : esc_html__( 'No', 'notifications-for-hivepress' ),
 				],
 			];
 
-			if ( $notification->get_url() ) {
+			if ( $url ) {
 				$items[] = [
 					'name'  => esc_html__( 'Link', 'notifications-for-hivepress' ),
-					'value' => (string) $notification->get_url(),
+					'value' => $url,
 				];
 			}
 
 			$data[] = [
 				'group_id'    => 'hp-notifications',
 				'group_label' => esc_html__( 'Notifications', 'notifications-for-hivepress' ),
-				'item_id'     => 'hp-notification-' . $notification->get_id(),
+				'item_id'     => 'hp-notification-' . absint( $notification->comment_ID ),
 				'data'        => $items,
 			];
 		}
@@ -213,6 +223,26 @@ final class Notification_Privacy extends Component {
 			$notification->delete();
 
 			++$count;
+		}
+
+		// A deleted-with-undo notification sits in the trash for up to thirty days, where the model
+		// query can't see it, so the trash is emptied directly once the visible ones are gone.
+		if ( $count < $this->number ) {
+			$trashed = get_comments(
+				[
+					'type'    => 'hp_notification',
+					'user_id' => $user->ID,
+					'status'  => 'trash',
+					'number'  => $this->number - $count,
+					'fields'  => 'ids',
+				]
+			);
+
+			foreach ( $trashed as $comment_id ) {
+				wp_delete_comment( absint( $comment_id ), true );
+
+				++$count;
+			}
 		}
 
 		if ( $count ) {

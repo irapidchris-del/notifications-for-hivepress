@@ -165,6 +165,14 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 * Added units to every setting that needed one, such as Hide After (seconds) and Storage Period
   (days), and gave every option a plain-language description.
 * Push notifications now carry the site icon on Android status bars as well.
+* The personal data export and erasure tools now also cover notifications sitting in the trash
+  after a delete, which the undo feature above made possible.
+* Fixed the settings-page notice for when push is on but the server cannot generate keys; a logic
+  slip meant it could never actually appear.
+* Push requests now refuse private and loopback addresses, so a crafted subscription cannot point
+  the server at something internal.
+* Deleting the plugin now removes everything it stored: notifications, settings, cached counts
+  and queued announcement batches. Deactivating still keeps everything.
 
 = 1.8.0 =
 * Fixed push: the availability of push wrongly depended on per-role default channels, which could

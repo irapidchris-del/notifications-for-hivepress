@@ -33,7 +33,9 @@
 		<severity>0</severity>
 	</rule>
 
-	<config name="testVersion" value="8.4-"/>
+	<!-- The plugin header declares "Requires PHP: 7.2", so compatibility is checked from
+	     that version upwards. -->
+	<config name="testVersion" value="7.2-"/>
 	<rule ref="PHPCompatibility"/>
 
 	<rule ref="Generic.Arrays.DisallowLongArraySyntax.Found"/>
