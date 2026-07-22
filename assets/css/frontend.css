@@ -1,0 +1,901 @@
+/**
+ * Notifications for HivePress.
+ *
+ * Colours fall back to sensible defaults and are overridden by the custom properties that the
+ * appearance settings print into the page.
+ */
+
+:root {
+	--hp-notification-background: #ffffff;
+	--hp-notification-text: #1a1a1a;
+	--hp-notification-accent: #3d9cd2;
+	--hp-notification-radius: 3px;
+}
+
+/* Pop-ups. */
+
+.hp-notification-toasts {
+	position: fixed;
+	z-index: 9999;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 360px;
+	max-width: calc(100vw - 32px);
+	pointer-events: none;
+}
+
+.hp-notification-toasts--top-right {
+	top: 16px;
+	right: 16px;
+}
+
+.hp-notification-toasts--top-left {
+	top: 16px;
+	left: 16px;
+}
+
+.hp-notification-toasts--bottom-right {
+	bottom: 16px;
+	right: 16px;
+	flex-direction: column-reverse;
+}
+
+.hp-notification-toasts--bottom-left {
+	bottom: 16px;
+	left: 16px;
+	flex-direction: column-reverse;
+}
+
+.hp-notification-toast {
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 14px 14px 14px 18px;
+	overflow: hidden;
+	color: var(--hp-notification-text);
+	background-color: var(--hp-notification-background);
+	border-radius: var(--hp-notification-radius);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+	pointer-events: auto;
+	opacity: 0;
+	transform: translateY(-8px);
+	transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.hp-notification-toasts--bottom-right .hp-notification-toast,
+.hp-notification-toasts--bottom-left .hp-notification-toast {
+	transform: translateY(8px);
+}
+
+.hp-notification-toast--visible {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.hp-notification-toast--leaving {
+	opacity: 0;
+	transform: scale(0.98);
+}
+
+.hp-notification-toast::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 4px;
+	background-color: var(--hp-notification-accent);
+}
+
+.hp-notification-toast__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.hp-notification-toast__type {
+	display: block;
+	margin-bottom: 2px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.6;
+}
+
+.hp-notification-toast__text {
+	font-size: var(--hp-notification-font-size, 14px);
+	font-weight: var(--hp-notification-font-weight, 400);
+	display: block;
+	font-size: 14px;
+	line-height: 1.45;
+	color: inherit;
+	text-decoration: none;
+	overflow-wrap: break-word;
+}
+
+a.hp-notification-toast__text:hover,
+a.hp-notification-toast__text:focus {
+	text-decoration: underline;
+}
+
+.hp-notification-toast__close {
+	flex-shrink: 0;
+	padding: 2px 4px;
+	font-size: 13px;
+	line-height: 1;
+	color: inherit;
+	background: none;
+	border: none;
+	border-radius: 2px;
+	opacity: 0.45;
+	cursor: pointer;
+	transition: opacity 0.16s ease;
+}
+
+.hp-notification-toast__close:hover {
+	opacity: 1;
+}
+
+.hp-notification-toast__close:focus-visible {
+	outline: 2px solid var(--hp-notification-accent);
+	outline-offset: 1px;
+	opacity: 1;
+}
+
+/* The bar depletes over the hide-after duration, so the countdown is visible rather than a
+   pop-up vanishing without warning. It pauses while the pointer is over the pop-up. */
+.hp-notification-toast__progress {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	width: 100%;
+	background-color: var(--hp-notification-accent);
+	opacity: 0.35;
+	transform-origin: left center;
+	animation-name: hp-notification-progress;
+	animation-timing-function: linear;
+	animation-fill-mode: forwards;
+}
+
+.hp-notification-toast:hover .hp-notification-toast__progress,
+.hp-notification-toast:focus-within .hp-notification-toast__progress {
+	animation-play-state: paused;
+}
+
+@keyframes hp-notification-progress {
+	from {
+		transform: scaleX(1);
+	}
+
+	to {
+		transform: scaleX(0);
+	}
+}
+
+/* Notification list. */
+
+.hp-notifications__header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 20px;
+}
+
+.hp-notifications__count {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.hp-notifications__count--clear {
+	font-weight: 400;
+	opacity: 0.6;
+}
+
+.hp-notifications__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.hp-notifications__filter {
+	display: flex;
+	gap: 8px;
+	margin: 0;
+}
+
+.hp-notifications__filter select {
+	max-width: 220px;
+}
+
+.hp-notifications__settings,
+.hp-notifications__read-all {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0;
+	font-size: 13px;
+	color: inherit;
+	background: none;
+	border: none;
+	cursor: pointer;
+	opacity: 0.7;
+	transition: opacity 0.16s ease;
+}
+
+.hp-notifications__settings {
+	text-decoration: none;
+}
+
+.hp-notifications__settings:hover,
+.hp-notifications__read-all:hover {
+	opacity: 1;
+}
+
+.hp-notifications__group {
+	margin-bottom: 24px;
+}
+
+.hp-notifications__date {
+	margin: 0 0 8px;
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.55;
+}
+
+.hp-notifications__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.hp-notification {
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 14px 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+	transition: opacity 0.2s ease;
+}
+
+.hp-notification--removing {
+	opacity: 0;
+}
+
+.hp-notification__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.hp-notification__type {
+	display: block;
+	margin-bottom: 2px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.5;
+}
+
+.hp-notification__text {
+	font-size: var(--hp-notification-font-size, 14px);
+	font-weight: var(--hp-notification-font-weight, 400);
+	display: block;
+	font-size: 15px;
+	line-height: 1.45;
+	color: inherit;
+	overflow-wrap: break-word;
+}
+
+.hp-notification--unread .hp-notification__text {
+	font-weight: 600;
+}
+
+/* The unread marker sits in the gutter so the list keeps a single alignment. */
+.hp-notification--unread::before {
+	content: "";
+	position: absolute;
+	top: 20px;
+	left: -14px;
+	width: 6px;
+	height: 6px;
+	background-color: var(--hp-notification-accent);
+	border-radius: 50%;
+}
+
+.hp-notification__details {
+	margin: 4px 0 0;
+	font-size: 13px;
+	line-height: 1.5;
+	opacity: 0.65;
+	overflow-wrap: break-word;
+}
+
+.hp-notification__link,
+.hp-notification-toast__link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--hp-notification-accent);
+	text-decoration: none;
+}
+
+.hp-notification__link i,
+.hp-notification-toast__link i {
+	font-size: 9px;
+}
+
+.hp-notification__link:hover,
+.hp-notification__link:focus-visible,
+.hp-notification-toast__link:hover,
+.hp-notification-toast__link:focus-visible {
+	text-decoration: underline;
+}
+
+.hp-notification-toast__link {
+	margin-top: 4px;
+}
+
+.hp-notification__time {
+	display: block;
+	margin-top: 4px;
+	font-size: 12px;
+	opacity: 0.5;
+}
+
+.hp-notification__delete {
+	flex-shrink: 0;
+	padding: 2px 4px;
+	font-size: 12px;
+	line-height: 1;
+	color: inherit;
+	background: none;
+	border: none;
+	border-radius: 2px;
+	opacity: 0;
+	cursor: pointer;
+	transition: opacity 0.16s ease;
+}
+
+.hp-notification:hover .hp-notification__delete,
+.hp-notification__delete:focus-visible {
+	opacity: 0.6;
+}
+
+.hp-notification__delete:hover {
+	opacity: 1;
+}
+
+.hp-notification__delete:focus-visible {
+	outline: 2px solid var(--hp-notification-accent);
+	outline-offset: 1px;
+}
+
+.hp-notifications__empty p {
+	margin: 12px 0 4px;
+	opacity: 0.7;
+}
+
+/* Unread badge in the account menu. */
+
+.hp-menu__item--notifications-view a {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.hp-menu__item--notifications-view small {
+	display: inline-block;
+	min-width: 18px;
+	padding: 1px 5px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 16px;
+	color: #ffffff;
+	text-align: center;
+	background-color: var(--hp-notification-accent);
+	border-radius: 9px;
+}
+
+@media (max-width: 480px) {
+	.hp-notification-toasts {
+		width: auto;
+		left: 16px;
+		right: 16px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hp-notification-toast,
+	.hp-notification {
+		transition: none;
+	}
+
+	.hp-notification-toast {
+		transform: none;
+	}
+
+	.hp-notification-toast__progress {
+		animation: none;
+	}
+}
+
+/* --------------------------------------------------------------------------
+ * Header bell
+ * ----------------------------------------------------------------------- */
+
+.hp-notification-bell {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	margin-left: 12px;
+}
+
+.hp-notification-bell__toggle {
+	position: relative;
+	color: var(--hp-notification-bell-color, inherit);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: calc(var(--hp-notification-bell-size, 17px) + 21px);
+	height: calc(var(--hp-notification-bell-size, 17px) + 21px);
+	border-radius: 50%;
+	color: inherit;
+	text-decoration: none;
+}
+
+.hp-notification-bell__toggle:hover,
+.hp-notification-bell__toggle:focus-visible {
+	background-color: rgba(0, 0, 0, 0.06);
+}
+
+.hp-notification-bell__toggle i {
+	font-size: var(--hp-notification-bell-size, 17px);
+}
+
+.hp-notification-bell__toggle small {
+	position: absolute;
+	top: 1px;
+	right: 0;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 8px;
+	background-color: #e0245e;
+	color: #ffffff;
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 16px;
+	text-align: center;
+}
+
+.hp-notification-bell__panel {
+	width: var(--hp-notification-panel-width, 320px);
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 1010;
+	width: 320px;
+	max-width: calc(100vw - 24px);
+	background-color: var(--hp-notification-background);
+	color: var(--hp-notification-text);
+	border-radius: var(--hp-notification-radius);
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}
+
+.hp-notification-bell__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 14px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+	font-weight: 600;
+}
+
+.hp-notification-bell__header a {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--hp-notification-accent);
+	text-decoration: none;
+}
+
+.hp-notification-bell__header a:hover,
+.hp-notification-bell__header a:focus-visible {
+	text-decoration: underline;
+}
+
+.hp-notification-bell__body {
+	max-height: 360px;
+	overflow-y: auto;
+}
+
+.hp-notification-bell__loading,
+.hp-notification-bell__empty {
+	padding: 22px 14px;
+	text-align: center;
+	font-size: 13px;
+	opacity: 0.7;
+}
+
+.hp-notification-bell__item {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 10px 14px;
+	color: inherit;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.hp-notification-bell__item:last-child {
+	border-bottom: 0;
+}
+
+a.hp-notification-bell__item:hover,
+a.hp-notification-bell__item:focus-visible {
+	background-color: rgba(0, 0, 0, 0.04);
+}
+
+.hp-notification-bell__item--unread {
+	background-color: color-mix(in srgb, var(--hp-notification-accent) 7%, transparent);
+}
+
+.hp-notification-bell__content {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.hp-notification-bell__text {
+	font-size: calc(var(--hp-notification-font-size, 14px) - 1px);
+	font-weight: var(--hp-notification-font-weight, 400);
+	line-height: 1.45;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+}
+
+.hp-notification-bell__meta {
+	margin-top: 2px;
+	font-size: 11px;
+	opacity: 0.55;
+}
+
+.hp-notification-bell__go {
+	flex-shrink: 0;
+	align-self: center;
+	margin-left: 4px;
+	font-size: 10px;
+	opacity: 0.35;
+}
+
+/* --------------------------------------------------------------------------
+ * Leading visuals: avatars, thumbnails and type icons
+ * ----------------------------------------------------------------------- */
+
+.hp-notification__icon,
+.hp-notification-toast__icon,
+.hp-notification-bell__visual {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+	overflow: hidden;
+	background-color: color-mix(in srgb, var(--hp-notification-accent) 12%, transparent);
+	color: var(--hp-notification-accent);
+}
+
+.hp-notification-bell__visual {
+	width: 32px;
+	height: 32px;
+}
+
+.hp-notification__icon i,
+.hp-notification-toast__icon i {
+	font-size: 15px;
+}
+
+.hp-notification-bell__visual i {
+	font-size: 13px;
+}
+
+.hp-notification__icon img,
+.hp-notification-toast__icon img,
+.hp-notification-bell__visual img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.hp-notification-toast {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.hp-notification-toast__icon {
+	margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+ * List header, actions and filters
+ * ----------------------------------------------------------------------- */
+
+.hp-notifications__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+
+.hp-notifications__count {
+	font-weight: 600;
+}
+
+.hp-notifications__count--clear {
+	opacity: 0.7;
+	font-weight: 400;
+}
+
+.hp-notifications__actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.hp-notifications__action {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 14px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: var(--hp-notification-radius);
+	background: none;
+	color: inherit;
+	font-size: 14px;
+	line-height: 1;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.hp-notifications__action:hover,
+.hp-notifications__action:focus-visible {
+	border-color: var(--hp-notification-accent);
+	color: var(--hp-notification-accent);
+}
+
+.hp-notifications__action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.hp-notifications__action i {
+	font-size: 13px;
+}
+
+.hp-notifications__filters {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
+}
+
+.hp-notifications__filters input[type="search"] {
+	flex: 1;
+	min-width: 160px;
+}
+
+.hp-notifications__reset {
+	font-size: 13px;
+	color: var(--hp-notification-accent);
+	text-decoration: none;
+}
+
+.hp-notifications__reset:hover,
+.hp-notifications__reset:focus-visible {
+	text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+ * Row controls and empty state
+ * ----------------------------------------------------------------------- */
+
+.hp-notification__controls {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.hp-notification__toggle {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	color: inherit;
+	opacity: 0.45;
+	cursor: pointer;
+}
+
+.hp-notification__toggle:hover,
+.hp-notification__toggle:focus-visible {
+	opacity: 1;
+	background-color: rgba(0, 0, 0, 0.06);
+	color: var(--hp-notification-accent);
+}
+
+.hp-notification__toggle:disabled {
+	opacity: 0.25;
+	cursor: default;
+}
+
+.hp-notifications__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 44px 20px;
+	text-align: center;
+}
+
+.hp-notifications__empty i {
+	display: block;
+	width: auto;
+	margin: 0 0 12px;
+	font-size: 34px;
+	opacity: 0.3;
+}
+
+.hp-notifications__empty p {
+	margin: 0 0 8px;
+	opacity: 0.75;
+}
+
+.hp-notifications__empty a {
+	color: var(--hp-notification-accent);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.hp-notifications__empty a:hover,
+.hp-notifications__empty a:focus-visible {
+	text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+ * Bell dismissal
+ * ----------------------------------------------------------------------- */
+
+.hp-notification-bell__item--unread {
+	cursor: pointer;
+}
+
+.hp-notification-bell__dismiss {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin-left: 4px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	color: inherit;
+	opacity: 0.4;
+	cursor: pointer;
+}
+
+.hp-notification-bell__dismiss:hover,
+.hp-notification-bell__dismiss:focus-visible {
+	opacity: 1;
+	background-color: rgba(0, 0, 0, 0.06);
+}
+
+.hp-notification-bell__dismiss i {
+	font-size: 11px;
+}
+
+/* --------------------------------------------------------------------------
+ * Push setup on the settings page
+ * ----------------------------------------------------------------------- */
+
+.hp-notification-push {
+	margin-top: 24px;
+}
+
+.hp-notification-push__status {
+	margin-left: 10px;
+	font-size: 13px;
+	opacity: 0.75;
+}
+
+/* --------------------------------------------------------------------------
+ * Pop-up position on small screens
+ * ----------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+	.hp-notification-toasts--m-top {
+		top: 16px;
+		bottom: auto;
+		transform: none;
+	}
+
+	.hp-notification-toasts--m-bottom {
+		top: auto;
+		bottom: 16px;
+		transform: none;
+	}
+
+	.hp-notification-toasts--m-center {
+		top: 50%;
+		bottom: auto;
+		transform: translateY(-50%);
+	}
+}
+
+/* --------------------------------------------------------------------------
+ * Sticky header
+ * ----------------------------------------------------------------------- */
+
+.hp-nfh-sticky {
+	position: fixed !important;
+	left: 0;
+	right: 0;
+	z-index: 1001;
+	background-color: #ffffff;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+ * Delete undo
+ * ----------------------------------------------------------------------- */
+
+.hp-notification-undo {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 16px;
+	border: 1px dashed rgba(0, 0, 0, 0.2);
+	border-radius: var(--hp-notification-radius);
+	font-size: calc(var(--hp-notification-font-size, 14px) - 1px);
+	opacity: 0.85;
+}
+
+.hp-notification-undo button {
+	border: 0;
+	padding: 4px 10px;
+	border-radius: var(--hp-notification-radius);
+	background-color: var(--hp-notification-accent);
+	color: #ffffff;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
