@@ -173,6 +173,8 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
   the server at something internal.
 * Deleting the plugin now removes everything it stored: notifications, settings, cached counts
   and queued announcement batches. Deactivating still keeps everything.
+* Hardened link handling: the scripts now only ever place an http or https link in a notification,
+  as a second line of defence behind the sanitising the server already does.
 
 = 1.8.0 =
 * Fixed push: the availability of push wrongly depended on per-role default channels, which could

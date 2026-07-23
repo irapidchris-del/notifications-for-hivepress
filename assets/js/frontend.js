@@ -49,6 +49,31 @@
 	}
 
 	/**
+	 * Drops a URL that carries anything other than an http(s) scheme.
+	 *
+	 * The server stores only sanitised permalinks, so this is defence in depth: a value with a
+	 * javascript:, data: or similar scheme is never placed in an href. ASCII whitespace and control
+	 * characters are removed first, because a browser ignores them when reading a scheme and would
+	 * otherwise run a "java\tscript:" style value.
+	 *
+	 * @param {string} url URL to check.
+	 * @return {string} The URL, or an empty string when its scheme isn't allowed.
+	 */
+	function safeUrl( url ) {
+		if ( 'string' !== typeof url || '' === url ) {
+			return '';
+		}
+
+		var scheme = /^([a-z][a-z0-9+.-]*):/i.exec( url.replace( /[\u0000-\u0020]+/g, '' ) );
+
+		if ( scheme && 'http' !== scheme[1].toLowerCase() && 'https' !== scheme[1].toLowerCase() ) {
+			return '';
+		}
+
+		return url;
+	}
+
+	/**
 	 * Updates the unread badges in the account menu and the header bell.
 	 *
 	 * @param {number} count Unread count.
@@ -270,11 +295,14 @@
 			body.appendChild( text );
 
 			// Add the deep link. HivePress link tokens already point at the exact thing that
-			// happened, so this drops the reader straight into the conversation or booking.
-			if ( notification.url ) {
+			// happened, so this drops the reader straight into the conversation or booking. The
+			// URL is re-checked here even though the server stores only sanitised permalinks.
+			var url = safeUrl( notification.url );
+
+			if ( url ) {
 				var link = document.createElement( 'a' );
 				link.className = 'hp-notification-toast__link';
-				link.href = notification.url;
+				link.href = url;
 				link.innerHTML = '<span></span><i class="hp-icon fas fa-chevron-right"></i>';
 				link.querySelector( 'span' ).textContent = notification.link_label || settings.viewText;
 
@@ -506,11 +534,12 @@
 			}
 
 			notifications.forEach( function( notification ) {
-				var item = document.createElement( notification.url ? 'a' : 'div' );
+				var url = safeUrl( notification.url );
+				var item = document.createElement( url ? 'a' : 'div' );
 				item.className = 'hp-notification-bell__item' + ( notification.read ? '' : ' hp-notification-bell__item--unread' );
 
-				if ( notification.url ) {
-					item.href = notification.url;
+				if ( url ) {
+					item.href = url;
 
 					item.addEventListener( 'click', function() {
 						Toasts.markRead( notification.id, true );
@@ -549,7 +578,7 @@
 				item.appendChild( content );
 
 				// A quiet cue that this row goes somewhere.
-				if ( notification.url ) {
+				if ( url ) {
 					var go = document.createElement( 'i' );
 					go.className = 'hp-icon fas fa-chevron-right hp-notification-bell__go';
 

@@ -103,7 +103,9 @@ self.addEventListener( 'notificationclick', function( event ) {
 
 	var url = event.notification.data && event.notification.data.url;
 
-	if ( ! url ) {
+	// Only follow absolute http(s) links. Notification URLs are always full permalinks, so this
+	// drops anything with another scheme rather than handing it to openWindow.
+	if ( ! url || ! /^https?:\/\//i.test( url ) ) {
 		return;
 	}
 
