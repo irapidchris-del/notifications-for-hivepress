@@ -175,6 +175,8 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
   and queued announcement batches. Deactivating still keeps everything.
 * Hardened link handling: the scripts now only ever place an http or https link in a notification,
   as a second line of defence behind the sanitising the server already does.
+* Added automatic updates. New versions released on GitHub now appear on your Plugins page like
+  any other update, with a details popup and one-click install.
 
 = 1.8.0 =
 * Fixed push: the availability of push wrongly depended on per-role default channels, which could
