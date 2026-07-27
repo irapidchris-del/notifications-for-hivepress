@@ -1,62 +1,61 @@
 # Releasing a new version
 
-The plugin updates itself from this repository's GitHub **Releases** using the bundled
-[Plugin Update Checker](https://github.com/YahnisElsts/plugin-update-checker). Once a user has the
-plugin installed, every new release you publish here shows up on their Plugins page as a normal
-update, with a working "View details" popup and one-click update.
+The plugin updates itself from this repository's GitHub **Releases** using the native WordPress
+`update_plugins_{$hostname}` API (no third-party library). Once a user has the plugin installed,
+each release you publish here shows up on their Plugins page as a normal update, with a working
+"View version details" popup, a one-click update, and a "Check for updates" link on the plugin row.
 
-## One-time facts
+## Fixed facts
 
-- **Slug / folder:** `notifications-for-hivepress` — the zip must unpack into a folder with this
-  exact name (the build script guarantees it).
-- **Release asset name:** `notifications-for-hivepress.zip` — must be identical on every release.
-  The updater and the permanent link both depend on that fixed name.
-- **Permanent download link** (safe to post once on the HivePress forum; always serves the latest):
+- **Slug / folder / text domain:** `notifications-for-hivepress`. The release asset must unpack into
+  a single folder with this exact name.
+- **Release asset name:** always `notifications-for-hivepress.zip` (no version in the file name).
+  The updater downloads the first release asset whose name ends in `.zip`, and the permanent link
+  below depends on the fixed name.
+- **Permanent download link** (post once on the HivePress forum; always serves the latest):
 
   ```
   https://github.com/irapidchris-del/notifications-for-hivepress/releases/latest/download/notifications-for-hivepress.zip
   ```
 
-## Steps for each release
+The build and upload are done by `.github/workflows/release.yml`, so you never build the zip by
+hand.
 
-1. **Bump the version** in three places, all to the same number (e.g. `1.10.0`):
-   - `notifications-for-hivepress.php` — the `Version:` header **and** the `HP_NOTIFICATIONS_VERSION`
-     constant.
-   - `readme.txt` — the `Stable tag:` line, plus a new `= 1.10.0 =` block at the top of the
-     Changelog. The Changelog is what the "View details" popup shows users, so write it for them.
+## Bump the version first (every release)
 
-2. **Build the zips:**
+Set the same version number in both places:
 
-   ```bash
-   bin/build-release.sh
-   ```
+- `notifications-for-hivepress.php` — the `Version:` header **and** the `HP_NOTIFICATIONS_VERSION`
+  constant.
+- `readme.txt` — the `Stable tag:` line, plus a new `= X.Y.Z =` block at the top of the Changelog.
 
-   This reads the version from the plugin header and writes two files to `dist/`:
+Commit that and merge it to `main` before releasing (the workflow builds from the tagged commit).
 
-   - `notifications-for-hivepress.zip` — the release asset (clean name, no version).
-   - `notifications-for-hivepress-<version>.zip` — the same contents, version-stamped, for your own
-     testing so you can tell builds apart. Do **not** attach this one.
+## Publishing
 
-   Both unpack into `notifications-for-hivepress/`, so either installs cleanly with no folder
-   warning.
+**Option A — from the GitHub UI.** Draft a new Release, set the tag to the version number (e.g.
+`v1.10.0`; a leading `v` is fine), write the notes, and publish. The workflow fires on the
+`release: published` event, builds the zip and attaches `notifications-for-hivepress.zip`.
 
-3. **Create the GitHub release:**
-   - Tag: the version number, e.g. `1.10.0` (a leading `v` is fine — the updater ignores it). The
-     tag is what the updater compares against the installed version, so it must match the header.
-   - Title and notes: whatever you like; the notes appear under "View details".
-   - **Attach `dist/notifications-for-hivepress.zip` as a release asset.**
-   - Publish (not a draft, not a pre-release — the updater looks at the latest published release).
+**Option B — via workflow dispatch (used from a Claude session).** `gh` and the raw releases REST
+API are not available inside a Claude session, so trigger the workflow instead:
 
-4. **Done.** Within its check window WordPress offers the update to every installed site. To see it
-   immediately on a test site, go to Dashboard → Updates and click "Check again".
+1. Bump the `Version:` header, commit, and merge to `main`.
+2. Trigger the workflow with the GitHub MCP tool `actions_run_trigger`:
+   - `method: run_workflow`
+   - `workflow_id: release.yml`
+   - `ref: main`
+   - `inputs: { tag: "vX.Y.Z", notes: "<changelog markdown>" }`
+   The workflow creates the release if it doesn't exist (or force-moves the tag and refreshes the
+   notes/asset if it does), building `notifications-for-hivepress.zip` from `$GITHUB_SHA`.
+3. Verify with `get_release_by_tag` that the tag, notes and the `.zip` asset all landed.
 
 ## Notes
 
-- The build ships only runtime files. Development files (`bin/`, `dist/`, `phpcs.xml`, `.github/`,
-  this file) are excluded from both the built asset and — via `.gitattributes` `export-ignore` —
-  GitHub's own source archive, so the fallback download stays clean too.
-- If you ever publish a release **without** attaching the asset, the updater falls back to GitHub's
-  source archive and the library renames the folder for you, so updates still work; the asset is
-  just cleaner and carries the fixed download link.
-- The first release that includes this updater has to be installed manually (from the link above).
-  Every release after that updates in place.
+- The tag is the version the updater compares against the installed `Version:` header, so the tag
+  must match the header (with or without a leading `v`).
+- Draft and pre-releases are ignored: the updater reads `releases/latest`, which excludes them.
+- Until the first release exists, `releases/latest` returns 404, the updater simply offers no update
+  (a failed check is cached for an hour), and nothing errors.
+- The first release carrying this updater must be installed manually from the link above; every
+  release after that updates in place.

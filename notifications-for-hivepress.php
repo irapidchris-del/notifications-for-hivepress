@@ -1,16 +1,19 @@
 <?php
 /**
  * Plugin Name: Notifications for HivePress
+ * Plugin URI: https://github.com/irapidchris-del/notifications-for-hivepress
  * Description: Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions.
  * Version: 1.9.0
  * Author: ChrisB
  * Author URI: https://community.hivepress.io/u/chrisb
  * Text Domain: notifications-for-hivepress
  * Domain Path: /languages
- * Requires Plugins: hivepress
+ * Requires at least: 6.0
  * Requires PHP: 7.2
+ * Requires Plugins: hivepress
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Update URI: https://github.com/irapidchris-del/notifications-for-hivepress
  *
  * @package HivePress\Notifications
  */
@@ -50,43 +53,10 @@ add_action(
 );
 
 /**
- * Wires up updates straight from the plugin's GitHub releases.
+ * Loads the GitHub release updater.
  *
- * Each release attaches a "notifications-for-hivepress.zip" asset built to install into the right
- * folder, and the Plugin Update Checker library offers it to WordPress like any other update: the
- * Plugins page shows the notice, "View details" and one-click update all work. The check only needs
- * to run in the admin, during the cron event that refreshes the update transient, and under WP-CLI,
- * so ordinary front-end requests skip it entirely.
+ * The plugin is distributed through GitHub releases rather than wp.org, so updates go through the
+ * native "update_plugins_{$hostname}" API keyed off the Update URI header above. The updater is a
+ * handful of plain functions with no third-party library behind them.
  */
-add_action(
-	'init',
-	function() {
-		if ( ! is_admin() && ! wp_doing_cron() && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
-			return;
-		}
-
-		$loader = __DIR__ . '/lib/plugin-update-checker/plugin-update-checker.php';
-
-		if ( ! is_readable( $loader ) ) {
-			return;
-		}
-
-		require_once $loader;
-
-		if ( ! class_exists( '\YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
-			return;
-		}
-
-		$update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-			'https://github.com/irapidchris-del/notifications-for-hivepress/',
-			HP_NOTIFICATIONS_FILE,
-			'notifications-for-hivepress'
-		);
-
-		// Track published releases, not the default branch, so an unreleased commit is never
-		// offered as an update. The attached zip is preferred over GitHub's generated source
-		// archive, because it already unpacks into the "notifications-for-hivepress" folder.
-		$update_checker->getVcsApi()->enableReleaseAssets( '/notifications-for-hivepress\.zip$/i' );
-	},
-	5
-);
+require_once __DIR__ . '/updater.php';
