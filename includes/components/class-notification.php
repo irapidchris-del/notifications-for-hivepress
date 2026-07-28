@@ -59,6 +59,9 @@ final class Notification extends Component {
 		// Add settings.
 		add_filter( 'hivepress/v1/settings', [ $this, 'alter_settings' ] );
 
+		// Enhance the bell icon field with a previewing picker on the settings screen.
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_bell_icon_picker' ] );
+
 		// Delete notifications. The daily event is scheduled by the HivePress scheduler component,
 		// so this only attaches to it.
 		add_action( 'hivepress/v1/events/daily', [ $this, 'delete_notifications' ] );
@@ -1221,6 +1224,135 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Gets the header bell icon choices.
+	 *
+	 * Each choice is a Font Awesome free solid icon whose name is the same in versions 5 and 6, so
+	 * the stored name renders as "fas fa-{name}" wherever HivePress loads Font Awesome, while the
+	 * bundled view box and path draw the same icon as a preview in the admin picker, with no font
+	 * needed there. Icons are from Font Awesome Free (CC BY 4.0).
+	 *
+	 * @return array
+	 */
+	public function get_bell_icons() {
+		return [
+			'bell'           => [
+				'label' => esc_html__( 'Bell', 'notifications-for-hivepress' ),
+				'view'  => '0 0 448 512',
+				'path'  => 'M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 18.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.4-10.4 22.9-5.3 34.4S19.4 416 32 416l384 0c12.6 0 24-7.4 29.2-18.9s3.1-25-5.3-34.4l-7.4-8.3C401.3 319.2 384 273.9 384 226.8l0-18.8c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm45.3 493.3c12-12 18.7-28.3 18.7-45.3l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7z',
+			],
+			'bell-slash'     => [
+				'label' => esc_html__( 'Bell (off)', 'notifications-for-hivepress' ),
+				'view'  => '0 0 640 512',
+				'path'  => 'M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7l-90.2-70.7c.2-.4 .4-.9 .6-1.3c5.2-11.5 3.1-25-5.3-34.4l-7.4-8.3C497.3 319.2 480 273.9 480 226.8l0-18.8c0-77.4-55-142-128-156.8L352 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 19.2c-42.6 8.6-79 34.2-102 69.3L38.8 5.1zM406.2 416L160 222.1l0 4.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.4-10.4 22.9-5.3 34.4S115.4 416 128 416l278.2 0zm-40.9 77.3c12-12 18.7-28.3 18.7-45.3l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7z',
+			],
+			'inbox'          => [
+				'label' => esc_html__( 'Inbox', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M121 32C91.6 32 66 52 58.9 80.5L1.9 308.4C.6 313.5 0 318.7 0 323.9L0 416c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-92.1c0-5.2-.6-10.4-1.9-15.5l-57-227.9C446 52 420.4 32 391 32L121 32zm0 64l270 0 48 192-51.2 0c-12.1 0-23.2 6.8-28.6 17.7l-14.3 28.6c-5.4 10.8-16.5 17.7-28.6 17.7l-120.4 0c-12.1 0-23.2-6.8-28.6-17.7l-14.3-28.6c-5.4-10.8-16.5-17.7-28.6-17.7L73 288 121 96z',
+			],
+			'envelope'       => [
+				'label' => esc_html__( 'Envelope', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48L48 64zM0 176L0 384c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-208L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z',
+			],
+			'envelope-open'  => [
+				'label' => esc_html__( 'Envelope (open)', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M64 208.1L256 65.9 448 208.1l0 47.4L289.5 373c-9.7 7.2-21.4 11-33.5 11s-23.8-3.9-33.5-11L64 255.5l0-47.4zM256 0c-12.1 0-23.8 3.9-33.5 11L25.9 156.7C9.6 168.8 0 187.8 0 208.1L0 448c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-239.9c0-20.3-9.6-39.4-25.9-51.4L289.5 11C279.8 3.9 268.1 0 256 0z',
+			],
+			'comment-dots'   => [
+				'label' => esc_html__( 'Comment', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M256 448c141.4 0 256-93.1 256-208S397.4 32 256 32S0 125.1 0 240c0 45.1 17.7 86.8 47.7 120.9c-1.9 24.5-11.4 46.3-21.4 62.9c-5.5 9.2-11.1 16.6-15.2 21.6c-2.1 2.5-3.7 4.4-4.9 5.7c-.6 .6-1 1.1-1.3 1.4l-.3 .3c0 0 0 0 0 0c0 0 0 0 0 0s0 0 0 0s0 0 0 0c-4.6 4.6-5.9 11.4-3.4 17.4c2.5 6 8.3 9.9 14.8 9.9c28.7 0 57.6-8.9 81.6-19.3c22.9-10 42.4-21.9 54.3-30.6c31.8 11.5 67 17.9 104.1 17.9zM128 208a32 32 0 1 1 0 64 32 32 0 1 1 0-64zm128 0a32 32 0 1 1 0 64 32 32 0 1 1 0-64zm96 32a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z',
+			],
+			'comments'       => [
+				'label' => esc_html__( 'Comments', 'notifications-for-hivepress' ),
+				'view'  => '0 0 640 512',
+				'path'  => 'M208 352c114.9 0 208-78.8 208-176S322.9 0 208 0S0 78.8 0 176c0 38.6 14.7 74.3 39.6 103.4c-3.5 9.4-8.7 17.7-14.2 24.7c-4.8 6.2-9.7 11-13.3 14.3c-1.8 1.6-3.3 2.9-4.3 3.7c-.5 .4-.9 .7-1.1 .8l-.2 .2s0 0 0 0s0 0 0 0C1 327.2-1.4 334.4 .8 340.9S9.1 352 16 352c21.8 0 43.8-5.6 62.1-12.5c9.2-3.5 17.8-7.4 25.2-11.4C134.1 343.3 169.8 352 208 352zM448 176c0 112.3-99.1 196.9-216.5 207C255.8 457.4 336.4 512 432 512c38.2 0 73.9-8.7 104.7-23.9c7.5 4 16 7.9 25.2 11.4c18.3 6.9 40.3 12.5 62.1 12.5c6.9 0 13.1-4.5 15.2-11.1c2.1-6.6-.2-13.8-5.8-17.9c0 0 0 0 0 0s0 0 0 0l-.2-.2c-.2-.2-.6-.4-1.1-.8c-1-.8-2.5-2-4.3-3.7c-3.6-3.3-8.5-8.1-13.3-14.3c-5.5-7-10.7-15.4-14.2-24.7c24.9-29 39.6-64.7 39.6-103.4c0-92.8-84.9-168.9-192.6-175.5c.4 5.1 .6 10.3 .6 15.5z',
+			],
+			'paper-plane'    => [
+				'label' => esc_html__( 'Paper plane', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480l0-83.6c0-4 1.5-7.8 4.2-10.8L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z',
+			],
+			'star'           => [
+				'label' => esc_html__( 'Star', 'notifications-for-hivepress' ),
+				'view'  => '0 0 576 512',
+				'path'  => 'M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z',
+			],
+			'heart'          => [
+				'label' => esc_html__( 'Heart', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z',
+			],
+			'flag'           => [
+				'label' => esc_html__( 'Flag', 'notifications-for-hivepress' ),
+				'view'  => '0 0 448 512',
+				'path'  => 'M64 32C64 14.3 49.7 0 32 0S0 14.3 0 32L0 64 0 368 0 480c0 17.7 14.3 32 32 32s32-14.3 32-32l0-128 64.3-16.1c41.1-10.3 84.6-5.5 122.5 13.4c44.2 22.1 95.5 24.8 141.7 7.4l34.7-13c12.5-4.7 20.8-16.6 20.8-30l0-247.7c0-23-24.2-38-44.8-27.7l-9.6 4.8c-46.3 23.2-100.8 23.2-147.1 0c-35.1-17.6-75.4-22-113.5-12.5L64 48l0-16z',
+			],
+			'bullhorn'       => [
+				'label' => esc_html__( 'Bullhorn', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M480 32c0-12.9-7.8-24.6-19.8-29.6s-25.7-2.2-34.9 6.9L381.7 53c-48 48-113.1 75-181 75l-8.7 0-32 0-96 0c-35.3 0-64 28.7-64 64l0 96c0 35.3 28.7 64 64 64l0 128c0 17.7 14.3 32 32 32l64 0c17.7 0 32-14.3 32-32l0-128 8.7 0c67.9 0 133 27 181 75l43.6 43.6c9.2 9.2 22.9 11.9 34.9 6.9s19.8-16.6 19.8-29.6l0-147.6c18.6-8.8 32-32.5 32-60.4s-13.4-51.6-32-60.4L480 32zm-64 76.7L416 240l0 131.3C357.2 317.8 280.5 288 200.7 288l-8.7 0 0-96 8.7 0c79.8 0 156.5-29.8 215.3-83.3z',
+			],
+			'gift'           => [
+				'label' => esc_html__( 'Gift', 'notifications-for-hivepress' ),
+				'view'  => '0 0 512 512',
+				'path'  => 'M190.5 68.8L225.3 128l-1.3 0-72 0c-22.1 0-40-17.9-40-40s17.9-40 40-40l2.2 0c14.9 0 28.8 7.9 36.3 20.8zM64 88c0 14.4 3.5 28 9.6 40L32 128c-17.7 0-32 14.3-32 32l0 64c0 17.7 14.3 32 32 32l448 0c17.7 0 32-14.3 32-32l0-64c0-17.7-14.3-32-32-32l-41.6 0c6.1-12 9.6-25.6 9.6-40c0-48.6-39.4-88-88-88l-2.2 0c-31.9 0-61.5 16.9-77.7 44.4L256 85.5l-24.1-41C215.7 16.9 186.1 0 154.2 0L152 0C103.4 0 64 39.4 64 88zm336 0c0 22.1-17.9 40-40 40l-72 0-1.3 0 34.8-59.2C329.1 55.9 342.9 48 357.8 48l2.2 0c22.1 0 40 17.9 40 40zM32 288l0 176c0 26.5 21.5 48 48 48l144 0 0-224L32 288zM288 512l144 0c26.5 0 48-21.5 48-48l0-176-192 0 0 224z',
+			],
+			'tag'            => [
+				'label' => esc_html__( 'Tag', 'notifications-for-hivepress' ),
+				'view'  => '0 0 448 512',
+				'path'  => 'M0 80L0 229.5c0 17 6.7 33.3 18.7 45.3l176 176c25 25 65.5 25 90.5 0L418.7 317.3c25-25 25-65.5 0-90.5l-176-176c-12-12-28.3-18.7-45.3-18.7L48 32C21.5 32 0 53.5 0 80zm112 32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z',
+			],
+			'calendar-check' => [
+				'label' => esc_html__( 'Calendar', 'notifications-for-hivepress' ),
+				'view'  => '0 0 448 512',
+				'path'  => 'M128 0c17.7 0 32 14.3 32 32l0 32 128 0 0-32c0-17.7 14.3-32 32-32s32 14.3 32 32l0 32 48 0c26.5 0 48 21.5 48 48l0 48L0 160l0-48C0 85.5 21.5 64 48 64l48 0 0-32c0-17.7 14.3-32 32-32zM0 192l448 0 0 272c0 26.5-21.5 48-48 48L48 512c-26.5 0-48-21.5-48-48L0 192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z',
+			],
+			'thumbtack'      => [
+				'label' => esc_html__( 'Pin', 'notifications-for-hivepress' ),
+				'view'  => '0 0 384 512',
+				'path'  => 'M32 32C32 14.3 46.3 0 64 0L320 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-29.5 0 11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3L32 352c-10.3 0-19.9-4.9-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64 64 64C46.3 64 32 49.7 32 32zM160 384l64 0 0 96c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-96z',
+			],
+		];
+	}
+
+	/**
+	 * Enqueues the previewing bell icon picker on the settings screen.
+	 *
+	 * The bell icon setting is a plain select, so it works and saves on its own. This adds a script
+	 * that upgrades it into a dropdown showing each icon, and does nothing if the field isn't found,
+	 * so the native select is the fallback.
+	 */
+	public function enqueue_bell_icon_picker() {
+
+		// Only load on the HivePress settings screen. The tab is not checked because the script is a
+		// no-op unless the bell icon field is present.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'hp_settings' !== sanitize_key( (string) hp\get_array_value( $_GET, 'page' ) ) ) {
+			return;
+		}
+
+		$icons = [];
+
+		foreach ( $this->get_bell_icons() as $name => $args ) {
+			$icons[ $name ] = [
+				'label' => $args['label'],
+				'view'  => $args['view'],
+				'path'  => $args['path'],
+			];
+		}
+
+		$handle = 'hp-notification-bell-picker';
+
+		wp_enqueue_script( $handle, plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/js/bell-picker.js', [], HP_NOTIFICATIONS_VERSION, true );
+		wp_add_inline_script( $handle, 'window.hpBellIcons = ' . wp_json_encode( $icons ) . ';', 'before' );
+
+		wp_enqueue_style( $handle, plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/css/bell-picker.css', [], HP_NOTIFICATIONS_VERSION );
+	}
+
+	/**
 	 * Checks whether a user is within their quiet hours.
 	 *
 	 * Quiet hours stop pop-ups and pushes. The notification is still created, so nothing is lost,
@@ -1486,6 +1618,18 @@ final class Notification extends Component {
 	 * @return array
 	 */
 	public function alter_settings( $settings ) {
+
+		// Fill the bell icon choices from the single source that also carries their previews.
+		if ( isset( $settings['notifications']['sections']['delivery']['fields']['notification_bell_icon'] ) ) {
+			$options = [];
+
+			foreach ( $this->get_bell_icons() as $name => $args ) {
+				$options[ $name ] = $args['label'];
+			}
+
+			$settings['notifications']['sections']['delivery']['fields']['notification_bell_icon']['options'] = $options;
+		}
+
 		if ( ! isset( $settings['notifications']['sections']['types'] ) ) {
 			return $settings;
 		}

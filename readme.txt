@@ -158,8 +158,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 * Added five notification sounds to choose from: Chime, Ping, Pop, Bell and Soft.
 * Added Bell Colour and Dropdown Width options, and made the bell and dropdown text follow the
   Text Size and Text Weight settings.
-* Added a Bell Icon setting: the header bell can now be any Font Awesome solid icon, such as an
-  inbox or envelope, with its icon, colour and size grouped together under the Header Bell.
+* Added a Bell Icon setting: choose the header bell's icon from a dropdown that previews each one,
+  such as an inbox or envelope, with the bell's icon, colour and size grouped together under the
+  Header Bell.
 * Link labels are now contextual where a type knows better, so a completed booking says
   "Leave a review" instead of "View".
 * Moved delivery statistics to their own page under HivePress, shown only while counting is on,

@@ -202,11 +202,14 @@ return [
 
 					'notification_bell_icon'       => [
 						'label'       => esc_html__( 'Bell Icon', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The Font Awesome icon shown in the header, entered by name, such as bell, inbox, envelope, comment-dots or bell-slash. Use any free solid icon from Font Awesome; leave empty for the default bell.', 'notifications-for-hivepress' ),
-						'type'        => 'text',
+						'description' => esc_html__( 'The icon shown in the header bell. Choose from the list; each option shows a preview.', 'notifications-for-hivepress' ),
+						'type'        => 'select',
 						'default'     => 'bell',
-						'max_length'  => 64,
-						'placeholder' => 'bell',
+						'required'    => true,
+
+						// The choices, each carrying its preview, are filled in by the notification
+						// component so the picker and the stored value share one source.
+						'options'     => [ 'bell' => esc_html__( 'Bell', 'notifications-for-hivepress' ) ],
 						'_parent'     => 'notification_bell',
 						'_order'      => 31,
 					],

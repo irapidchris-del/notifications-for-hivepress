@@ -1,0 +1,113 @@
+/**
+ * Notifications for HivePress - header bell icon picker (admin).
+ *
+ * Styles the previewing dropdown that replaces the plain Bell Icon select on the settings screen.
+ * Colours follow the WordPress admin palette so it sits in naturally.
+ */
+
+.hp-bell-picker {
+	position: relative;
+	display: inline-block;
+	min-width: 15rem;
+	max-width: 100%;
+	font-size: 14px;
+	vertical-align: middle;
+}
+
+.hp-bell-picker__toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 32px;
+	margin: 0;
+	padding: 4px 10px;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	color: #2c3338;
+	line-height: 1.4;
+	text-align: left;
+	cursor: pointer;
+}
+
+.hp-bell-picker__toggle:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: 2px solid transparent;
+}
+
+.hp-bell-picker__caret {
+	margin-left: auto;
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 6px solid #50575e;
+}
+
+.hp-bell-picker__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	flex: 0 0 20px;
+	color: #1d2327;
+}
+
+.hp-bell-picker__icon svg {
+	display: block;
+}
+
+.hp-bell-picker__text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.hp-bell-picker__list {
+	position: absolute;
+	z-index: 100;
+	top: calc(100% + 2px);
+	left: 0;
+	right: 0;
+	max-height: 17.5rem;
+	margin: 0;
+	padding: 4px;
+	overflow-y: auto;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.hp-bell-picker__option {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	margin: 0;
+	padding: 6px 8px;
+	background: transparent;
+	border: 0;
+	border-radius: 3px;
+	color: #2c3338;
+	text-align: left;
+	cursor: pointer;
+}
+
+.hp-bell-picker__option:hover,
+.hp-bell-picker__option:focus {
+	background: #2271b1;
+	color: #fff;
+	outline: none;
+}
+
+.hp-bell-picker__option:hover .hp-bell-picker__icon,
+.hp-bell-picker__option:focus .hp-bell-picker__icon {
+	color: #fff;
+}
+
+.hp-bell-picker__option[aria-selected="true"] {
+	font-weight: 600;
+}
