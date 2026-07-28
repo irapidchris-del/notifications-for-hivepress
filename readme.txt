@@ -163,6 +163,15 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
   Header Bell.
 * Added Settings and Announcements quick links to the plugin's row on the Plugins screen, and a
   clear notice when HivePress is missing instead of silently doing nothing.
+* On first run, unread messages from before the plugin was installed now appear in the list,
+  backdated and quiet: no pop-up, push or statistics for old news, and never any duplicates for
+  users who already have notifications.
+* Push notifications are now on by default; keys are still created on first use, and people are
+  still only asked for browser permission after a few visits.
+* Fixed the Sound Style dropdown, which sorted above the Sound setting it belongs to and ended up
+  missing from the screen.
+* The header bell now holds its place when other extensions, such as Requests, add their own
+  header buttons, and the empty-inbox icon on the notifications page is properly centred.
 * Link labels are now contextual where a type knows better, so a completed booking says
   "Leave a review" instead of "View".
 * Moved delivery statistics to their own page under HivePress, shown only while counting is on,

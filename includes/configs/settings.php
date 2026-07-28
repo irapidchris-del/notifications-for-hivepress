@@ -133,7 +133,11 @@ return [
 						'default'     => 'chime',
 						'required'    => true,
 						'_parent'     => 'notification_sound',
-						'_order'      => 22,
+
+						// Directly after the Sound checkbox it belongs to; an earlier order used to
+						// sort it above its parent, in between the position fields, where the
+						// parent's show-and-hide left it missing from the screen.
+						'_order'      => 62,
 
 						'options'     => [
 							'chime' => esc_html__( 'Chime', 'notifications-for-hivepress' ),
@@ -178,6 +182,7 @@ return [
 						'caption'     => esc_html__( 'Send push notifications', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'Reaches people who have the site closed. Needs HTTPS, and keys are created for you the first time. Users are asked for permission after a few visits, never on their first, because a refused prompt cannot be asked again.', 'notifications-for-hivepress' ),
 						'type'        => 'checkbox',
+						'default'     => true,
 						'_order'      => 20,
 					],
 

@@ -37,7 +37,7 @@ class Notification_Settings_Page extends User_Account_Page {
 		// fine, but someone on their own settings page has earned a direct switch. The script
 		// reveals it only where the browser supports push. The admin option is read directly here,
 		// because is_enabled() already requires keys and could never expose the failure below.
-		if ( hivepress()->notification_push && get_option( 'hp_notification_push' ) && ! hivepress()->notification_push->get_keys() ) {
+		if ( hivepress()->notification_push && get_option( 'hp_notification_push', true ) && ! hivepress()->notification_push->get_keys() ) {
 
 			// Push is switched on but the keys could not be generated, which means this server's
 			// OpenSSL can't do the required curve. Saying so beats a button that silently fails.

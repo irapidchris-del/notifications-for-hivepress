@@ -47,6 +47,9 @@ final class Notification extends Component {
 		// Listen to emails.
 		add_action( 'init', [ $this, 'register_email_listeners' ], 1000 );
 
+		// Seed notifications for unread messages that predate the plugin, once.
+		add_action( 'init', [ $this, 'maybe_backfill' ], 1200 );
+
 		// Listen to the extras that HivePress has no email for.
 		add_action( 'hivepress/v1/models/favorite/create', [ $this, 'add_favorite_notification' ], 10, 2 );
 		add_action( 'hivepress/v1/models/review/create', [ $this, 'add_review_notification' ], 10, 2 );
@@ -398,6 +401,112 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Seeds notifications for unread messages that predate the plugin.
+	 *
+	 * The plugin mirrors events as they happen, so anything from before it was installed would
+	 * never appear. Unread messages are the one thing that can be read back reliably: the Messages
+	 * extension stores each one as an hp_message comment with the recipient in comment_karma, and
+	 * marks it read with the hp_read meta. Each unread one becomes a quiet notification - list
+	 * only, backdated to when the message arrived, with no pop-up, push or statistics - so a new
+	 * install starts with the unread state people actually have.
+	 *
+	 * Runs once. Users who already have notifications are skipped entirely, so an update to an
+	 * install that has been mirroring for a while can't create duplicates for them.
+	 */
+	public function maybe_backfill() {
+		if ( ! class_exists( '\HivePress\Models\Message' ) || get_option( 'hp_notification_backfill_done' ) ) {
+			return;
+		}
+
+		// The flag goes first, so two requests arriving together can't both run the scan.
+		update_option( 'hp_notification_backfill_done', 1 );
+
+		if ( ! in_array( 'message_receive', $this->get_enabled_types(), true ) ) {
+			return;
+		}
+
+		// Get the newest unread messages, capped hard so a large site can't stall this request.
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		$messages = get_comments(
+			[
+				'type'       => 'hp_message',
+				'number'     => 100,
+				'orderby'    => 'comment_date',
+				'order'      => 'DESC',
+
+				'meta_query' => [
+					[
+						'key'     => 'hp_read',
+						'compare' => 'NOT EXISTS',
+					],
+				],
+			]
+		);
+
+		$seeded = [];
+		$url    = hivepress()->router->get_route( 'messages_view_page' ) ? (string) hivepress()->router->get_url( 'messages_view_page' ) : '';
+
+		foreach ( $messages as $message ) {
+			$recipient_id = absint( $message->comment_karma );
+			$sender_id    = absint( $message->user_id );
+
+			if ( ! $recipient_id || ! $sender_id || $recipient_id === $sender_id ) {
+				continue;
+			}
+
+			// A few per person is a nudge; a hundred is a wall.
+			if ( hp\get_array_value( $seeded, $recipient_id, 0 ) >= 5 ) {
+				continue;
+			}
+
+			// Skip anyone who already has notifications: mirroring was active for them, so their
+			// unread messages either have one or were deliberately cleared.
+			if ( ! isset( $seeded[ $recipient_id ] ) && Models\Notification::query()->filter( [ 'user' => $recipient_id ] )->get_first_id() ) {
+				$seeded[ $recipient_id ] = 100;
+
+				continue;
+			}
+
+			// Get the sender, for the wording and the avatar.
+			$sender = Models\User::query()->get_by_id( $sender_id );
+
+			if ( ! $sender ) {
+				continue;
+			}
+
+			// Use the admin's wording for this type where it renders, like a live notification. The
+			// message rides along as a model, so tokens with a field, like %message.text%, resolve.
+			$tokens = [
+				'sender'  => $sender,
+				'message' => \HivePress\Models\Message::query()->get_by_id( absint( $message->comment_ID ) ),
+			];
+
+			$text = $this->render_text( $this->get_type_text( 'message_receive' ), array_filter( $tokens ) );
+
+			if ( ! $text ) {
+				/* translators: %s: sender name. */
+				$text = sprintf( esc_html__( '%s sent you a message.', 'notifications-for-hivepress' ), $sender->get_display_name() );
+			}
+
+			$notification = $this->add_notification(
+				[
+					'user'         => $recipient_id,
+					'type'         => 'message_receive',
+					'text'         => $text,
+					'url'          => $url,
+					'image'        => $this->get_user_image( $sender ),
+					'quiet'        => true,
+					'created_date' => (string) $message->comment_date,
+				]
+			);
+
+			if ( $notification ) {
+				$seeded[ $recipient_id ] = hp\get_array_value( $seeded, $recipient_id, 0 ) + 1;
+			}
+		}
+	}
+
+	/**
 	 * Handles an email that's being sent.
 	 *
 	 * Decides which channels the recipient wants for this type, stops the email if they've turned
@@ -510,11 +619,19 @@ final class Notification extends Component {
 	public function add_notification( $args ) {
 		$args = array_merge(
 			[
-				'user'  => 0,
-				'type'  => '',
-				'text'  => '',
-				'url'   => '',
-				'image' => '',
+				'user'         => 0,
+				'type'         => '',
+				'text'         => '',
+				'url'          => '',
+				'image'        => '',
+
+				// A quiet notification only lands in the list: no pop-up, no push, no statistics.
+				// Used when seeding notifications for things that happened before the plugin was
+				// installed, which shouldn't arrive like breaking news.
+				'quiet'        => false,
+
+				// Backdatable so a seeded notification keeps the date of the event it describes.
+				'created_date' => '',
 			],
 			$args
 		);
@@ -530,7 +647,7 @@ final class Notification extends Component {
 				'user'         => $args['user'],
 				'type'         => $args['type'],
 				'read'         => 0,
-				'created_date' => current_time( 'mysql' ),
+				'created_date' => $args['created_date'] ? $args['created_date'] : current_time( 'mysql' ),
 				'url'          => $args['url'],
 				'image'        => $args['image'],
 			]
@@ -543,11 +660,15 @@ final class Notification extends Component {
 		// Update counter.
 		$this->update_unread_count( $args['user'] );
 
-		// Update stats.
-		$this->add_stat( $args['type'], 'sent' );
-
 		// Update type list.
 		$this->add_used_type( $args['user'], $args['type'] );
+
+		if ( $args['quiet'] ) {
+			return $notification;
+		}
+
+		// Update stats.
+		$this->add_stat( $args['type'], 'sent' );
 
 		// Add to queue.
 		$this->add_to_queue( $args['user'], $notification );

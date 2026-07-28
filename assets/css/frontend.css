@@ -440,7 +440,25 @@ a.hp-notification-toast__text:focus {
 	position: relative;
 	display: inline-flex;
 	align-items: center;
-	margin-left: 12px;
+	align-self: center;
+
+	/* The header area is shared: ListingHive puts its own actions there, and extensions such as
+	 * Requests add buttons of their own. The bell must neither stretch, shrink nor wrap oddly
+	 * next to them, whatever layout the theme uses for the row. */
+	flex: 0 0 auto;
+	vertical-align: middle;
+	line-height: 1;
+	margin: 0 4px 0 10px;
+	white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+
+	/* Header space is tightest just before the theme collapses to the burger menu, and tighter
+	 * still when other extensions add their own header buttons. */
+	.hp-notification-bell {
+		margin: 0 2px 0 6px;
+	}
 }
 
 .hp-notification-bell__toggle {
@@ -759,15 +777,21 @@ a.hp-notification-bell__item:focus-visible {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
+	width: 100%;
 	padding: 44px 20px;
 	text-align: center;
 }
 
+/* The icon centres itself rather than relying on the flex parent, because some themes restyle
+ * icons or containers inside account pages and used to leave it sitting on the left. */
 .hp-notifications__empty i {
 	display: block;
-	width: auto;
-	margin: 0 0 12px;
+	width: 100%;
+	margin: 0 auto 12px;
 	font-size: 34px;
+	line-height: 1;
+	text-align: center;
 	opacity: 0.3;
 }
 

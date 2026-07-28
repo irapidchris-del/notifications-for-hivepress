@@ -44,7 +44,10 @@ final class Notification_Push extends Component {
 	 * @return bool
 	 */
 	public function is_enabled() {
-		if ( ! get_option( 'hp_notification_push' ) ) {
+
+		// Push is on unless it's been switched off. A saved "off" is stored as an empty value, so
+		// only a never-saved option falls back to the default.
+		if ( ! get_option( 'hp_notification_push', true ) ) {
 			return false;
 		}
 
