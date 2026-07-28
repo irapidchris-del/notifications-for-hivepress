@@ -161,6 +161,8 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 * Added a Bell Icon setting: choose the header bell's icon from a dropdown that previews each one,
   such as an inbox or envelope, with the bell's icon, colour and size grouped together under the
   Header Bell.
+* Added Settings and Announcements quick links to the plugin's row on the Plugins screen, and a
+  clear notice when HivePress is missing instead of silently doing nothing.
 * Link labels are now contextual where a type knows better, so a completed booking says
   "Leave a review" instead of "View".
 * Moved delivery statistics to their own page under HivePress, shown only while counting is on,

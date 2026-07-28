@@ -53,6 +53,45 @@ add_action(
 );
 
 /**
+ * Adds the quick links to the plugin row on the Plugins screen.
+ *
+ * The links are only useful once HivePress has loaded the extension, so they only appear while
+ * HivePress is active; the Check for updates link is added separately by the updater either way.
+ */
+add_filter(
+	'plugin_action_links_' . plugin_basename( __FILE__ ),
+	function( $links ) {
+		if ( function_exists( 'hivepress' ) && current_user_can( 'manage_options' ) ) {
+			array_unshift(
+				$links,
+				'<a href="' . esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ) . '">' . esc_html__( 'Settings', 'notifications-for-hivepress' ) . '</a>',
+				'<a href="' . esc_url( admin_url( 'admin.php?page=hp_notification_broadcast' ) ) . '">' . esc_html__( 'Announcements', 'notifications-for-hivepress' ) . '</a>'
+			);
+		}
+
+		return $links;
+	}
+);
+
+/**
+ * Says so when HivePress is missing.
+ *
+ * Everything this plugin does is loaded by HivePress from the path registered above, so without
+ * HivePress there is no settings tab, no Announcements page and no notifications, and previously
+ * nothing said why. A plain notice beats silence.
+ */
+add_action(
+	'admin_notices',
+	function() {
+		if ( function_exists( 'hivepress' ) || ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
+		echo '<div class="notice notice-error"><p>' . esc_html__( 'Notifications for HivePress requires the HivePress plugin to be installed and active. Until then, its settings tab, Announcements page and notifications are unavailable.', 'notifications-for-hivepress' ) . '</p></div>';
+	}
+);
+
+/**
  * Loads the GitHub release updater.
  *
  * The plugin is distributed through GitHub releases rather than wp.org, so updates go through the
