@@ -200,6 +200,26 @@ return [
 						'_order'      => 40,
 					],
 
+					'notification_bell_icon'       => [
+						'label'       => esc_html__( 'Bell Icon', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The Font Awesome icon shown in the header, entered by name, such as bell, inbox, envelope, comment-dots or bell-slash. Use any free solid icon from Font Awesome; leave empty for the default bell.', 'notifications-for-hivepress' ),
+						'type'        => 'text',
+						'default'     => 'bell',
+						'max_length'  => 64,
+						'placeholder' => 'bell',
+						'_parent'     => 'notification_bell',
+						'_order'      => 31,
+					],
+
+					'notification_bell_color'      => [
+						'label'       => esc_html__( 'Bell Colour', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The colour of the header bell icon. The unread badge stays red so it always stands out.', 'notifications-for-hivepress' ),
+						'type'        => 'color',
+						'default'     => '#1a1a1a',
+						'_parent'     => 'notification_bell',
+						'_order'      => 33,
+					],
+
 					'notification_bell_size'       => [
 						'label'       => esc_html__( 'Bell Size (px)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'The size of the bell icon in pixels; the button around it scales to match.', 'notifications-for-hivepress' ),
@@ -293,14 +313,6 @@ return [
 							'600' => esc_html__( 'Semi-bold', 'notifications-for-hivepress' ),
 							'700' => esc_html__( 'Bold', 'notifications-for-hivepress' ),
 						],
-					],
-
-					'notification_bell_color'             => [
-						'label'       => esc_html__( 'Bell Colour', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The colour of the header bell icon. The unread badge stays red so it always stands out.', 'notifications-for-hivepress' ),
-						'type'        => 'color',
-						'default'     => '#1a1a1a',
-						'_order'      => 50,
 					],
 
 					'notification_panel_width'            => [

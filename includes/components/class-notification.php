@@ -1201,6 +1201,26 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Gets the Font Awesome name of the header bell icon.
+	 *
+	 * Admins enter a free solid icon name such as "inbox" or "bell". A pasted "fa-" or "fas fa-"
+	 * prefix is tolerated, and anything left after sanitising that isn't a usable class name falls
+	 * back to the default bell.
+	 *
+	 * @return string
+	 */
+	public function get_bell_icon() {
+		$icon = strtolower( trim( (string) get_option( 'hp_notification_bell_icon', 'bell' ) ) );
+
+		// Drop a leading style prefix like "fas fa-" or "fa-" so a pasted full class still works.
+		$icon = (string) preg_replace( '/^(fa[a-z]{0,2}\s+)?fa-/', '', $icon );
+
+		$icon = sanitize_html_class( $icon );
+
+		return $icon ? $icon : 'bell';
+	}
+
+	/**
 	 * Checks whether a user is within their quiet hours.
 	 *
 	 * Quiet hours stop pop-ups and pushes. The notification is still created, so nothing is lost,
@@ -1797,7 +1817,7 @@ final class Notification extends Component {
 		$output .= '<div class="hp-notification-bell" data-component="notification-bell">';
 
 		$output .= '<a href="' . esc_url( hivepress()->router->get_url( 'notifications_view_page' ) ) . '" class="hp-notification-bell__toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . esc_attr__( 'Notifications', 'notifications-for-hivepress' ) . '">';
-		$output .= '<i class="hp-icon fas fa-bell"></i>';
+		$output .= '<i class="hp-icon fas fa-' . esc_attr( $this->get_bell_icon() ) . '"></i>';
 
 		if ( $count ) {
 			$output .= '<small>' . esc_html( number_format_i18n( $count ) ) . '</small>';
