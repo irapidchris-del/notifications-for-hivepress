@@ -461,6 +461,17 @@ a.hp-notification-toast__text:focus {
 	}
 }
 
+/* The theme's header area holds every extension's header item - the Requests button, this bell -
+ * but isn't guaranteed to lay them out as a row, and on phones the items were seen wrapping into
+ * a stack. Whatever element directly holds the bell becomes a single centred, no-wrap row.
+ * Browsers without :has() fall back to the same styles applied from the script. */
+*:has(> .hp-notification-bell) {
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: 2px;
+}
+
 .hp-notification-bell__toggle {
 	position: relative;
 	color: var(--hp-notification-bell-color, inherit);

@@ -171,7 +171,12 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 * Fixed the Sound Style dropdown, which sorted above the Sound setting it belongs to and ended up
   missing from the screen.
 * The header bell now holds its place when other extensions, such as Requests, add their own
-  header buttons, and the empty-inbox icon on the notifications page is properly centred.
+  header buttons - the shared header area is kept to a single row instead of stacking icons -
+  and the empty-inbox icon on the notifications page is properly centred.
+* The colour settings now use the WordPress colour picker, with a box that takes a hex code
+  such as #000000 directly.
+* Style and script updates now reach browsers immediately: asset addresses change whenever the
+  files do, so stale copies can no longer be served from caches after an update.
 * Link labels are now contextual where a type knows better, so a completed booking says
   "Leave a review" instead of "View".
 * Moved delivery statistics to their own page under HivePress, shown only while counting is on,

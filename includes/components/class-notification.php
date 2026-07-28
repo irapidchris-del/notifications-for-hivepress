@@ -1440,16 +1440,16 @@ final class Notification extends Component {
 	}
 
 	/**
-	 * Enqueues the previewing bell icon picker on the settings screen.
+	 * Enqueues the settings screen enhancements.
 	 *
-	 * The bell icon setting is a plain select, so it works and saves on its own. This adds a script
-	 * that upgrades it into a dropdown showing each icon, and does nothing if the field isn't found,
-	 * so the native select is the fallback.
+	 * Two progressive upgrades: the bell icon select becomes a dropdown that previews each icon,
+	 * and the colour fields become WordPress colour pickers with a hex code box. Both fields work
+	 * and save as plain inputs if the scripts don't run.
 	 */
 	public function enqueue_bell_icon_picker() {
 
-		// Only load on the HivePress settings screen. The tab is not checked because the script is a
-		// no-op unless the bell icon field is present.
+		// Only load on the HivePress settings screen. The tab is not checked because the scripts
+		// are no-ops unless their fields are present.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( 'hp_settings' !== sanitize_key( (string) hp\get_array_value( $_GET, 'page' ) ) ) {
 			return;
@@ -1466,11 +1466,18 @@ final class Notification extends Component {
 		}
 
 		$handle = 'hp-notification-bell-picker';
+		$path   = plugin_dir_path( HP_NOTIFICATIONS_FILE );
+		$url    = plugin_dir_url( HP_NOTIFICATIONS_FILE );
 
-		wp_enqueue_script( $handle, plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/js/bell-picker.js', [], HP_NOTIFICATIONS_VERSION, true );
+		// The file time rides along in every version so caches refresh whenever a file changes.
+		wp_enqueue_script( $handle, $url . 'assets/js/bell-picker.js', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/bell-picker.js' ), true );
 		wp_add_inline_script( $handle, 'window.hpBellIcons = ' . wp_json_encode( $icons ) . ';', 'before' );
 
-		wp_enqueue_style( $handle, plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/css/bell-picker.css', [], HP_NOTIFICATIONS_VERSION );
+		wp_enqueue_style( $handle, $url . 'assets/css/bell-picker.css', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/bell-picker.css' ) );
+
+		// The WordPress colour picker, for a palette plus a hex code box on the colour fields.
+		wp_enqueue_style( 'wp-color-picker' );
+		wp_enqueue_script( 'hp-notification-admin-colors', $url . 'assets/js/admin-colors.js', [ 'jquery', 'wp-color-picker' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-colors.js' ), true );
 	}
 
 	/**

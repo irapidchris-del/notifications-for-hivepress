@@ -458,6 +458,16 @@
 				return;
 			}
 
+			// Keep the shared header area a single row. The stylesheet does this with :has();
+			// this is the same fix for browsers that don't support it.
+			var area = this.wrap.parentElement;
+
+			if ( area && ! ( window.CSS && window.CSS.supports && window.CSS.supports( 'selector(:has(> *))' ) ) ) {
+				area.style.display = 'flex';
+				area.style.alignItems = 'center';
+				area.style.flexWrap = 'nowrap';
+			}
+
 			this.toggle = this.wrap.querySelector( '.hp-notification-bell__toggle' );
 			this.panel = this.wrap.querySelector( '.hp-notification-bell__panel' );
 

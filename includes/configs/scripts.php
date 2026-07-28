@@ -14,7 +14,10 @@ return [
 	'notifications_frontend' => [
 		'handle'  => 'hivepress-notifications',
 		'src'     => plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/js/frontend.js',
-		'version' => HP_NOTIFICATIONS_VERSION,
+
+		// The file time rides along so browser and page caches refresh whenever the file
+		// changes, not only on version bumps.
+		'version' => HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( plugin_dir_path( HP_NOTIFICATIONS_FILE ) . 'assets/js/frontend.js' ),
 		'deps'    => [ 'hivepress-core-frontend' ],
 		'scope'   => 'frontend',
 	],
