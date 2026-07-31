@@ -211,7 +211,7 @@ final class Notification extends Component {
 			$types['listing_review'] = [
 				'label'    => esc_html__( 'Review Received', 'notifications-for-hivepress' ),
 				'text'     => esc_html__( '%author.display_name% reviewed %listing.title%.', 'notifications-for-hivepress' ),
-				'tokens'   => [ 'author', 'listing', 'review', 'listing_title', 'listing_url' ],
+				'tokens'   => [ 'author', 'listing', 'review', 'listing_title', 'listing_url', 'review_url' ],
 				'channels' => [ 'onsite', 'push' ],
 			];
 		}
@@ -1108,12 +1108,38 @@ final class Notification extends Component {
 			return;
 		}
 
+		$listing_url = (string) get_permalink( $listing->get_id() );
+
+		/*
+		 * A review notification links to the review itself, not the top of the listing page. Reviews
+		 * sit in a section well down that page, so following "Review Received" used to land someone
+		 * on the photos with no sign of the thing they had just been told about.
+		 *
+		 * The anchor is the Reviews extension's own, not one invented here: it renders each review
+		 * with id="review-{id}" and builds its %review_url% the same way
+		 * (reference/extensions/hivepress-reviews/includes/components/class-review.php:394), which
+		 * is why the three review emails HivePress does send already arrive in the right place.
+		 * "#reviews" is the section fallback and is what the extension's own rating link uses
+		 * (templates/listing/view/listing-rating.php:9).
+		 *
+		 * It goes in as its own token rather than by rewriting listing_url, for two reasons:
+		 * get_url() takes the first token ending in "url", so ordering it first makes it the link
+		 * without disturbing anything else, and %listing_url% stays a plain listing link for anyone
+		 * writing their own wording. The name matches the token HivePress uses for the same thing.
+		 */
+		$review_url = '';
+
+		if ( 'listing_review' === $type && $listing_url ) {
+			$review_url = $listing_url . ( $object->get_id() ? '#review-' . $object->get_id() : '#reviews' );
+		}
+
 		// Get tokens.
 		$tokens = [
 			$actor_field    => $actor,
+			'review_url'    => $review_url,
 			'listing'       => $listing,
 			'listing_title' => $listing->get_title(),
-			'listing_url'   => (string) get_permalink( $listing->get_id() ),
+			'listing_url'   => $listing_url,
 			'review'        => 'listing_review' === $type ? $object : null,
 		];
 
@@ -1511,7 +1537,7 @@ final class Notification extends Component {
 		 * @return {array} Notification channels.
 		 */
 		/*
-		 * "On-site" rather than "Pop-up", which is what this said until 1.9.10 and was wrong in a
+		 * "On-site" rather than "Pop-up", which is what this said in development and was wrong in a
 		 * way that mattered. Turning this off does not just stop the pop-up: the notification is
 		 * never created at all (see the onsite checks in add_notification and its callers), so the
 		 * person loses the entry in their list and the bell as well. Somebody unticking "Pop-up" to
