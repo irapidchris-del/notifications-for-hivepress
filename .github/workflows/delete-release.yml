@@ -1,0 +1,38 @@
+name: Delete release
+
+# Temporary maintenance workflow: removes a published release together with its tag.
+# Used once to clear the private 1.9.x pre-release history before the public 1.0.0 launch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of the release to delete (e.g. v1.9.11)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete the release and its tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release delete "$TAG" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY"
+            echo "Deleted release and tag $TAG"
+          else
+            echo "No release $TAG; removing a stray tag if one exists"
+            git push --delete origin "refs/tags/$TAG" || echo "No tag $TAG either"
+          fi
+
+          echo "--- remaining releases ---"
+          gh release list --repo "$GITHUB_REPOSITORY" || true
+          echo "--- remaining tags ---"
+          git ls-remote --tags origin || true
