@@ -167,7 +167,7 @@ return [
 				'_order' => 25,
 
 				'fields' => [
-					'notification_poll'            => [
+					'notification_poll'                    => [
 						'label'       => esc_html__( 'Check For New (seconds)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'How often an open tab checks for new notifications, in seconds, so they appear without a reload. Clear the field to check only when a page loads. Checking is paused while a tab is in the background, and each check reads a single cached value, so the default of 60 costs very little.', 'notifications-for-hivepress' ),
 						'type'        => 'number',
@@ -177,7 +177,7 @@ return [
 						'_order'      => 10,
 					],
 
-					'notification_push'            => [
+					'notification_push'                    => [
 						'label'       => esc_html__( 'Push', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Send push notifications', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'Reaches people who have the site closed. Needs HTTPS, and keys are created for you the first time. Users are asked for permission after a few visits, never on their first, because a refused prompt cannot be asked again.', 'notifications-for-hivepress' ),
@@ -186,7 +186,7 @@ return [
 						'_order'      => 20,
 					],
 
-					'notification_push_delay'      => [
+					'notification_push_delay'              => [
 						'label'       => esc_html__( 'Ask After (visits)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'Number of visits before someone is asked to allow push notifications.', 'notifications-for-hivepress' ),
 						'type'        => 'number',
@@ -197,7 +197,7 @@ return [
 						'_order'      => 30,
 					],
 
-					'notification_bell'            => [
+					'notification_bell'                    => [
 						'label'       => esc_html__( 'Header Bell', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Show a bell in the site header', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'Works with ListingHive and any theme that provides the HiveTheme site header area. This is separate from the count ListingHive already shows on the menu, which counts messages, bookings and orders rather than notifications.', 'notifications-for-hivepress' ),
@@ -205,30 +205,49 @@ return [
 						'_order'      => 40,
 					],
 
-					'notification_bell_icon'       => [
+					'notification_bell_icon'               => [
 						'label'       => esc_html__( 'Bell Icon', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The icon shown in the header bell. Choose from the list; each option shows a preview.', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The icon shown in the header bell. Start typing to search, such as "inbox" or "envelope". If your theme replaces or trims Font Awesome, an icon it no longer includes will not appear.', 'notifications-for-hivepress' ),
 						'type'        => 'select',
 						'default'     => 'bell',
 						'required'    => true,
 
-						// The choices, each carrying its preview, are filled in by the notification
-						// component so the picker and the stored value share one source.
-						'options'     => [ 'bell' => esc_html__( 'Bell', 'notifications-for-hivepress' ) ],
+						// HivePress's own icon picker: the string is resolved to the icons config,
+						// about a thousand Font Awesome names, and rendered as live previews in
+						// Select2 - the same control core uses for attribute icons. Children must
+						// sort after their parent checkbox (order 40), or the show-and-hide
+						// reveals them above it.
+						'options'     => 'icons',
 						'_parent'     => 'notification_bell',
-						'_order'      => 31,
+						'_order'      => 41,
 					],
 
-					'notification_bell_color'      => [
-						'label'       => esc_html__( 'Bell Colour', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The colour of the header bell icon. The unread badge stays red so it always stands out.', 'notifications-for-hivepress' ),
+					'notification_bell_color'              => [
+						'label'       => esc_html__( 'Bell Icon Colour', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The colour of the bell icon itself while the pointer is away from it. The unread count on the bell has its own colour, set under Appearance.', 'notifications-for-hivepress' ),
 						'type'        => 'color',
 						'default'     => '#1a1a1a',
 						'_parent'     => 'notification_bell',
-						'_order'      => 33,
+						'_order'      => 43,
 					],
 
-					'notification_bell_size'       => [
+					'notification_bell_color_hover'        => [
+						'label'       => esc_html__( 'Bell Icon Colour (Hover)', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The colour of the bell icon while the pointer is over it, or while it has keyboard focus. Leave it empty to keep the colour above on hover.', 'notifications-for-hivepress' ),
+						'type'        => 'color',
+						'_parent'     => 'notification_bell',
+						'_order'      => 44,
+					],
+
+					'notification_bell_background'         => [
+						'label'       => esc_html__( 'Bell Background', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The circle behind the bell icon. Leave it empty for no background, which is how the bell has always looked and suits most headers.', 'notifications-for-hivepress' ),
+						'type'        => 'color',
+						'_parent'     => 'notification_bell',
+						'_order'      => 45,
+					],
+
+					'notification_bell_size'               => [
 						'label'       => esc_html__( 'Bell Size (px)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'The size of the bell icon in pixels; the button around it scales to match.', 'notifications-for-hivepress' ),
 						'type'        => 'number',
@@ -236,19 +255,36 @@ return [
 						'min_value'   => 14,
 						'max_value'   => 26,
 						'_parent'     => 'notification_bell',
-						'_order'      => 32,
+						'_order'      => 42,
 					],
 
-					'notification_bell_hide_count' => [
-						'label'       => esc_html__( 'Hide Theme Counter', 'notifications-for-hivepress' ),
-						'caption'     => esc_html__( 'Hide the counter the theme shows on the menu button', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The theme counts unread messages, unpaid bookings and pending orders; the bell mirrors those same events, so showing both counts everything twice.', 'notifications-for-hivepress' ),
+					'notification_bell_background_hover'   => [
+						'label'       => esc_html__( 'Bell Background (Hover)', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The circle behind the bell while the pointer is over it, or while it has keyboard focus. Leave it empty for a soft shade that suits both light and dark headers.', 'notifications-for-hivepress' ),
+						'type'        => 'color',
+						'_parent'     => 'notification_bell',
+						'_order'      => 46,
+					],
+
+					'notification_bell_hide_count'         => [
+						'label'       => esc_html__( 'Hide Combined Counter', 'notifications-for-hivepress' ),
+						'caption'     => esc_html__( 'Hide the combined count on the account link and menu button', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'HivePress adds up unread messages, unpaid bookings, booking requests and pending orders into one number, and shows it beside your name in the header and on the menu button. The bell mirrors those same events, so leaving both on counts everything twice.', 'notifications-for-hivepress' ),
 						'type'        => 'checkbox',
 						'_parent'     => 'notification_bell',
-						'_order'      => 34,
+						'_order'      => 47,
 					],
 
-					'notification_sticky_header'   => [
+					'notification_bell_hide_message_count' => [
+						'label'       => esc_html__( 'Hide Messages Counter', 'notifications-for-hivepress' ),
+						'caption'     => esc_html__( 'Hide the unread count beside Messages in the account menu', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'This is the separate count the Messages extension shows on its own account menu item. It is worth keeping: it says how many unread messages there are specifically, which the bell does not. Hide it only if you would rather people relied on the bell alone.', 'notifications-for-hivepress' ),
+						'type'        => 'checkbox',
+						'_parent'     => 'notification_bell',
+						'_order'      => 48,
+					],
+
+					'notification_sticky_header'           => [
 						'label'       => esc_html__( 'Sticky Header', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Keep the header on screen when scrolling', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'A convenience for themes that do not do this already, so the bell stays reachable. Turn it off if your theme or your own code already handles it.', 'notifications-for-hivepress' ),
@@ -257,10 +293,10 @@ return [
 						'_order'      => 50,
 					],
 
-					'notification_stats'           => [
+					'notification_stats'                   => [
 						'label'       => esc_html__( 'Statistics', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Count how many notifications are sent and opened', 'notifications-for-hivepress' ),
-						'description' => __( 'Anonymous per-type counts, shown on the <a href="admin.php?page=hp_notification_stats">Statistics</a> page while this is on.', 'notifications-for-hivepress' ),
+						'description' => __( 'Anonymous per-type counts, shown on the <a href="admin.php?page=hp_notification_stats">Statistics</a> page while this is on. A notification counts as opened when someone follows it, from a pop-up, the bell or the list. Simply marking one as read is not an open.', 'notifications-for-hivepress' ),
 						'type'        => 'checkbox',
 						'default'     => true,
 						'_order'      => 60,
@@ -321,6 +357,14 @@ return [
 							'600' => esc_html__( 'Semi-bold', 'notifications-for-hivepress' ),
 							'700' => esc_html__( 'Bold', 'notifications-for-hivepress' ),
 						],
+					],
+
+					'notification_badge_color'            => [
+						'label'       => esc_html__( 'Unread Badge Colour', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The colour of the unread count on the bell and beside Notifications in the account menu. Leave it as it is to match the counts HivePress already shows elsewhere, such as unread messages.', 'notifications-for-hivepress' ),
+						'type'        => 'color',
+						'default'     => '#ff5a5f',
+						'_order'      => 51,
 					],
 
 					'notification_panel_width'            => [

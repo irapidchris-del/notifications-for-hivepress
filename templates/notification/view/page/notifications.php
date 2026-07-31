@@ -22,38 +22,51 @@ defined( 'ABSPATH' ) || exit;
 
 $hp_page_url = hivepress()->router->get_url( 'notifications_view_page' );
 $hp_filtered = $notification_type || $notification_search;
+
+// Whether the script may add an arriving notification straight to the list. Only a plain first
+// page qualifies: a filtered or searched list might legitimately exclude it, and the newest thing
+// does not belong on page two of a list ordered newest first. Anywhere else it appears on the next
+// load, as it always has.
+$hp_live = ! $hp_filtered && $notification_page < 2;
 ?>
-<div class="hp-notifications" data-component="notifications-list">
+<div class="hp-notifications" data-component="notifications-list" data-live="<?php echo $hp_live ? '1' : '0'; ?>">
 	<div class="hp-notifications__header">
 		<div class="hp-notifications__summary">
+			<?php // The data-component lets the script keep this in step when something is marked read without a reload. ?>
 			<?php if ( $notification_unread ) : ?>
-				<span class="hp-notifications__count">
+				<span class="hp-notifications__count" data-component="notifications-count">
 					<?php
 					/* translators: %s: number of unread notifications. */
 					echo esc_html( sprintf( _n( '%s unread', '%s unread', $notification_unread, 'notifications-for-hivepress' ), number_format_i18n( $notification_unread ) ) );
 					?>
 				</span>
 			<?php else : ?>
-				<span class="hp-notifications__count hp-notifications__count--clear"><?php esc_html_e( 'All caught up', 'notifications-for-hivepress' ); ?></span>
+				<span class="hp-notifications__count hp-notifications__count--clear" data-component="notifications-count"><?php esc_html_e( 'All caught up', 'notifications-for-hivepress' ); ?></span>
 			<?php endif; ?>
 		</div>
 
 		<div class="hp-notifications__actions">
-			<?php if ( $notification_unread ) : ?>
-				<button type="button" class="hp-notifications__action" data-component="notifications-read-all">
-					<i class="hp-icon fas fa-check-double"></i>
-					<span><?php esc_html_e( 'Mark all as read', 'notifications-for-hivepress' ); ?></span>
-				</button>
-			<?php endif; ?>
+			<?php
+			// hp-button gives the structure (inline-flex, centred, icon gap); button and
+			// button--secondary are the theme's own appearance, which all six official themes
+			// define. Nothing here is styled by us, so these match the theme's buttons exactly.
+			?>
+			<?php
+			// Both buttons are always rendered and simply hidden when they have nothing to act on,
+			// because a notification arriving while the page is open makes them useful again and
+			// the script has no way to rebuild one that was never printed.
+			?>
+			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-read-all" <?php echo $notification_unread ? '' : 'hidden'; ?>>
+				<i class="hp-icon fas fa-check-double"></i>
+				<span><?php esc_html_e( 'Mark all as read', 'notifications-for-hivepress' ); ?></span>
+			</button>
 
-			<?php if ( $notification_total ) : ?>
-				<button type="button" class="hp-notifications__action" data-component="notifications-delete-read">
-					<i class="hp-icon fas fa-trash"></i>
-					<span><?php esc_html_e( 'Clear read', 'notifications-for-hivepress' ); ?></span>
-				</button>
-			<?php endif; ?>
+			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-delete-read" <?php echo $notification_total ? '' : 'hidden'; ?>>
+				<i class="hp-icon fas fa-trash"></i>
+				<span><?php esc_html_e( 'Clear read', 'notifications-for-hivepress' ); ?></span>
+			</button>
 
-			<a class="hp-notifications__action" href="<?php echo esc_url( hivepress()->router->get_url( 'notification_settings_page' ) ); ?>">
+			<a class="hp-button button button--secondary hp-notifications__action" href="<?php echo esc_url( hivepress()->router->get_url( 'notification_settings_page' ) ); ?>">
 				<i class="hp-icon fas fa-cog"></i>
 				<span><?php esc_html_e( 'Settings', 'notifications-for-hivepress' ); ?></span>
 			</a>
@@ -77,7 +90,7 @@ $hp_filtered = $notification_type || $notification_search;
 				</select>
 			<?php endif; ?>
 
-			<button type="submit" class="hp-notifications__filter-submit"><?php esc_html_e( 'Search', 'notifications-for-hivepress' ); ?></button>
+			<button type="submit" class="hp-button button button--primary hp-notifications__filter-submit"><?php esc_html_e( 'Search', 'notifications-for-hivepress' ); ?></button>
 
 			<?php if ( $hp_filtered ) : ?>
 				<a class="hp-notifications__reset" href="<?php echo esc_url( $hp_page_url ); ?>"><?php esc_html_e( 'Reset', 'notifications-for-hivepress' ); ?></a>
@@ -87,7 +100,7 @@ $hp_filtered = $notification_type || $notification_search;
 
 	<?php if ( $notification_groups ) : ?>
 		<?php foreach ( $notification_groups as $hp_date => $hp_group ) : ?>
-			<section class="hp-notifications__group">
+			<section class="hp-notifications__group"<?php echo empty( $hp_group['today'] ) ? '' : ' data-today="1"'; ?>>
 				<h3 class="hp-notifications__date"><?php echo esc_html( $hp_group['label'] ); ?></h3>
 
 				<ul class="hp-notifications__list">
@@ -96,11 +109,16 @@ $hp_filtered = $notification_type || $notification_search;
 						$hp_time  = strtotime( (string) $hp_notification->get_created_date() );
 						$hp_url   = (string) $hp_notification->get_url();
 						$hp_read  = (bool) $hp_notification->get_read();
-						$hp_icon  = hivepress()->notification->get_type_icon( $hp_notification->get_type() );
+						$hp_icon  = hivepress()->notification->get_notification_icon( $hp_notification );
 						$hp_image = (string) $hp_notification->get_image();
+
+						// A notification may carry its own colour, which is how a badge award shows
+						// the badge's own colour rather than the shared accent.
+						$hp_color = sanitize_hex_color( (string) $hp_notification->get_color() );
+						$hp_style = $hp_color ? 'background-color:' . $hp_color . ';color:#ffffff;' : '';
 						?>
 						<li class="hp-notification <?php echo $hp_read ? '' : 'hp-notification--unread'; ?>" data-id="<?php echo absint( $hp_notification->get_id() ); ?>">
-							<div class="hp-notification__icon">
+							<div class="hp-notification__icon"<?php echo $hp_style ? ' style="' . esc_attr( $hp_style ) . '"' : ''; ?>>
 								<?php if ( $hp_image ) : ?>
 									<img src="<?php echo esc_url( $hp_image ); ?>" alt="" loading="lazy">
 								<?php else : ?>
@@ -125,14 +143,26 @@ $hp_filtered = $notification_type || $notification_search;
 								<?php endif; ?>
 
 								<?php if ( $hp_time ) : ?>
-									<time class="hp-notification__time" datetime="<?php echo esc_attr( gmdate( 'c', $hp_time ) ); ?>" title="<?php echo esc_attr( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $hp_time ) ); ?>">
-										<?php echo esc_html( wp_date( (string) get_option( 'time_format' ), $hp_time ) ); ?>
+									<?php
+									// The stored date is on the site's clock, so date_i18n() formats it
+									// as it is; wp_date() would add the UTC offset a second time. The
+									// datetime attribute wants real UTC, which get_gmt_from_date()
+									// derives with the site's timezone rules.
+									?>
+									<time class="hp-notification__time" datetime="<?php echo esc_attr( get_gmt_from_date( (string) $hp_notification->get_created_date(), 'c' ) ); ?>" title="<?php echo esc_attr( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $hp_time ) ); ?>">
+										<?php echo esc_html( date_i18n( (string) get_option( 'time_format' ), $hp_time ) ); ?>
 									</time>
 								<?php endif; ?>
 							</div>
 
 							<div class="hp-notification__controls">
-								<button type="button" class="hp-notification__toggle" data-component="notification-toggle" aria-label="<?php echo esc_attr( $hp_read ? esc_html__( 'Mark as unread', 'notifications-for-hivepress' ) : esc_html__( 'Mark as read', 'notifications-for-hivepress' ) ); ?>">
+								<?php
+								// The label says what the next click will do, and the script keeps it
+								// in step. Flipping only the icon left a read row still offering to
+								// "Mark as read" while the click marked it unread.
+								$hp_toggle_label = $hp_read ? esc_html__( 'Mark as unread', 'notifications-for-hivepress' ) : esc_html__( 'Mark as read', 'notifications-for-hivepress' );
+								?>
+								<button type="button" class="hp-notification__toggle" data-component="notification-toggle" aria-label="<?php echo esc_attr( $hp_toggle_label ); ?>" title="<?php echo esc_attr( $hp_toggle_label ); ?>">
 									<i class="hp-icon fas fa-<?php echo $hp_read ? 'envelope' : 'check'; ?>"></i>
 								</button>
 
@@ -155,6 +185,11 @@ $hp_filtered = $notification_type || $notification_search;
 				]
 			);
 
+			// "plain" rather than "list", and mid_size to match, because this has to come out as the
+			// flat run of links that HivePress styles: ".hp-pagination .nav-links" is a flex row
+			// whose children are the ".page-numbers" themselves. The list form wraps each number in
+			// an "li", which no theme resets inside this container, so every page number arrived
+			// wearing its theme's list bullet and the row read "* 1 2 *".
 			$hp_links = paginate_links(
 				[
 					'base'      => trailingslashit( $hp_page_url ) . 'page/%#%/',
@@ -162,7 +197,8 @@ $hp_filtered = $notification_type || $notification_search;
 					'current'   => $notification_page,
 					'total'     => $notification_pages,
 					'add_args'  => $hp_args ? $hp_args : false,
-					'type'      => 'list',
+					'type'      => 'plain',
+					'mid_size'  => 1,
 					'prev_text' => '<i class="hp-icon fas fa-chevron-left"></i>',
 					'next_text' => '<i class="hp-icon fas fa-chevron-right"></i>',
 				]
@@ -171,7 +207,9 @@ $hp_filtered = $notification_type || $notification_search;
 			if ( $hp_links ) :
 				?>
 				<div class="hp-pagination">
+					<?php // The markup core's own the_posts_pagination() produces, which is what HivePress pages use. ?>
 					<nav class="navigation pagination" aria-label="<?php esc_attr_e( 'Notifications', 'notifications-for-hivepress' ); ?>">
+						<h2 class="screen-reader-text"><?php esc_html_e( 'Notifications navigation', 'notifications-for-hivepress' ); ?></h2>
 						<div class="nav-links"><?php echo wp_kses_post( $hp_links ); ?></div>
 					</nav>
 				</div>

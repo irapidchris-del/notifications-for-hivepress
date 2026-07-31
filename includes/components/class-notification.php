@@ -24,9 +24,23 @@ defined( 'ABSPATH' ) || exit;
 final class Notification extends Component {
 
 	/**
+	 * Default unread badge colour.
+	 *
+	 * The red HivePress uses for its own menu counts, taken from
+	 * "hp-menu__item small" in hivepress/assets/css/frontend.min.css. Sharing it means an
+	 * untouched site shows one consistent badge everywhere rather than two competing reds.
+	 *
+	 * @var string
+	 */
+	const BADGE_COLOR = '#ff5a5f';
+
+	/**
 	 * Cached notification types.
 	 *
-	 * @var array
+	 * Null until first built, and reset to null when the type list changes within a request, which
+	 * is what get_types() tests for.
+	 *
+	 * @var array|null
 	 */
 	protected $types;
 
@@ -47,6 +61,9 @@ final class Notification extends Component {
 		// Listen to emails.
 		add_action( 'init', [ $this, 'register_email_listeners' ], 1000 );
 
+		// Switch on notification types that arrived with a newly installed extension.
+		add_action( 'init', [ $this, 'maybe_register_new_types' ], 1100 );
+
 		// Seed notifications for unread messages that predate the plugin, once.
 		add_action( 'init', [ $this, 'maybe_backfill' ], 1200 );
 
@@ -55,6 +72,7 @@ final class Notification extends Component {
 		add_action( 'hivepress/v1/models/review/create', [ $this, 'add_review_notification' ], 10, 2 );
 		add_action( 'hivepress/v1/models/review/update_status', [ $this, 'update_review_notification' ], 10, 4 );
 		add_action( 'hivepress/v1/models/booking/complete', [ $this, 'add_booking_notification' ], 20, 1 );
+		add_action( 'hivepress/v1/models/award/create', [ $this, 'add_award_notification' ], 10, 2 );
 
 		// Stop emails a user turned off.
 		add_filter( 'pre_wp_mail', [ $this, 'suppress_email' ], 10, 2 );
@@ -62,14 +80,17 @@ final class Notification extends Component {
 		// Add settings.
 		add_filter( 'hivepress/v1/settings', [ $this, 'alter_settings' ] );
 
-		// Enhance the bell icon field with a previewing picker on the settings screen.
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_bell_icon_picker' ] );
+		// Add the colour picker on the settings screen.
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_color_picker' ] );
 
 		// Delete notifications. The daily event is scheduled by the HivePress scheduler component,
 		// so this only attaches to it.
 		add_action( 'hivepress/v1/events/daily', [ $this, 'delete_notifications' ] );
 
 		if ( ! is_admin() ) {
+
+			// Answer 200 rather than 404 on page two of the list.
+			add_action( 'template_redirect', [ $this, 'fix_paged_status' ], 1 );
 
 			// Alter menus.
 			add_filter( 'hivepress/v1/menus/user_account', [ $this, 'alter_user_account_menu' ] );
@@ -195,6 +216,28 @@ final class Notification extends Component {
 			];
 		}
 
+		// The Badges extension awards badges silently: it writes an award and has no email, so
+		// nobody is told they earned one. This is the only notification here that goes to the
+		// person who caused it, because earning it is the good news.
+		if ( class_exists( '\HivePress\Models\Award' ) ) {
+			$types['badge_award'] = [
+				'label'     => esc_html__( 'Badge Earned', 'notifications-for-hivepress' ),
+
+				/*
+				 * translators: %badge.name% and %user.display_name% are HivePress tokens, not printf
+				 * placeholders: they are replaced by name, so they must keep their spelling and can
+				 * be moved or removed freely when translating. The inline ignore is needed because
+				 * the sniff reads %b and %u as printf conversions and would have them numbered,
+				 * which would stop them being recognised as tokens at all.
+				 */
+				'text'      => esc_html__( 'Congratulations! You have earned the %badge.name% badge. Keep up the good work, %user.display_name%!', 'notifications-for-hivepress' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText
+				'link_text' => esc_html__( 'View your badges', 'notifications-for-hivepress' ),
+				'tokens'    => [ 'user', 'badge', 'badge_name' ],
+				'channels'  => [ 'onsite', 'push' ],
+				'icon'      => 'award',
+			];
+		}
+
 		return $types;
 	}
 
@@ -250,6 +293,7 @@ final class Notification extends Component {
 			'membership' => 'memberships',
 			'user'       => 'account',
 			'vendor'     => 'account',
+			'badge'      => 'account',
 		];
 
 		return hp\get_array_value( $groups, strtok( (string) $type, '_' ), 'other' );
@@ -401,14 +445,73 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Switches on notification types contributed by a newly installed extension.
+	 *
+	 * The admin's choice is stored per group as the list of ticked types, and HivePress seeds that
+	 * option with the defaults when it activates or updates. Both mean a stored list only ever
+	 * contains the types that existed when it was written, so a type arriving later - Badge Earned
+	 * when Badges is installed, or every booking type when Bookings is - was absent from the list
+	 * and therefore silently switched off, with its checkbox unticked and no way for anyone to
+	 * know a feature had been added.
+	 *
+	 * A record of every type already offered to the admin distinguishes "new" from "deliberately
+	 * unticked", which the stored list alone cannot. New types are written into the stored list, so
+	 * the settings screen, this record and the actual behaviour always agree. On first run the
+	 * record is simply seeded from what exists today, so nothing an admin has turned off is ever
+	 * resurrected.
+	 */
+	public function maybe_register_new_types() {
+		$known    = get_option( 'hp_notification_known_types' );
+		$optional = array_keys( $this->get_optional_types() );
+
+		// First run: everything that exists now counts as already offered.
+		if ( ! is_array( $known ) ) {
+			update_option( 'hp_notification_known_types', $optional, false );
+
+			return;
+		}
+
+		// These two are off unless the admin asks for them, so a new install must not turn them on.
+		$new = array_diff( $optional, $known, [ 'user_password_request', 'user_email_verify' ] );
+
+		if ( ! $new ) {
+			return;
+		}
+
+		// Add each new type to its group's stored list, where that list has been saved.
+		$grouped = [];
+
+		foreach ( $new as $type ) {
+			$grouped[ $this->get_type_group( $type ) ][] = $type;
+		}
+
+		foreach ( $grouped as $group => $group_types ) {
+			$option = 'hp_notification_types_' . $group;
+			$choice = get_option( $option );
+
+			if ( ! is_array( $choice ) ) {
+				continue;
+			}
+
+			update_option( $option, array_values( array_unique( array_merge( $choice, $group_types ) ) ) );
+		}
+
+		update_option( 'hp_notification_known_types', array_values( array_unique( array_merge( $known, $optional ) ) ), false );
+
+		// The cached type list is unaffected, but the enabled list is now stale within this request.
+		$this->types = null;
+	}
+
+	/**
 	 * Seeds notifications for unread messages that predate the plugin.
 	 *
 	 * The plugin mirrors events as they happen, so anything from before it was installed would
 	 * never appear. Unread messages are the one thing that can be read back reliably: the Messages
 	 * extension stores each one as an hp_message comment with the recipient in comment_karma, and
-	 * marks it read with the hp_read meta. Each unread one becomes a quiet notification - list
-	 * only, backdated to when the message arrived, with no pop-up, push or statistics - so a new
-	 * install starts with the unread state people actually have.
+	 * marks it read by setting comment_approved to 1, so the unread ones are the comments still
+	 * "hold". Each unread one becomes a quiet notification - list only, backdated to when the
+	 * message arrived, with no pop-up, push or statistics - so a new install starts with the
+	 * unread state people actually have.
 	 *
 	 * Runs once. Users who already have notifications are skipped entirely, so an update to an
 	 * install that has been mirroring for a while can't create duplicates for them.
@@ -421,25 +524,22 @@ final class Notification extends Component {
 		// The flag goes first, so two requests arriving together can't both run the scan.
 		update_option( 'hp_notification_backfill_done', 1 );
 
-		if ( ! in_array( 'message_receive', $this->get_enabled_types(), true ) ) {
+		// The Messages extension's email class is Message_Send, so that's the type name the mirror
+		// uses for received messages; there is no "message_receive" type.
+		if ( ! in_array( 'message_send', $this->get_enabled_types(), true ) ) {
 			return;
 		}
 
 		// Get the newest unread messages, capped hard so a large site can't stall this request.
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		// The Messages extension aliases its read flag to comment_approved, so unread means the
+		// "hold" status; there is no meta to query.
 		$messages = get_comments(
 			[
-				'type'       => 'hp_message',
-				'number'     => 100,
-				'orderby'    => 'comment_date',
-				'order'      => 'DESC',
-
-				'meta_query' => [
-					[
-						'key'     => 'hp_read',
-						'compare' => 'NOT EXISTS',
-					],
-				],
+				'type'    => 'hp_message',
+				'status'  => 'hold',
+				'number'  => 100,
+				'orderby' => 'comment_date',
+				'order'   => 'DESC',
 			]
 		);
 
@@ -454,8 +554,11 @@ final class Notification extends Component {
 				continue;
 			}
 
-			// A few per person is a nudge; a hundred is a wall.
-			if ( hp\get_array_value( $seeded, $recipient_id, 0 ) >= 5 ) {
+			// A few per person is a nudge; a hundred is a wall. The counts are keyed by user ID, so
+			// they're read directly: hp\get_array_value() documents its key as a string.
+			$seeded_count = isset( $seeded[ $recipient_id ] ) ? (int) $seeded[ $recipient_id ] : 0;
+
+			if ( $seeded_count >= 5 ) {
 				continue;
 			}
 
@@ -481,7 +584,7 @@ final class Notification extends Component {
 				'message' => \HivePress\Models\Message::query()->get_by_id( absint( $message->comment_ID ) ),
 			];
 
-			$text = $this->render_text( $this->get_type_text( 'message_receive' ), array_filter( $tokens ) );
+			$text = $this->render_text( $this->get_type_text( 'message_send' ), array_filter( $tokens ) );
 
 			if ( ! $text ) {
 				/* translators: %s: sender name. */
@@ -491,7 +594,7 @@ final class Notification extends Component {
 			$notification = $this->add_notification(
 				[
 					'user'         => $recipient_id,
-					'type'         => 'message_receive',
+					'type'         => 'message_send',
 					'text'         => $text,
 					'url'          => $url,
 					'image'        => $this->get_user_image( $sender ),
@@ -501,7 +604,7 @@ final class Notification extends Component {
 			);
 
 			if ( $notification ) {
-				$seeded[ $recipient_id ] = hp\get_array_value( $seeded, $recipient_id, 0 ) + 1;
+				$seeded[ $recipient_id ] = $seeded_count + 1;
 			}
 		}
 	}
@@ -515,6 +618,10 @@ final class Notification extends Component {
 	 * @param object $email Email object.
 	 */
 	public function process_email( $email ) {
+
+		// A fresh email means any earlier suppression flag is stale: its wp_mail() either already
+		// ran or never will, so it must not linger and catch a later email that happens to match.
+		$this->suppressed = null;
 
 		// Get type. Types the admin hasn't enabled are left alone entirely, so HivePress sends
 		// them exactly as it would without this plugin.
@@ -625,6 +732,10 @@ final class Notification extends Component {
 				'url'          => '',
 				'image'        => '',
 
+				// Optional per-notification visuals, overriding the type's generic icon.
+				'icon'         => '',
+				'color'        => '',
+
 				// A quiet notification only lands in the list: no pop-up, no push, no statistics.
 				// Used when seeding notifications for things that happened before the plugin was
 				// installed, which shouldn't arrive like breaking news.
@@ -650,6 +761,8 @@ final class Notification extends Component {
 				'created_date' => $args['created_date'] ? $args['created_date'] : current_time( 'mysql' ),
 				'url'          => $args['url'],
 				'image'        => $args['image'],
+				'icon'         => sanitize_html_class( (string) $args['icon'] ),
+				'color'        => sanitize_hex_color( (string) $args['color'] ),
 			]
 		);
 
@@ -830,6 +943,122 @@ final class Notification extends Component {
 				'image' => (string) get_the_post_thumbnail_url( $listing->get_id(), 'thumbnail' ),
 			]
 		);
+	}
+
+	/**
+	 * Adds a notification when a badge is awarded.
+	 *
+	 * The Badges extension writes an award whenever a threshold is passed, and removes lower awards
+	 * as someone climbs, so only creation is worth telling anyone about. Awards are also re-checked
+	 * hourly and can be removed and re-added if a metric dips and recovers, which is why the award
+	 * carries a marker: the same badge is announced once, not every time it is recalculated.
+	 *
+	 * @param int    $award_id Award ID.
+	 * @param object $award Award object.
+	 */
+	public function add_award_notification( $award_id, $award ) {
+		if ( ! is_object( $award ) || ! in_array( 'badge_award', $this->get_enabled_types(), true ) ) {
+			return;
+		}
+
+		// Get user.
+		$user_id = $award->get_user__id();
+
+		if ( ! $user_id ) {
+			return;
+		}
+
+		// Get badge.
+		$badge = $award->get_badge();
+
+		if ( ! $badge ) {
+			return;
+		}
+
+		// Only announce a given badge once per person, however often the award is recalculated.
+		$sent = (array) get_user_meta( $user_id, 'hp_notification_badges_sent', true );
+
+		if ( in_array( (int) $badge->get_id(), array_map( 'intval', $sent ), true ) ) {
+			return;
+		}
+
+		// Check the channels.
+		if ( ! in_array( 'onsite', $this->get_user_channels( $user_id, 'badge_award' ), true ) ) {
+			return;
+		}
+
+		// Get tokens.
+		$tokens = array_filter(
+			[
+				'user'       => $award->get_user(),
+				'badge'      => $badge,
+				'badge_name' => $badge->get_name(),
+			]
+		);
+
+		$this->update_seen_tokens( 'badge_award', $tokens );
+
+		$text = $this->render_text( $this->get_type_text( 'badge_award' ), $tokens );
+
+		if ( ! $text ) {
+			/* translators: %s: badge name. */
+			$text = sprintf( esc_html__( 'You have earned the %s badge.', 'notifications-for-hivepress' ), $badge->get_name() );
+		}
+
+		// Add notification. Badges are shown on a vendor's public profile, so that is where the
+		// link goes when there is one; a user without a vendor profile has nowhere to look yet.
+		//
+		// The visual is the badge itself rather than a stand-in: its own image where one is set,
+		// otherwise its own icon on its own colour, exactly as the Badges block renders it
+		// (badges/includes/blocks/class-badges.php:98-112, which falls back to "award" when no
+		// icon is chosen).
+		$notification = $this->add_notification(
+			[
+				'user'  => $user_id,
+				'type'  => 'badge_award',
+				'text'  => $text,
+				'url'   => $this->get_badge_url( $user_id ),
+				'image' => (string) get_the_post_thumbnail_url( $badge->get_id(), 'thumbnail' ),
+				'icon'  => $badge->get_icon() ? $badge->get_icon() : 'award',
+				'color' => (string) $badge->get_color(),
+			]
+		);
+
+		if ( $notification ) {
+			$sent[] = (int) $badge->get_id();
+
+			update_user_meta( $user_id, 'hp_notification_badges_sent', array_values( array_unique( array_map( 'intval', $sent ) ) ) );
+		}
+	}
+
+	/**
+	 * Gets the page where someone can see their badges.
+	 *
+	 * Badges render on the vendor and user profile blocks, so the public vendor page is the useful
+	 * destination. Sites without the Vendors route resolved, or users who have never published a
+	 * vendor profile, get no link rather than a broken one.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	protected function get_badge_url( $user_id ) {
+		if ( ! class_exists( '\HivePress\Models\Vendor' ) || ! hivepress()->router->get_route( 'vendor_view_page' ) ) {
+			return '';
+		}
+
+		// Get vendor.
+		$vendor_id = \HivePress\Models\Vendor::query()->filter(
+			[
+				'status' => 'publish',
+				'user'   => $user_id,
+			]
+		)->get_first_id();
+
+		if ( ! $vendor_id ) {
+			return '';
+		}
+
+		return (string) hivepress()->router->get_url( 'vendor_view_page', [ 'vendor_id' => $vendor_id ] );
 	}
 
 	/**
@@ -1098,15 +1327,25 @@ final class Notification extends Component {
 		// Get queue.
 		$queue = $this->get_queue( $user_id );
 
+		// The stored date is on the site's clock, so date_i18n() formats it as it stands; wp_date()
+		// would add the offset a second time. The machine-readable value wants real UTC, which
+		// get_gmt_from_date() derives with the site's timezone rules. Both match what the list
+		// template prints, because the script uses them to build a row identical to its own.
+		$created = (string) $notification->get_created_date();
+		$time    = strtotime( $created );
+
 		// Add notification.
 		$queue[] = [
 			'id'         => $notification->get_id(),
 			'text'       => $notification->get_text(),
 			'type'       => $this->get_type_label( $notification->get_type() ),
-			'icon'       => $this->get_type_icon( $notification->get_type() ),
+			'icon'       => $this->get_notification_icon( $notification ),
+			'color'      => (string) $notification->get_color(),
 			'image'      => (string) $notification->get_image(),
 			'url'        => (string) $notification->get_url(),
 			'link_label' => $this->get_type_link_text( $notification->get_type() ),
+			'time'       => $time ? date_i18n( (string) get_option( 'time_format' ), $time ) : '',
+			'datetime'   => $time ? get_gmt_from_date( $created, 'c' ) : '',
 		];
 
 		// Set queue.
@@ -1271,8 +1510,16 @@ final class Notification extends Component {
 		 * @param {array} $channels Notification channels.
 		 * @return {array} Notification channels.
 		 */
+		/*
+		 * "On-site" rather than "Pop-up", which is what this said until 1.9.10 and was wrong in a
+		 * way that mattered. Turning this off does not just stop the pop-up: the notification is
+		 * never created at all (see the onsite checks in add_notification and its callers), so the
+		 * person loses the entry in their list and the bell as well. Somebody unticking "Pop-up" to
+		 * stop things appearing over the page would have silently lost their notification history.
+		 * It also confused two rounds of staging testing, where "Pop-up only" read as "toasts only".
+		 */
 		$channels = [
-			'onsite' => esc_html__( 'Pop-up', 'notifications-for-hivepress' ),
+			'onsite' => esc_html__( 'On-site', 'notifications-for-hivepress' ),
 			'email'  => esc_html__( 'Email', 'notifications-for-hivepress' ),
 		];
 
@@ -1283,6 +1530,21 @@ final class Notification extends Component {
 		}
 
 		return apply_filters( 'hivepress/v1/notification_channels', $channels );
+	}
+
+	/**
+	 * Gets the icon of a single notification.
+	 *
+	 * A notification may carry its own icon, which is how a badge award shows the badge that was
+	 * actually earned. Everything else falls back to the generic icon for its type.
+	 *
+	 * @param object $notification Notification object.
+	 * @return string
+	 */
+	public function get_notification_icon( $notification ) {
+		$icon = sanitize_html_class( (string) $notification->get_icon() );
+
+		return $icon ? $icon : $this->get_type_icon( $notification->get_type() );
 	}
 
 	/**
@@ -1345,137 +1607,29 @@ final class Notification extends Component {
 	}
 
 	/**
-	 * Gets the header bell icon choices.
+	 * Enqueues the colour picker on the settings screen.
 	 *
-	 * Each choice is a Font Awesome free solid icon whose name is the same in versions 5 and 6, so
-	 * the stored name renders as "fas fa-{name}" wherever HivePress loads Font Awesome, while the
-	 * bundled view box and path draw the same icon as a preview in the admin picker, with no font
-	 * needed there. Icons are from Font Awesome Free (CC BY 4.0).
+	 * The bell icon field needs nothing from us: "options => icons" hands it to HivePress's own
+	 * picker, the same Select2 control with live previews that core uses for attribute icons, and
+	 * both Select2 and core's JS are enqueued in wp-admin as well as on the front end. A
+	 * hand-rolled picker here would only ever offer a stale, shorter list.
 	 *
-	 * @return array
+	 * Colours are the opposite case: core's Color field is a plain input and core ships no picker
+	 * at all, so the Iris picker is ours to add. The field still works and saves without it.
 	 */
-	public function get_bell_icons() {
-		return [
-			'bell'           => [
-				'label' => esc_html__( 'Bell', 'notifications-for-hivepress' ),
-				'view'  => '0 0 448 512',
-				'path'  => 'M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 18.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.4-10.4 22.9-5.3 34.4S19.4 416 32 416l384 0c12.6 0 24-7.4 29.2-18.9s3.1-25-5.3-34.4l-7.4-8.3C401.3 319.2 384 273.9 384 226.8l0-18.8c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm45.3 493.3c12-12 18.7-28.3 18.7-45.3l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7z',
-			],
-			'bell-slash'     => [
-				'label' => esc_html__( 'Bell (off)', 'notifications-for-hivepress' ),
-				'view'  => '0 0 640 512',
-				'path'  => 'M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7l-90.2-70.7c.2-.4 .4-.9 .6-1.3c5.2-11.5 3.1-25-5.3-34.4l-7.4-8.3C497.3 319.2 480 273.9 480 226.8l0-18.8c0-77.4-55-142-128-156.8L352 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 19.2c-42.6 8.6-79 34.2-102 69.3L38.8 5.1zM406.2 416L160 222.1l0 4.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.4-10.4 22.9-5.3 34.4S115.4 416 128 416l278.2 0zm-40.9 77.3c12-12 18.7-28.3 18.7-45.3l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7z',
-			],
-			'inbox'          => [
-				'label' => esc_html__( 'Inbox', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M121 32C91.6 32 66 52 58.9 80.5L1.9 308.4C.6 313.5 0 318.7 0 323.9L0 416c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-92.1c0-5.2-.6-10.4-1.9-15.5l-57-227.9C446 52 420.4 32 391 32L121 32zm0 64l270 0 48 192-51.2 0c-12.1 0-23.2 6.8-28.6 17.7l-14.3 28.6c-5.4 10.8-16.5 17.7-28.6 17.7l-120.4 0c-12.1 0-23.2-6.8-28.6-17.7l-14.3-28.6c-5.4-10.8-16.5-17.7-28.6-17.7L73 288 121 96z',
-			],
-			'envelope'       => [
-				'label' => esc_html__( 'Envelope', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48L48 64zM0 176L0 384c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-208L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z',
-			],
-			'envelope-open'  => [
-				'label' => esc_html__( 'Envelope (open)', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M64 208.1L256 65.9 448 208.1l0 47.4L289.5 373c-9.7 7.2-21.4 11-33.5 11s-23.8-3.9-33.5-11L64 255.5l0-47.4zM256 0c-12.1 0-23.8 3.9-33.5 11L25.9 156.7C9.6 168.8 0 187.8 0 208.1L0 448c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-239.9c0-20.3-9.6-39.4-25.9-51.4L289.5 11C279.8 3.9 268.1 0 256 0z',
-			],
-			'comment-dots'   => [
-				'label' => esc_html__( 'Comment', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M256 448c141.4 0 256-93.1 256-208S397.4 32 256 32S0 125.1 0 240c0 45.1 17.7 86.8 47.7 120.9c-1.9 24.5-11.4 46.3-21.4 62.9c-5.5 9.2-11.1 16.6-15.2 21.6c-2.1 2.5-3.7 4.4-4.9 5.7c-.6 .6-1 1.1-1.3 1.4l-.3 .3c0 0 0 0 0 0c0 0 0 0 0 0s0 0 0 0s0 0 0 0c-4.6 4.6-5.9 11.4-3.4 17.4c2.5 6 8.3 9.9 14.8 9.9c28.7 0 57.6-8.9 81.6-19.3c22.9-10 42.4-21.9 54.3-30.6c31.8 11.5 67 17.9 104.1 17.9zM128 208a32 32 0 1 1 0 64 32 32 0 1 1 0-64zm128 0a32 32 0 1 1 0 64 32 32 0 1 1 0-64zm96 32a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z',
-			],
-			'comments'       => [
-				'label' => esc_html__( 'Comments', 'notifications-for-hivepress' ),
-				'view'  => '0 0 640 512',
-				'path'  => 'M208 352c114.9 0 208-78.8 208-176S322.9 0 208 0S0 78.8 0 176c0 38.6 14.7 74.3 39.6 103.4c-3.5 9.4-8.7 17.7-14.2 24.7c-4.8 6.2-9.7 11-13.3 14.3c-1.8 1.6-3.3 2.9-4.3 3.7c-.5 .4-.9 .7-1.1 .8l-.2 .2s0 0 0 0s0 0 0 0C1 327.2-1.4 334.4 .8 340.9S9.1 352 16 352c21.8 0 43.8-5.6 62.1-12.5c9.2-3.5 17.8-7.4 25.2-11.4C134.1 343.3 169.8 352 208 352zM448 176c0 112.3-99.1 196.9-216.5 207C255.8 457.4 336.4 512 432 512c38.2 0 73.9-8.7 104.7-23.9c7.5 4 16 7.9 25.2 11.4c18.3 6.9 40.3 12.5 62.1 12.5c6.9 0 13.1-4.5 15.2-11.1c2.1-6.6-.2-13.8-5.8-17.9c0 0 0 0 0 0s0 0 0 0l-.2-.2c-.2-.2-.6-.4-1.1-.8c-1-.8-2.5-2-4.3-3.7c-3.6-3.3-8.5-8.1-13.3-14.3c-5.5-7-10.7-15.4-14.2-24.7c24.9-29 39.6-64.7 39.6-103.4c0-92.8-84.9-168.9-192.6-175.5c.4 5.1 .6 10.3 .6 15.5z',
-			],
-			'paper-plane'    => [
-				'label' => esc_html__( 'Paper plane', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480l0-83.6c0-4 1.5-7.8 4.2-10.8L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z',
-			],
-			'star'           => [
-				'label' => esc_html__( 'Star', 'notifications-for-hivepress' ),
-				'view'  => '0 0 576 512',
-				'path'  => 'M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z',
-			],
-			'heart'          => [
-				'label' => esc_html__( 'Heart', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z',
-			],
-			'flag'           => [
-				'label' => esc_html__( 'Flag', 'notifications-for-hivepress' ),
-				'view'  => '0 0 448 512',
-				'path'  => 'M64 32C64 14.3 49.7 0 32 0S0 14.3 0 32L0 64 0 368 0 480c0 17.7 14.3 32 32 32s32-14.3 32-32l0-128 64.3-16.1c41.1-10.3 84.6-5.5 122.5 13.4c44.2 22.1 95.5 24.8 141.7 7.4l34.7-13c12.5-4.7 20.8-16.6 20.8-30l0-247.7c0-23-24.2-38-44.8-27.7l-9.6 4.8c-46.3 23.2-100.8 23.2-147.1 0c-35.1-17.6-75.4-22-113.5-12.5L64 48l0-16z',
-			],
-			'bullhorn'       => [
-				'label' => esc_html__( 'Bullhorn', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M480 32c0-12.9-7.8-24.6-19.8-29.6s-25.7-2.2-34.9 6.9L381.7 53c-48 48-113.1 75-181 75l-8.7 0-32 0-96 0c-35.3 0-64 28.7-64 64l0 96c0 35.3 28.7 64 64 64l0 128c0 17.7 14.3 32 32 32l64 0c17.7 0 32-14.3 32-32l0-128 8.7 0c67.9 0 133 27 181 75l43.6 43.6c9.2 9.2 22.9 11.9 34.9 6.9s19.8-16.6 19.8-29.6l0-147.6c18.6-8.8 32-32.5 32-60.4s-13.4-51.6-32-60.4L480 32zm-64 76.7L416 240l0 131.3C357.2 317.8 280.5 288 200.7 288l-8.7 0 0-96 8.7 0c79.8 0 156.5-29.8 215.3-83.3z',
-			],
-			'gift'           => [
-				'label' => esc_html__( 'Gift', 'notifications-for-hivepress' ),
-				'view'  => '0 0 512 512',
-				'path'  => 'M190.5 68.8L225.3 128l-1.3 0-72 0c-22.1 0-40-17.9-40-40s17.9-40 40-40l2.2 0c14.9 0 28.8 7.9 36.3 20.8zM64 88c0 14.4 3.5 28 9.6 40L32 128c-17.7 0-32 14.3-32 32l0 64c0 17.7 14.3 32 32 32l448 0c17.7 0 32-14.3 32-32l0-64c0-17.7-14.3-32-32-32l-41.6 0c6.1-12 9.6-25.6 9.6-40c0-48.6-39.4-88-88-88l-2.2 0c-31.9 0-61.5 16.9-77.7 44.4L256 85.5l-24.1-41C215.7 16.9 186.1 0 154.2 0L152 0C103.4 0 64 39.4 64 88zm336 0c0 22.1-17.9 40-40 40l-72 0-1.3 0 34.8-59.2C329.1 55.9 342.9 48 357.8 48l2.2 0c22.1 0 40 17.9 40 40zM32 288l0 176c0 26.5 21.5 48 48 48l144 0 0-224L32 288zM288 512l144 0c26.5 0 48-21.5 48-48l0-176-192 0 0 224z',
-			],
-			'tag'            => [
-				'label' => esc_html__( 'Tag', 'notifications-for-hivepress' ),
-				'view'  => '0 0 448 512',
-				'path'  => 'M0 80L0 229.5c0 17 6.7 33.3 18.7 45.3l176 176c25 25 65.5 25 90.5 0L418.7 317.3c25-25 25-65.5 0-90.5l-176-176c-12-12-28.3-18.7-45.3-18.7L48 32C21.5 32 0 53.5 0 80zm112 32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z',
-			],
-			'calendar-check' => [
-				'label' => esc_html__( 'Calendar', 'notifications-for-hivepress' ),
-				'view'  => '0 0 448 512',
-				'path'  => 'M128 0c17.7 0 32 14.3 32 32l0 32 128 0 0-32c0-17.7 14.3-32 32-32s32 14.3 32 32l0 32 48 0c26.5 0 48 21.5 48 48l0 48L0 160l0-48C0 85.5 21.5 64 48 64l48 0 0-32c0-17.7 14.3-32 32-32zM0 192l448 0 0 272c0 26.5-21.5 48-48 48L48 512c-26.5 0-48-21.5-48-48L0 192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z',
-			],
-			'thumbtack'      => [
-				'label' => esc_html__( 'Pin', 'notifications-for-hivepress' ),
-				'view'  => '0 0 384 512',
-				'path'  => 'M32 32C32 14.3 46.3 0 64 0L320 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-29.5 0 11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3L32 352c-10.3 0-19.9-4.9-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64 64 64C46.3 64 32 49.7 32 32zM160 384l64 0 0 96c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-96z',
-			],
-		];
-	}
+	public function enqueue_color_picker() {
 
-	/**
-	 * Enqueues the settings screen enhancements.
-	 *
-	 * Two progressive upgrades: the bell icon select becomes a dropdown that previews each icon,
-	 * and the colour fields become WordPress colour pickers with a hex code box. Both fields work
-	 * and save as plain inputs if the scripts don't run.
-	 */
-	public function enqueue_bell_icon_picker() {
-
-		// Only load on the HivePress settings screen. The tab is not checked because the scripts
-		// are no-ops unless their fields are present.
+		// Only load on the HivePress settings screen. The tab is not checked because the script is
+		// a no-op unless its fields are present.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( 'hp_settings' !== sanitize_key( (string) hp\get_array_value( $_GET, 'page' ) ) ) {
 			return;
 		}
 
-		$icons = [];
+		$path = plugin_dir_path( HP_NOTIFICATIONS_FILE );
+		$url  = plugin_dir_url( HP_NOTIFICATIONS_FILE );
 
-		foreach ( $this->get_bell_icons() as $name => $args ) {
-			$icons[ $name ] = [
-				'label' => $args['label'],
-				'view'  => $args['view'],
-				'path'  => $args['path'],
-			];
-		}
-
-		$handle = 'hp-notification-bell-picker';
-		$path   = plugin_dir_path( HP_NOTIFICATIONS_FILE );
-		$url    = plugin_dir_url( HP_NOTIFICATIONS_FILE );
-
-		// The file time rides along in every version so caches refresh whenever a file changes.
-		wp_enqueue_script( $handle, $url . 'assets/js/bell-picker.js', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/bell-picker.js' ), true );
-		wp_add_inline_script( $handle, 'window.hpBellIcons = ' . wp_json_encode( $icons ) . ';', 'before' );
-
-		wp_enqueue_style( $handle, $url . 'assets/css/bell-picker.css', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/bell-picker.css' ) );
-
-		// The WordPress colour picker, for a palette plus a hex code box on the colour fields.
+		// The file time rides along in the version so caches refresh whenever the file changes.
 		wp_enqueue_style( 'wp-color-picker' );
 		wp_enqueue_script( 'hp-notification-admin-colors', $url . 'assets/js/admin-colors.js', [ 'jquery', 'wp-color-picker' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-colors.js' ), true );
 	}
@@ -1747,15 +1901,14 @@ final class Notification extends Component {
 	 */
 	public function alter_settings( $settings ) {
 
-		// Fill the bell icon choices from the single source that also carries their previews.
-		if ( isset( $settings['notifications']['sections']['delivery']['fields']['notification_bell_icon'] ) ) {
-			$options = [];
-
-			foreach ( $this->get_bell_icons() as $name => $args ) {
-				$options[ $name ] = $args['label'];
+		// Give each colour field the default the picker's reset control restores to. Without it
+		// the picker has nothing to reset to and its Clear button leaves the field empty.
+		foreach ( [ 'appearance', 'delivery' ] as $section ) {
+			foreach ( (array) hp\get_array_value( (array) hp\get_array_value( $settings['notifications']['sections'], $section, [] ), 'fields', [] ) as $name => $field ) {
+				if ( 'color' === hp\get_array_value( $field, 'type' ) && hp\get_array_value( $field, 'default' ) ) {
+					$settings['notifications']['sections'][ $section ]['fields'][ $name ]['attributes']['data-default-color'] = $field['default'];
+				}
 			}
-
-			$settings['notifications']['sections']['delivery']['fields']['notification_bell_icon']['options'] = $options;
 		}
 
 		if ( ! isset( $settings['notifications']['sections']['types'] ) ) {
@@ -1765,7 +1918,7 @@ final class Notification extends Component {
 		// One field per group keeps forty types from arriving as one wall, and only the groups
 		// your active extensions provide ever appear.
 		$order       = 10;
-		$description = esc_html__( 'Users can choose a pop-up, an email, both or neither for each of these. Anything left unticked here is sent by HivePress as usual and users cannot turn it off. Unticking a whole group also hides it from the text list below and from every user\'s settings page.', 'notifications-for-hivepress' );
+		$description = esc_html__( 'Users can choose how each of these reaches them. Anything left unticked here is sent by HivePress as usual and users cannot turn it off. Unticking a whole group also hides it from the text list below and from every user\'s settings page.', 'notifications-for-hivepress' );
 
 		foreach ( $this->get_groups() as $group => $group_label ) {
 			$options = [];
@@ -1806,7 +1959,7 @@ final class Notification extends Component {
 				$settings['notifications']['sections']['types']['fields'][ 'notification_default_' . $role ] = [
 					/* translators: %s: role name. */
 					'label'       => sprintf( esc_html__( 'Defaults: %s', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
-					'description' => esc_html__( 'The channels this role starts with before choosing their own. These are WordPress roles: HivePress adds none of its own, so everyone keeps the site default from Settings, usually Subscriber, or Customer where WooCommerce assigns it. Being a vendor is a profile rather than a role. Unticking every box restores all channels rather than none; to switch a type off for everyone, untick it in the list above.', 'notifications-for-hivepress' ),
+					'description' => esc_html__( 'The channels this role starts with before choosing their own. These are WordPress roles. HivePress promotes a user to Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings. Unticking every box restores all channels rather than none; to switch a type off for everyone, untick it in the list above.', 'notifications-for-hivepress' ),
 					'type'        => 'checkboxes',
 					'options'     => $this->get_channels(),
 					'default'     => array_keys( $this->get_channels() ),
@@ -1950,7 +2103,41 @@ final class Notification extends Component {
 			'membership' => 'id',
 			'review'     => 'id',
 			'message'    => 'text',
+			'badge'      => 'name',
 		];
+	}
+
+	/**
+	 * Answers 200 rather than 404 on page two of the notification list.
+	 *
+	 * WordPress decides the status long before HivePress renders anything. The rewrite rule for
+	 * "/page/{n}/" sets "paged", the main query then finds no posts because the route is served by
+	 * a virtual page rather than an archive, and WP::handle_404() sets a 404 during wp(). HivePress
+	 * only clears the flag later, on "template_include" (class-router.php:596), which fixes the body
+	 * class and the template but is far too late for the header. The page then serves twenty real
+	 * notifications under a 404, which caching layers and crawlers are entitled to treat as missing.
+	 *
+	 * Core HivePress account pages have the same behaviour, confirmed on staging 2026-07-31 for
+	 * /account/listings/page/2/. This corrects it only for the routes this plugin owns; fixing it
+	 * everywhere is core's to do.
+	 *
+	 * Runs at priority 1 on template_redirect, which is after wp() has decided and before any
+	 * output, so status_header() still reaches the browser.
+	 */
+	public function fix_paged_status() {
+		if ( ! is_404() ) {
+			return;
+		}
+
+		if ( ! in_array( hivepress()->router->get_current_route_name(), [ 'notifications_view_page', 'notification_settings_page' ], true ) ) {
+			return;
+		}
+
+		global $wp_query;
+
+		$wp_query->is_404 = false;
+
+		status_header( 200 );
 	}
 
 	/**
@@ -2028,7 +2215,30 @@ final class Notification extends Component {
 				'limit'          => max( 1, absint( get_option( 'hp_notification_toast_limit', 3 ) ) ),
 				'closeText'      => esc_html__( 'Close', 'notifications-for-hivepress' ),
 				'viewText'       => esc_html__( 'View', 'notifications-for-hivepress' ),
+
+				/*
+				 * Both plural forms and the empty state, so the page header can be rewritten in the
+				 * reader's language when a notification is marked read without a reload.
+				 *
+				 * These carry a gettext context rather than only a translator comment. English
+				 * spells both forms the same way, so without a context they collapse into one POT
+				 * entry with two contradictory comments, and a language that does need different
+				 * forms has no way to supply them.
+				 */
+				/* translators: %s: number of unread notifications. */
+				'unreadText'     => esc_html_x( '%s unread', 'plural', 'notifications-for-hivepress' ),
+				/* translators: %s: number of unread notifications, always one here. */
+				'unreadOneText'  => esc_html_x( '%s unread', 'singular', 'notifications-for-hivepress' ),
+				'caughtUpText'   => esc_html__( 'All caught up', 'notifications-for-hivepress' ),
 				'readText'       => esc_html__( 'Mark as read', 'notifications-for-hivepress' ),
+
+				// Both halves of the tick's label, so it can say what the next click will do.
+				'markUnreadText' => esc_html__( 'Mark as unread', 'notifications-for-hivepress' ),
+				'deleteText'     => esc_html__( 'Delete notification', 'notifications-for-hivepress' ),
+
+				// The heading the script gives the group it creates for a notification that arrives
+				// while the page is open, matching the one the block prints for today.
+				'todayText'      => esc_html__( 'Today', 'notifications-for-hivepress' ),
 				'deletedText'    => esc_html__( 'Notification deleted.', 'notifications-for-hivepress' ),
 				'undoText'       => esc_html__( 'Undo', 'notifications-for-hivepress' ),
 				'soundStyle'     => (string) get_option( 'hp_notification_sound_style', 'chime' ),
@@ -2056,13 +2266,19 @@ final class Notification extends Component {
 			return null;
 		}
 
+		// A cleared number field stores '' and (int) '' is 0, which would mean "ask on the very
+		// first visit" - the one thing this delay exists to prevent. Only a numeric stored value
+		// counts; anything else falls back to the default. An explicit 0 is numeric and honoured.
+		$delay = get_option( 'hp_notification_push_delay', 3 );
+		$delay = is_numeric( $delay ) ? max( 0, (int) $delay ) : 3;
+
 		return [
 			'key'    => $keys['public'],
 			'worker' => esc_url_raw( add_query_arg( 'hp_notification_worker', '1', home_url( '/' ) ) ),
 
 			// Asking for permission on page load is how a site gets blocked for good. The prompt
 			// waits until someone has been around long enough to know what the site is.
-			'delay'  => max( 0, absint( get_option( 'hp_notification_push_delay', 3 ) ) ),
+			'delay'  => $delay,
 			'views'  => 'hp_notification_views',
 		];
 	}
@@ -2121,11 +2337,26 @@ final class Notification extends Component {
 			'--hp-notification-accent'     => sanitize_hex_color( (string) get_option( 'hp_notification_toast_accent_color' ) ),
 		];
 
-		// Get the bell colour.
-		$bell_color = sanitize_hex_color( (string) get_option( 'hp_notification_bell_color', '#1a1a1a' ) );
+		// Get the four bell colours: the icon and the circle behind it, each resting and hovered.
+		// Only the resting icon colour has a default; the rest are emitted only when chosen, so an
+		// untouched bell keeps the look it has always had.
+		$bell_colors = [
+			'--hp-notification-bell-color'            => sanitize_hex_color( (string) get_option( 'hp_notification_bell_color', '#1a1a1a' ) ),
+			'--hp-notification-bell-color-hover'      => sanitize_hex_color( (string) get_option( 'hp_notification_bell_color_hover' ) ),
+			'--hp-notification-bell-background'       => sanitize_hex_color( (string) get_option( 'hp_notification_bell_background' ) ),
+			'--hp-notification-bell-background-hover' => sanitize_hex_color( (string) get_option( 'hp_notification_bell_background_hover' ) ),
+		];
 
-		if ( $bell_color ) {
-			$styles['--hp-notification-bell-color'] = $bell_color;
+		foreach ( array_filter( $bell_colors ) as $name => $value ) {
+			$styles[ $name ] = $value;
+		}
+
+		// Get the unread badge colour. The default matches the red HivePress uses for its own menu
+		// counts, so an untouched site looks like one plugin rather than two.
+		$badge_color = sanitize_hex_color( (string) get_option( 'hp_notification_badge_color', self::BADGE_COLOR ) );
+
+		if ( $badge_color ) {
+			$styles['--hp-notification-badge'] = $badge_color;
 		}
 
 		// Get the dropdown width.
@@ -2165,11 +2396,8 @@ final class Notification extends Component {
 		// Filter styles.
 		$styles = array_filter( $styles );
 
-		if ( ! $styles ) {
-			return '';
-		}
-
-		// Get output.
+		// Get output. The rules below are appended whether or not any variable was set, so a site
+		// that only ticked "Hide Theme Counter" still gets its rule.
 		$output = '';
 
 		foreach ( $styles as $name => $value ) {
@@ -2180,9 +2408,60 @@ final class Notification extends Component {
 			$output = ':root{' . $output . '}';
 		}
 
-		// Hide the theme's own counter when the bell would double it up.
+		// Recolour the account menu count, but only when the admin has actually chosen a colour
+		// other than the HivePress default. Left alone, the count inherits core's own styling and
+		// therefore matches every other count in the menu, including under a theme that restyles
+		// them. The selector carries one extra class so a deliberate choice still wins against a
+		// theme stylesheet that loads after this one.
+		if ( $badge_color && self::BADGE_COLOR !== strtolower( $badge_color ) ) {
+			$output .= '.hp-menu .hp-menu__item--notifications-view small{background-color:' . $badge_color . ';}';
+		}
+
+		// Hide HivePress's own counters, each of which is a different number.
+		//
+		// The combined one is the "notice_count" request context: Messages adds unread messages to
+		// it, Bookings adds unpaid bookings and booking requests, Marketplace adds pending orders.
+		// Core prints it beside the user's name in the header
+		// (templates/user/login/user-login-link.php:10) and ListingHive prints the same value on
+		// the burger (header.php:38), so both need hiding together or the number simply moves.
+		// Descendant combinators throughout: HiveTheme's own rule is
+		// ".header-navbar__burger>a small", so the count is not always a direct child of the link
+		// and a child combinator quietly matched nothing.
+		$hidden = [];
+
 		if ( get_option( 'hp_notification_bell_hide_count' ) ) {
-			$output .= '.header-navbar__burger a > small{display:none !important;}';
+			$hidden[] = '.hp-menu__item--user-account small';
+
+			// Scoped to the burger's own link. The burger also contains the whole drop-down menu,
+			// so a plain descendant match reached the per-item counts inside it and hid the
+			// Notifications and Messages numbers as well - the opposite of what this setting says.
+			// The count itself is not always a direct child of that link, hence "> a small".
+			$hidden[] = '.header-navbar__burger > a small';
+		}
+
+		// The Messages count is a separate, narrower number: unread messages only, shown on the
+		// Messages item of the account menu (messages/components/class-message.php:417, item key
+		// "messages_thread"). Hiding it is a different decision from hiding the combined total,
+		// which is why it is its own setting.
+		if ( get_option( 'hp_notification_bell_hide_message_count' ) ) {
+			$hidden[] = '.hp-menu__item--messages-thread small';
+		}
+
+		if ( $hidden ) {
+
+			/**
+			 * Filters the selectors used to hide HivePress's own unread counters. Themes outside
+			 * the official six put these elsewhere; point this at whatever holds them.
+			 *
+			 * @hook hivepress/v1/notification_hide_count_selector
+			 * @param {string} $selector CSS selector.
+			 * @return {string} CSS selector.
+			 */
+			$selector = apply_filters( 'hivepress/v1/notification_hide_count_selector', implode( ', ', $hidden ) );
+
+			if ( $selector ) {
+				$output .= $selector . '{display:none !important;}';
+			}
 		}
 
 		return $output;
@@ -2203,39 +2482,51 @@ final class Notification extends Component {
 			return;
 		}
 
-		// Get comments.
-		$comments = get_comments(
-			[
-				'type'       => 'hp_notification',
-				'number'     => 500,
-				'orderby'    => 'comment_date',
-				'order'      => 'ASC',
+		// Comment dates are stored on the site's clock, so the cutoff has to be built from the
+		// same clock rather than UTC.
+		// phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
+		$cutoff = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - $period * DAY_IN_SECONDS );
 
-				'date_query' => [
-					[
-						// Comment dates are stored on the site's clock, so the cutoff has to be
-						// built from the same clock rather than UTC.
-						// phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
-						'before'    => gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - $period * DAY_IN_SECONDS ),
-						'inclusive' => false,
-						'column'    => 'comment_date',
-					],
-				],
-			]
-		);
-
-		if ( ! $comments ) {
-			return;
-		}
-
-		// Delete notifications.
+		// Delete in batches until none are left. A site that expires more than one batch a day
+		// would otherwise build a backlog that a single capped run could never catch up on. The
+		// batch count is still bounded, so one cron run can't stall on an enormous backlog.
 		$user_ids = [];
 		$model    = new Models\Notification();
 
-		foreach ( $comments as $comment ) {
-			$user_ids[] = (int) $comment->user_id;
+		for ( $batch = 0; $batch < 20; $batch++ ) {
 
-			$model->delete( absint( $comment->comment_ID ) );
+			// Get comments.
+			$comments = get_comments(
+				[
+					'type'       => 'hp_notification',
+					'number'     => 500,
+					'orderby'    => 'comment_date',
+					'order'      => 'ASC',
+
+					'date_query' => [
+						[
+							'before'    => $cutoff,
+							'inclusive' => false,
+							'column'    => 'comment_date',
+						],
+					],
+				]
+			);
+
+			if ( ! $comments ) {
+				break;
+			}
+
+			// Delete notifications.
+			foreach ( $comments as $comment ) {
+				$user_ids[] = (int) $comment->user_id;
+
+				$model->delete( absint( $comment->comment_ID ) );
+			}
+
+			if ( count( $comments ) < 500 ) {
+				break;
+			}
 		}
 
 		// Update counters and type lists.

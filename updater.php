@@ -262,10 +262,15 @@ add_action( 'admin_init', __NAMESPACE__ . '\\handle_update_check' );
  * @return void
  */
 function show_update_check_notice() {
+
+	// This only decides which of three fixed sentences to print after the nonce-verified check
+	// above redirected here. Nothing is processed and nothing changes state.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	if ( ! isset( $_GET['hp_notifications_checked'] ) || ! current_user_can( 'update_plugins' ) ) {
 		return;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$status = sanitize_key( wp_unslash( $_GET['hp_notifications_checked'] ) );
 
 	if ( 'available' === $status ) {

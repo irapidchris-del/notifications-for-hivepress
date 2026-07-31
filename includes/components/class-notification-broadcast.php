@@ -22,6 +22,20 @@ defined( 'ABSPATH' ) || exit;
 final class Notification_Broadcast extends Component {
 
 	/**
+	 * Option holding the sent announcements.
+	 *
+	 * @var string
+	 */
+	const LOG_OPTION = 'hp_notification_broadcast_log';
+
+	/**
+	 * How many sent announcements are kept.
+	 *
+	 * @var int
+	 */
+	const LOG_LIMIT = 50;
+
+	/**
 	 * Number of users per batch.
 	 *
 	 * @var int
@@ -45,6 +59,12 @@ final class Notification_Broadcast extends Component {
 
 			// Send the broadcast.
 			add_action( 'admin_post_hp_notification_broadcast', [ $this, 'send_broadcast' ] );
+
+			// Send a logged one again.
+			add_action( 'admin_post_hp_notification_broadcast_resend', [ $this, 'resend_broadcast' ] );
+
+			// Report the result on the Dashboard, which is where a send from the widget returns to.
+			add_action( 'admin_notices', [ $this, 'render_dashboard_notices' ] );
 		}
 
 		// Send the batches.
@@ -93,9 +113,12 @@ final class Notification_Broadcast extends Component {
 	}
 
 	/**
-	 * Renders the admin page.
+	 * Renders the result of a send.
+	 *
+	 * Shared by the Announcements page and the Dashboard, because a send started from the widget
+	 * comes back to the Dashboard and has to say what happened there.
 	 */
-	public function render_page() {
+	public function render_notices() {
 
 		// These only feed the notices after the redirect; nothing is processed.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -103,137 +126,325 @@ final class Notification_Broadcast extends Component {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$error = sanitize_text_field( wp_unslash( (string) hp\get_array_value( $_GET, 'error' ) ) );
+
+		if ( $sent ) :
+			?>
+			<div class="notice notice-success is-dismissible">
+				<p>
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %s: number of users. */
+							_n( 'The announcement is on its way to %s user.', 'The announcement is on its way to %s users.', $sent, 'notifications-for-hivepress' ),
+							number_format_i18n( $sent )
+						)
+					);
+					?>
+				</p>
+			</div>
+			<?php
+		endif;
+
+		if ( $error ) :
+			?>
+			<div class="notice notice-error is-dismissible">
+				<p>
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %s: the names that could not be matched. */
+							esc_html__( 'Nothing was sent. These could not be matched to an account: %s', 'notifications-for-hivepress' ),
+							$error
+						)
+					);
+					?>
+				</p>
+			</div>
+			<?php
+		endif;
+	}
+
+	/**
+	 * Renders the result of a widget send on the Dashboard.
+	 *
+	 * Restricted to the Dashboard itself, so these never appear on an unrelated admin screen that
+	 * happens to carry a "sent" parameter of its own.
+	 */
+	public function render_dashboard_notices() {
+		$screen = get_current_screen();
+
+		if ( ! $screen || 'dashboard' !== $screen->id || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$this->render_notices();
+	}
+
+	/**
+	 * Renders the admin page.
+	 */
+	public function render_page() {
 		?>
 		<div class="wrap">
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Announcements', 'notifications-for-hivepress' ); ?></h1>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Notification Settings', 'notifications-for-hivepress' ); ?></a>
 			<hr class="wp-header-end">
 
-			<?php if ( $sent ) : ?>
-				<div class="notice notice-success is-dismissible">
-					<p>
-						<?php
-						echo esc_html(
-							sprintf(
-								/* translators: %s: number of users. */
-								_n( 'The announcement is on its way to %s user.', 'The announcement is on its way to %s users.', $sent, 'notifications-for-hivepress' ),
-								number_format_i18n( $sent )
-							)
-						);
-						?>
-					</p>
-				</div>
-			<?php endif; ?>
+			<?php
+			$this->render_notices();
+			?>
 
-			<?php if ( $error ) : ?>
-				<div class="notice notice-error is-dismissible">
-					<p>
-						<?php
-						echo esc_html(
-							sprintf(
-								/* translators: %s: the names that could not be matched. */
-								esc_html__( 'Nothing was sent. These could not be matched to an account: %s', 'notifications-for-hivepress' ),
-								$error
-							)
-						);
-						?>
-					</p>
-				</div>
-			<?php endif; ?>
+			<?php
+			// Which tab. Reading it decides what to render and nothing else.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$view = 'history' === sanitize_key( (string) hp\get_array_value( $_GET, 'view' ) ) ? 'history' : 'send';
+			?>
 
-			<p class="description" style="max-width:40em;">
-				<?php esc_html_e( 'This sends an on-site notification to every user you choose, and there is no opt-out, so use it sparingly: anything that could wait for a newsletter probably should.', 'notifications-for-hivepress' ); ?>
-			</p>
+			<h2 class="nav-tab-wrapper">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_broadcast' ) ); ?>" class="nav-tab <?php echo 'send' === $view ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Send', 'notifications-for-hivepress' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_broadcast&view=history' ) ); ?>" class="nav-tab <?php echo 'history' === $view ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'History', 'notifications-for-hivepress' ); ?>
+					<?php if ( $this->get_log() ) : ?>
+						<span class="count">(<?php echo esc_html( number_format_i18n( count( $this->get_log() ) ) ); ?>)</span>
+					<?php endif; ?>
+				</a>
+			</h2>
 
-			<?php $this->render_form(); ?>
-
-			<?php if ( get_option( 'hp_notification_stats', true ) ) : ?>
-				<p>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_stats' ) ); ?>"><?php esc_html_e( 'View delivery statistics', 'notifications-for-hivepress' ); ?></a>
+			<?php if ( 'history' === $view ) : ?>
+				<?php $this->render_history(); ?>
+			<?php else : ?>
+				<p class="description" style="max-width:40em;">
+					<?php esc_html_e( 'Sends an on-site notification, and a push notification to anyone who has allowed those. Announcements are never emailed and cannot be opted out of, so use them sparingly.', 'notifications-for-hivepress' ); ?>
+					<span class="hp-tooltip"><span class="hp-tooltip__icon dashicons dashicons-editor-help"></span><span class="hp-tooltip__text"><?php esc_html_e( 'Because there is no opt-out, each person\'s own channel choices are bypassed. Quiet hours are still respected: the announcement waits in their list rather than interrupting. Nothing is emailed, so an announcement will not reach anyone who has stopped visiting the site.', 'notifications-for-hivepress' ); ?></span></span>
 				</p>
+
+				<?php $this->render_form(); ?>
+
+				<?php if ( get_option( 'hp_notification_stats', true ) ) : ?>
+					<p>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_stats' ) ); ?>"><?php esc_html_e( 'View delivery statistics', 'notifications-for-hivepress' ); ?></a>
+					</p>
+				<?php endif; ?>
 			<?php endif; ?>
 		</div>
 		<?php
 	}
 
+	/**
+	 * Renders the sent announcements.
+	 *
+	 * A table rather than a feed: the useful questions here are what went out, when, to whom and
+	 * how many it reached, which read best in columns.
+	 */
+	protected function render_history() {
+		$log = $this->get_log();
+
+		if ( ! $log ) {
+			?>
+			<p><?php esc_html_e( 'Nothing sent yet. Announcements you send from the Send tab are listed here, with the wording, who received them and when.', 'notifications-for-hivepress' ); ?></p>
+			<?php
+
+			return;
+		}
+
+		$format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		?>
+		<p class="description" style="max-width:40em;">
+			<?php
+			// Written out rather than run through _n(): the singular has no number to substitute,
+			// and a plural set whose singular carries no placeholder cannot be translated correctly
+			// into languages that need one in every form.
+			if ( 1 === count( $log ) ) {
+				esc_html_e( 'The last announcement you sent. Resend sends it again to that audience as it stands today, not to the people who received it originally.', 'notifications-for-hivepress' );
+			} else {
+				printf(
+					/* translators: %s: number of announcements kept. */
+					esc_html__( 'The last %s announcements you sent. Resend sends one again to that audience as it stands today, not to the people who received it originally.', 'notifications-for-hivepress' ),
+					esc_html( number_format_i18n( count( $log ) ) )
+				);
+			}
+			?>
+		</p>
+
+		<table class="widefat striped" style="max-width:1100px;">
+			<thead>
+				<tr>
+					<th scope="col"><?php esc_html_e( 'Sent', 'notifications-for-hivepress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Message', 'notifications-for-hivepress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Audience', 'notifications-for-hivepress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Recipients', 'notifications-for-hivepress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Sent by', 'notifications-for-hivepress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Action', 'notifications-for-hivepress' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php
+				foreach ( $log as $entry ) :
+					$sender = get_userdata( absint( hp\get_array_value( $entry, 'sender' ) ) );
+					$time   = strtotime( (string) hp\get_array_value( $entry, 'sent' ) );
+					?>
+					<tr>
+						<td>
+							<?php
+							// Stored on the site's clock, so date_i18n formats it as it is; wp_date
+							// would add the offset a second time.
+							echo esc_html( $time ? date_i18n( $format, $time ) : '' );
+							?>
+						</td>
+						<td>
+							<strong><?php echo esc_html( (string) hp\get_array_value( $entry, 'text' ) ); ?></strong>
+
+							<?php if ( hp\get_array_value( $entry, 'url' ) ) : ?>
+								<br>
+								<a href="<?php echo esc_url( (string) $entry['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( (string) $entry['url'] ); ?></a>
+							<?php endif; ?>
+						</td>
+						<td><?php echo esc_html( $this->get_audience_label( $entry ) ); ?></td>
+						<td><?php echo esc_html( number_format_i18n( absint( hp\get_array_value( $entry, 'count' ) ) ) ); ?></td>
+						<td><?php echo esc_html( $sender ? $sender->display_name : esc_html__( 'Unknown', 'notifications-for-hivepress' ) ); ?></td>
+						<td>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0;">
+								<input type="hidden" name="action" value="hp_notification_broadcast_resend">
+								<input type="hidden" name="entry" value="<?php echo esc_attr( (string) hp\get_array_value( $entry, 'id' ) ); ?>">
+								<?php wp_nonce_field( 'hp_notification_broadcast_resend' ); ?>
+
+								<button type="submit" class="button" onclick="return confirm( '<?php echo esc_js( __( 'Send this announcement again?', 'notifications-for-hivepress' ) ); ?>' );"><?php esc_html_e( 'Resend', 'notifications-for-hivepress' ); ?></button>
+							</form>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+
+	/**
+	 * Renders a field label, with its explanation as a tooltip.
+	 *
+	 * Matches HivePress's own settings screen, which renders every field description as a hover
+	 * tooltip beside the label (components/class-admin.php:322, :2064). Note core hides these
+	 * below 782px, so nothing essential belongs in one.
+	 *
+	 * @param string $field_id Field id.
+	 * @param string $label Field label.
+	 * @param string $hint Tooltip text.
+	 * @param bool   $compact Stacked layout.
+	 */
+	protected function render_label( $field_id, $label, $hint, $compact ) {
+		$tooltip = '<div class="hp-tooltip"><span class="hp-tooltip__icon dashicons dashicons-editor-help"></span><div class="hp-tooltip__text">' . esc_html( $hint ) . '</div></div>';
+
+		if ( $compact ) {
+			echo '<div class="hp-broadcast__label"><label' . ( $field_id ? ' for="' . esc_attr( $field_id ) . '"' : '' ) . '>' . esc_html( $label ) . '</label>' . wp_kses_post( $tooltip ) . '</div>';
+
+			return;
+		}
+
+		echo '<th scope="row"><div class="hp-broadcast__label"><label' . ( $field_id ? ' for="' . esc_attr( $field_id ) . '"' : '' ) . '>' . esc_html( $label ) . '</label>' . wp_kses_post( $tooltip ) . '</div></th>';
+	}
 
 	/**
 	 * Renders the announcement form.
 	 *
 	 * Shared by the Announcements page and the dashboard widget, so both always behave the same.
+	 *
+	 * @param bool $compact Render stacked, for the narrow dashboard widget.
 	 */
-	public function render_form() {
+	public function render_form( $compact = false ) {
+
+		// Count the audiences up front. Live counts beat any explanation of what the roles mean:
+		// they are true on every install, and they make an accidental send to the wrong group
+		// obvious before pressing the button rather than after.
+		$counts  = count_users();
+		$total   = absint( hp\get_array_value( $counts, 'total_users' ) );
+		$vendors = count( $this->get_vendor_user_ids() );
+
 		$roles = [
-			''         => esc_html__( 'Everyone', 'notifications-for-hivepress' ),
-			'_vendors' => esc_html__( 'Vendors (users with a listing profile)', 'notifications-for-hivepress' ),
+			/* translators: %s: number of users. */
+			''         => sprintf( _n( 'Everyone (%s user)', 'Everyone (%s users)', $total, 'notifications-for-hivepress' ), number_format_i18n( $total ) ),
+			/* translators: %s: number of users. */
+			'_vendors' => sprintf( _n( 'Vendors, whatever their role (%s user)', 'Vendors, whatever their role (%s users)', $vendors, 'notifications-for-hivepress' ), number_format_i18n( $vendors ) ),
 			'_users'   => esc_html__( 'Specific users…', 'notifications-for-hivepress' ),
 		];
 
 		foreach ( wp_roles()->get_names() as $role => $label ) {
-			$roles[ $role ] = translate_user_role( $label );
+			$role_count = absint( hp\get_array_value( (array) hp\get_array_value( $counts, 'avail_roles', [] ), $role ) );
+
+			/* translators: %1$s: role name, %2$s: number of users. */
+			$roles[ $role ] = sprintf( _n( '%1$s (%2$s user)', '%1$s (%2$s users)', $role_count, 'notifications-for-hivepress' ), translate_user_role( $label ), number_format_i18n( $role_count ) );
 		}
+		// The explanations live in tooltips rather than on the screen. Spelled out in full they
+		// pushed the form off the bottom of the dashboard widget, and a wall of grey text above a
+		// send button reads as a warning notice rather than as help.
+		$hints = [
+			/* translators: %user.display_name% is a literal token the admin types, not a placeholder. */
+			'text'    => esc_html__( 'Up to 256 characters. Type %user.display_name% anywhere in the message to greet each person by name.', 'notifications-for-hivepress' ),
+			'url'     => esc_html__( 'Optional. Adds a View link to the notification, so people can go straight to whatever it is about.', 'notifications-for-hivepress' ),
+			'role'    => esc_html__( 'Counts are live, so you can see how many people each choice reaches before you send. The roles are WordPress roles, which your site or another plugin may have changed: HivePress promotes someone to Contributor when their vendor profile is published, so your vendors are usually Contributors. Vendors reaches anyone with a vendor profile whatever their role, which is normally what you want.', 'notifications-for-hivepress' ),
+			'users'   => esc_html__( 'Usernames or email addresses, separated by commas or spaces. Suggestions match as you type. If any name cannot be matched, nothing is sent at all, so a typo can never mean half an announcement.', 'notifications-for-hivepress' ),
+			'confirm' => esc_html__( 'Announcements cannot be opted out of and cannot be recalled once sent.', 'notifications-for-hivepress' ),
+		];
+
+		// Two layouts from one form: the settings-style two-column table on the full page, and a
+		// stacked one in the dashboard widget, whose column is far too narrow for label-beside-field.
+		$row   = $compact ? '<div class="hp-broadcast__row">' : '<tr>';
+		$row_x = $compact ? '</div>' : '</tr>';
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="hp-broadcast<?php echo $compact ? ' hp-broadcast--compact' : ''; ?>">
 			<input type="hidden" name="action" value="hp_notification_broadcast">
+
+			<?php // Which screen to return to, so the widget sends you back where you were. ?>
+			<input type="hidden" name="origin" value="<?php echo $compact ? 'dashboard' : 'page'; ?>">
 			<?php wp_nonce_field( 'hp_notification_broadcast' ); ?>
 
-			<table class="form-table" role="presentation">
-				<tr>
-					<th scope="row"><label for="hp-broadcast-text"><?php esc_html_e( 'Message', 'notifications-for-hivepress' ); ?></label></th>
-					<td>
+			<?php echo $compact ? '<div class="hp-broadcast__fields">' : '<table class="form-table" role="presentation"><tbody>'; ?>
+
+				<?php echo wp_kses_post( $row ); ?>
+					<?php $this->render_label( 'hp-broadcast-text', esc_html__( 'Message', 'notifications-for-hivepress' ), $hints['text'], $compact ); ?>
+					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
 						<textarea name="text" id="hp-broadcast-text" rows="3" class="large-text" maxlength="256" required></textarea>
-						<p class="description">
-							<?php
-							/* translators: %user.display_name% is a literal token the admin types, not a placeholder. */
-							esc_html_e( 'Up to 256 characters. You can use %user.display_name% to greet people by name.', 'notifications-for-hivepress' );
-							?>
-						</p>
-					</td>
-				</tr>
+					<?php echo $compact ? '</div>' : '</td>'; ?>
+				<?php echo wp_kses_post( $row_x ); ?>
 
-				<tr>
-					<th scope="row"><label for="hp-broadcast-url"><?php esc_html_e( 'Link', 'notifications-for-hivepress' ); ?></label></th>
-					<td>
+				<?php echo wp_kses_post( $row ); ?>
+					<?php $this->render_label( 'hp-broadcast-url', esc_html__( 'Link', 'notifications-for-hivepress' ), $hints['url'], $compact ); ?>
+					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
 						<input type="url" name="url" id="hp-broadcast-url" class="regular-text" placeholder="https://">
-						<p class="description"><?php esc_html_e( 'Optional. Adds a View link to the notification.', 'notifications-for-hivepress' ); ?></p>
-					</td>
-				</tr>
+					<?php echo $compact ? '</div>' : '</td>'; ?>
+				<?php echo wp_kses_post( $row_x ); ?>
 
-				<tr>
-					<th scope="row"><label for="hp-broadcast-role"><?php esc_html_e( 'Send To', 'notifications-for-hivepress' ); ?></label></th>
-					<td>
+				<?php echo wp_kses_post( $row ); ?>
+					<?php $this->render_label( 'hp-broadcast-role', esc_html__( 'Send To', 'notifications-for-hivepress' ), $hints['role'], $compact ); ?>
+					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
 						<select name="role" id="hp-broadcast-role">
 							<?php foreach ( $roles as $role => $label ) : ?>
 								<option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $label ); ?></option>
 							<?php endforeach; ?>
 						</select>
-						<p class="description" style="max-width:34em;">
-							<?php esc_html_e( 'The roles below the line are WordPress roles. HivePress adds no roles of its own: everyone keeps the site default from Settings, usually Subscriber, or Customer where WooCommerce assigns it. Being a vendor is a profile rather than a role, which is what the Vendors option is for.', 'notifications-for-hivepress' ); ?>
-						</p>
-					</td>
-				</tr>
+					<?php echo $compact ? '</div>' : '</td>'; ?>
+				<?php echo wp_kses_post( $row_x ); ?>
 
-				<tr id="hp-broadcast-users-row">
-					<th scope="row"><label for="hp-broadcast-users"><?php esc_html_e( 'Users', 'notifications-for-hivepress' ); ?></label></th>
-					<td>
+				<?php echo $compact ? '<div class="hp-broadcast__row" id="hp-broadcast-users-row">' : '<tr id="hp-broadcast-users-row">'; ?>
+					<?php $this->render_label( 'hp-broadcast-users', esc_html__( 'Users', 'notifications-for-hivepress' ), $hints['users'], $compact ); ?>
+					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
 						<input type="text" name="users" id="hp-broadcast-users" class="large-text" list="hp-broadcast-users-list" placeholder="chris, jo@example.com" autocomplete="off">
-					<?php $this->render_user_datalist(); ?>
-						<p class="description"><?php esc_html_e( 'Usernames or email addresses, separated by commas or spaces; suggestions match the first one typed. Only used when sending to specific users; if any cannot be matched, nothing is sent.', 'notifications-for-hivepress' ); ?></p>
-					</td>
-				</tr>
+						<?php $this->render_user_datalist(); ?>
+					<?php echo $compact ? '</div>' : '</td>'; ?>
+				<?php echo wp_kses_post( $row_x ); ?>
 
-				<tr>
-					<th scope="row"><?php esc_html_e( 'Confirm', 'notifications-for-hivepress' ); ?></th>
-					<td>
+				<?php echo wp_kses_post( $row ); ?>
+					<?php $this->render_label( '', esc_html__( 'Confirm', 'notifications-for-hivepress' ), $hints['confirm'], $compact ); ?>
+					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
 						<label>
 							<input type="checkbox" name="confirm" value="1" required>
-							<?php esc_html_e( 'I understand this notifies every user I have chosen.', 'notifications-for-hivepress' ); ?>
+							<?php esc_html_e( 'I understand this notifies everyone I have chosen.', 'notifications-for-hivepress' ); ?>
 						</label>
-					</td>
-				</tr>
-			</table>
+					<?php echo $compact ? '</div>' : '</td>'; ?>
+				<?php echo wp_kses_post( $row_x ); ?>
 
-			<?php submit_button( esc_html__( 'Send Announcement', 'notifications-for-hivepress' ) ); ?>
+			<?php echo $compact ? '</div>' : '</tbody></table>'; ?>
+
+			<?php submit_button( esc_html__( 'Send Announcement', 'notifications-for-hivepress' ), 'primary', 'submit', ! $compact ); ?>
 		</form>
 
 		<script>
@@ -373,13 +584,84 @@ final class Notification_Broadcast extends Component {
 	 */
 	public function render_widget() {
 		?>
+		<style>
+			/* The dashboard column is roughly a third the width of a settings page, so the form
+			 * stacks: labels above their fields and every control full width. Without this the
+			 * two-column table forced the inputs out past the edge of the card. */
+			.hp-broadcast--compact .hp-broadcast__row {
+				margin-bottom: 12px;
+			}
+
+			.hp-broadcast--compact .hp-broadcast__label {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				margin-bottom: 4px;
+				font-weight: 600;
+			}
+
+			.hp-broadcast--compact .hp-broadcast__control input[type="text"],
+			.hp-broadcast--compact .hp-broadcast__control input[type="url"],
+			.hp-broadcast--compact .hp-broadcast__control select,
+			.hp-broadcast--compact .hp-broadcast__control textarea {
+				width: 100%;
+				max-width: 100%;
+				box-sizing: border-box;
+				margin: 0;
+			}
+
+			.hp-broadcast--compact .hp-broadcast__control label {
+				display: flex;
+				align-items: flex-start;
+				gap: 6px;
+			}
+
+			/* The tooltip is positioned relative to its icon, and the widget clips at its edges,
+			 * so the bubble is pulled back inside rather than disappearing under the card. */
+			.hp-broadcast--compact .hp-tooltip__text {
+				right: auto;
+				left: 0;
+				max-width: 240px;
+				white-space: normal;
+			}
+
+			.hp-broadcast__label .hp-tooltip {
+				margin-right: 0;
+			}
+		</style>
+
 		<p>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_broadcast' ) ); ?>"><?php esc_html_e( 'Announcements page', 'notifications-for-hivepress' ); ?></a>
-			&nbsp;·&nbsp;
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ); ?>"><?php esc_html_e( 'Notification settings', 'notifications-for-hivepress' ); ?></a>
+			&nbsp;&middot;&nbsp;
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_notification_broadcast&view=history' ) ); ?>"><?php esc_html_e( 'History', 'notifications-for-hivepress' ); ?></a>
+			&nbsp;&middot;&nbsp;
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ); ?>"><?php esc_html_e( 'Settings', 'notifications-for-hivepress' ); ?></a>
 		</p>
 		<?php
-		$this->render_form();
+		$this->render_form( true );
+	}
+
+	/**
+	 * Builds the URL a submission returns to.
+	 *
+	 * The same form is on two screens. Sending from the Dashboard widget landed on the Announcements
+	 * page, which is a jarring place to arrive when you never asked to leave the Dashboard, so the
+	 * widget's copy says where it came from and the result is reported there instead.
+	 *
+	 * Only called after the nonce has been checked.
+	 *
+	 * @param array $args Query arguments.
+	 * @return string
+	 */
+	protected function get_redirect_url( $args = [] ) {
+
+		// Every caller has already run check_admin_referer(), which the sniff cannot see from here.
+		// The value only chooses which of two admin screens to return to, and anything other than
+		// "dashboard" falls through to the Announcements page.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$page = 'dashboard' === sanitize_key( (string) hp\get_array_value( $_POST, 'origin' ) ) ? 'index.php' : 'admin.php?page=hp_notification_broadcast';
+
+		return add_query_arg( $args, admin_url( $page ) );
 	}
 
 	/**
@@ -398,7 +680,7 @@ final class Notification_Broadcast extends Component {
 		$role = sanitize_key( (string) hp\get_array_value( $_POST, 'role' ) );
 
 		if ( ! $text || ! hp\get_array_value( $_POST, 'confirm' ) ) {
-			wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast' ) );
+			wp_safe_redirect( $this->get_redirect_url() );
 
 			exit;
 		}
@@ -428,14 +710,17 @@ final class Notification_Broadcast extends Component {
 			}
 
 			if ( $unresolved || ! $user_ids ) {
-				wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&error=' . rawurlencode( implode( ', ', array_slice( $unresolved ? $unresolved : [ '—' ], 0, 10 ) ) ) ) );
+				wp_safe_redirect( $this->get_redirect_url( [ 'error' => rawurlencode( implode( ', ', array_slice( $unresolved ? $unresolved : [ '—' ], 0, 10 ) ) ) ] ) );
 
 				exit;
 			}
 
-			$count = $this->dispatch_user_ids( $text, $url, array_unique( $user_ids ) );
+			$user_ids = array_values( array_unique( $user_ids ) );
+			$count    = $this->dispatch_user_ids( $text, $url, $user_ids );
 
-			wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&sent=' . absint( $count ) ) );
+			$this->log_broadcast( $text, $url, $role, $count, $user_ids );
+
+			wp_safe_redirect( $this->get_redirect_url( [ 'sent' => absint( $count ) ] ) );
 
 			exit;
 		}
@@ -444,7 +729,9 @@ final class Notification_Broadcast extends Component {
 		if ( '_vendors' === $role ) {
 			$count = $this->dispatch_user_ids( $text, $url, $this->get_vendor_user_ids() );
 
-			wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&sent=' . absint( $count ) ) );
+			$this->log_broadcast( $text, $url, $role, $count );
+
+			wp_safe_redirect( $this->get_redirect_url( [ 'sent' => absint( $count ) ] ) );
 
 			exit;
 		}
@@ -467,12 +754,190 @@ final class Notification_Broadcast extends Component {
 
 		// Send the first batch now, so a small site sees it land straight away, and let the
 		// scheduler carry the rest. Notifying thousands of users inside one request would time out.
-		// The context makes this broadcast's batches unique, because the scheduler drops an action
-		// whose hook and arguments it has already queued, and the same announcement sent twice is
-		// a thing an admin is allowed to do.
-		$this->send_batch( $text, $url, $role, 0, time() );
+		// The context makes this broadcast's batches unique, because the HivePress scheduler
+		// silently drops an action whose hook and arguments are already queued, and the same
+		// announcement sent twice is a thing an admin is allowed to do. uniqid() rather than
+		// time(): two identical sends inside the same second must still both go out.
+		$this->send_batch( $text, $url, $role, 0, uniqid() );
 
-		wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&sent=' . absint( $count ) ) );
+		$this->log_broadcast( $text, $url, $role, $count );
+
+		wp_safe_redirect( $this->get_redirect_url( [ 'sent' => absint( $count ) ] ) );
+
+		exit;
+	}
+
+	/**
+	 * Records a sent announcement.
+	 *
+	 * Announcements are fire and forget: once sent there was no way to see what had gone out, to
+	 * whom, or when, which makes it easy to send the same thing twice or to lose the wording of
+	 * something worth repeating. The log is a capped option rather than a table because it is a
+	 * short admin-facing list, never queried by anything else, and should disappear cleanly on
+	 * uninstall.
+	 *
+	 * @param string $text Message text.
+	 * @param string $url Message URL.
+	 * @param string $role Audience key.
+	 * @param int    $count Recipient count.
+	 * @param array  $user_ids Explicit recipients, for a send to named users.
+	 */
+	protected function log_broadcast( $text, $url, $role, $count, $user_ids = [] ) {
+		$log = get_option( self::LOG_OPTION );
+
+		if ( ! is_array( $log ) ) {
+			$log = [];
+		}
+
+		array_unshift(
+			$log,
+			[
+				'id'       => uniqid(),
+				'text'     => (string) $text,
+				'url'      => (string) $url,
+				'role'     => (string) $role,
+				'count'    => absint( $count ),
+				'sent'     => current_time( 'mysql' ),
+				'sender'   => get_current_user_id(),
+
+				// Only kept for a send to named people, so Resend reaches the same list rather
+				// than guessing. Capped: a huge list belongs to a role send anyway.
+				'user_ids' => array_slice( array_map( 'absint', (array) $user_ids ), 0, 200 ),
+			]
+		);
+
+		update_option( self::LOG_OPTION, array_slice( $log, 0, self::LOG_LIMIT ), false );
+	}
+
+	/**
+	 * Gets the sent announcements, newest first.
+	 *
+	 * @return array
+	 */
+	public function get_log() {
+		$log = get_option( self::LOG_OPTION );
+
+		return is_array( $log ) ? $log : [];
+	}
+
+	/**
+	 * Describes an audience key in words.
+	 *
+	 * Resolved at display time rather than stored, so a renamed role reads correctly afterwards.
+	 *
+	 * @param array $entry Log entry.
+	 * @return string
+	 */
+	protected function get_audience_label( $entry ) {
+		$role = (string) hp\get_array_value( $entry, 'role' );
+
+		if ( '_users' === $role ) {
+			$names = [];
+
+			foreach ( (array) hp\get_array_value( $entry, 'user_ids', [] ) as $user_id ) {
+				$user = get_userdata( $user_id );
+
+				if ( $user ) {
+					$names[] = $user->display_name;
+				}
+			}
+
+			if ( ! $names ) {
+				return esc_html__( 'Named people', 'notifications-for-hivepress' );
+			}
+
+			// A long list is summarised rather than filling the column.
+			if ( count( $names ) > 3 ) {
+				return sprintf(
+					/* translators: %1$s: names, %2$s: number of further people. */
+					esc_html__( '%1$s and %2$s more', 'notifications-for-hivepress' ),
+					implode( ', ', array_slice( $names, 0, 3 ) ),
+					number_format_i18n( count( $names ) - 3 )
+				);
+			}
+
+			return implode( ', ', $names );
+		}
+
+		if ( '_vendors' === $role ) {
+			return esc_html__( 'Vendors', 'notifications-for-hivepress' );
+		}
+
+		if ( ! $role ) {
+			return esc_html__( 'Everyone', 'notifications-for-hivepress' );
+		}
+
+		$names = wp_roles()->get_names();
+
+		return isset( $names[ $role ] ) ? translate_user_role( $names[ $role ] ) : $role;
+	}
+
+	/**
+	 * Sends a logged announcement again.
+	 *
+	 * Deliberately a fresh send to the audience as it stands today, not a replay to the original
+	 * recipients: a role that has grown should reach its new members. A send to named people is
+	 * the exception, because there the list was the point.
+	 */
+	public function resend_broadcast() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'notifications-for-hivepress' ) );
+		}
+
+		check_admin_referer( 'hp_notification_broadcast_resend' );
+
+		$id    = sanitize_text_field( wp_unslash( (string) hp\get_array_value( $_POST, 'entry' ) ) );
+		$entry = null;
+
+		foreach ( $this->get_log() as $logged ) {
+			if ( hp\get_array_value( $logged, 'id' ) === $id ) {
+				$entry = $logged;
+
+				break;
+			}
+		}
+
+		if ( ! $entry ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&view=history' ) );
+
+			exit;
+		}
+
+		$text = (string) hp\get_array_value( $entry, 'text' );
+		$url  = (string) hp\get_array_value( $entry, 'url' );
+		$role = (string) hp\get_array_value( $entry, 'role' );
+
+		if ( '_users' === $role ) {
+			$user_ids = array_values( array_filter( array_map( 'absint', (array) hp\get_array_value( $entry, 'user_ids', [] ) ) ) );
+			$count    = $this->dispatch_user_ids( $text, $url, $user_ids );
+
+			$this->log_broadcast( $text, $url, $role, $count, $user_ids );
+		} elseif ( '_vendors' === $role ) {
+			$count = $this->dispatch_user_ids( $text, $url, $this->get_vendor_user_ids() );
+
+			$this->log_broadcast( $text, $url, $role, $count );
+		} else {
+			if ( $role && ! wp_roles()->is_role( $role ) ) {
+				$role = '';
+			}
+
+			$count = ( new \WP_User_Query(
+				array_filter(
+					[
+						'role'        => $role,
+						'fields'      => 'ID',
+						'number'      => 1,
+						'count_total' => true,
+					]
+				)
+			) )->get_total();
+
+			$this->send_batch( $text, $url, $role, 0, uniqid() );
+
+			$this->log_broadcast( $text, $url, $role, $count );
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&view=history&sent=' . absint( $count ) ) );
 
 		exit;
 	}
@@ -492,7 +957,9 @@ final class Notification_Broadcast extends Component {
 			return 0;
 		}
 
-		$context = time();
+		// uniqid() rather than time(): the scheduler drops duplicate hook + args, and two
+		// identical announcements sent within the same second must still both deliver.
+		$context = uniqid();
 		$chunks  = array_chunk( $user_ids, $this->number );
 
 		// The first chunk goes now; the rest ride the scheduler a minute apart.
@@ -527,9 +994,9 @@ final class Notification_Broadcast extends Component {
 	 * @param string $text Message text.
 	 * @param string $url Message URL.
 	 * @param array  $user_ids User IDs.
-	 * @param int    $context Broadcast context.
+	 * @param string $context Broadcast context.
 	 */
-	public function send_users_batch( $text, $url, $user_ids, $context = 0 ) {
+	public function send_users_batch( $text, $url, $user_ids, $context = '' ) {
 		foreach ( array_map( 'absint', (array) $user_ids ) as $user_id ) {
 
 			// Skip anything that isn't a real user ID.
@@ -562,9 +1029,9 @@ final class Notification_Broadcast extends Component {
 	 * @param string $url Message URL.
 	 * @param string $role User role.
 	 * @param int    $offset Batch offset.
-	 * @param int    $context Broadcast context.
+	 * @param string $context Broadcast context.
 	 */
-	public function send_batch( $text, $url, $role, $offset, $context = 0 ) {
+	public function send_batch( $text, $url, $role, $offset, $context = '' ) {
 		$offset = absint( $offset );
 
 		// Get users.

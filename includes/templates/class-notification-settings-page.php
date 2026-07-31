@@ -52,7 +52,7 @@ class Notification_Settings_Page extends User_Account_Page {
 				'type'    => 'content',
 				'_order'  => 20,
 
-				'content' => '<div class="hp-notification-push" data-component="notification-push-setup" hidden data-label-enable="' . esc_attr__( 'Enable push notifications on this device', 'notifications-for-hivepress' ) . '" data-label-enabled="' . esc_attr__( 'Push notifications are on for this device.', 'notifications-for-hivepress' ) . '" data-label-blocked="' . esc_attr__( 'Push notifications are blocked for this site in your browser settings.', 'notifications-for-hivepress' ) . '" data-label-working="' . esc_attr__( 'Waiting for your browser…', 'notifications-for-hivepress' ) . '"><button type="button" class="button"></button><span class="hp-notification-push__status"></span></div>',
+				'content' => '<div class="hp-notification-push" data-component="notification-push-setup" hidden data-label-enable="' . esc_attr__( 'Enable push notifications on this device', 'notifications-for-hivepress' ) . '" data-label-enabled="' . esc_attr__( 'Push notifications are on for this device.', 'notifications-for-hivepress' ) . '" data-label-blocked="' . esc_attr__( 'Push notifications are blocked for this site in your browser settings.', 'notifications-for-hivepress' ) . '" data-label-working="' . esc_attr__( 'Waiting for your browser…', 'notifications-for-hivepress' ) . '"><button type="button" class="hp-button button button--primary"></button><span class="hp-notification-push__status"></span></div>',
 			];
 		}
 

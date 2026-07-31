@@ -14,8 +14,81 @@
 	// Pop-ups already shown this page view, so polling never repeats one.
 	var seen = {};
 
+	// Notifications the service worker has already announced through the operating system.
+	//
+	// This is kept in localStorage rather than a variable because the suppression has to outlive
+	// the page that was told about it. The worker messages whichever tabs happen to exist the
+	// instant the push arrives, but the pop-up for that same notification is rendered later - after
+	// an idle callback, after a hidden tab comes back, or by a different tab entirely - and a
+	// reload in between wiped the record. The result was the OS and the page both announcing one
+	// notification. localStorage is shared by every tab on the origin and survives a reload, so
+	// whoever ends up rendering knows it has already been announced.
+	var SHOWN_KEY = 'hp_notification_shown';
+	var SHOWN_TTL = 3600000;
+
+	// Mirrors the stored set, so suppression still works where storage is unavailable.
+	var shown = {};
+
 	// The tab title before any unread count is prefixed to it.
 	var baseTitle = document.title.replace( /^\(\d+\)\s+/, '' );
+
+	/**
+	 * Reads the set of notifications the operating system has announced.
+	 *
+	 * @return {Object}
+	 */
+	function readShown() {
+		try {
+			var stored = JSON.parse( window.localStorage.getItem( SHOWN_KEY ) || '{}' );
+
+			return stored && 'object' === typeof stored ? stored : {};
+		} catch ( error ) {
+
+			// Storage can be unavailable or hold something else entirely. Neither is worth an error.
+			return {};
+		}
+	}
+
+	/**
+	 * Records that the operating system has announced a notification.
+	 *
+	 * @param {number} id Notification ID.
+	 */
+	function markShown( id ) {
+		shown[ id ] = true;
+
+		var stored = readShown();
+		var cutoff = Date.now() - SHOWN_TTL;
+
+		// Pruned on every write, so the entry can't grow without bound on a busy site.
+		Object.keys( stored ).forEach( function( key ) {
+			if ( ! stored[ key ] || stored[ key ] < cutoff ) {
+				delete stored[ key ];
+			}
+		} );
+
+		stored[ id ] = Date.now();
+
+		try {
+			window.localStorage.setItem( SHOWN_KEY, JSON.stringify( stored ) );
+		} catch ( error ) {}
+	}
+
+	/**
+	 * Says whether the operating system has already announced a notification.
+	 *
+	 * @param {number} id Notification ID.
+	 * @return {boolean}
+	 */
+	function wasShown( id ) {
+		if ( shown[ id ] ) {
+			return true;
+		}
+
+		var stored = readShown();
+
+		return !! stored[ id ] && stored[ id ] > Date.now() - SHOWN_TTL;
+	}
 
 	/**
 	 * Sends a request to the HivePress API.
@@ -25,7 +98,7 @@
 	 * @param {string} method Request method.
 	 * @return {Promise}
 	 */
-	function request( path, data, method ) {
+	function request( path, data, method, keepalive ) {
 		var args = {
 			method: method || 'POST',
 			credentials: 'same-origin',
@@ -37,6 +110,13 @@
 		if ( 'GET' !== args.method ) {
 			args.headers['Content-Type'] = 'application/json';
 			args.body = JSON.stringify( data || {} );
+		}
+
+		// Requests sent as someone follows a link have to outlive the page. Without this the
+		// browser cancels the fetch the moment it navigates, so the notification was never marked
+		// read and the open was never counted - which is why opens always showed as zero.
+		if ( keepalive ) {
+			args.keepalive = true;
 		}
 
 		return window.fetch( settings.apiURL + path, args ).then( function( response ) {
@@ -83,10 +163,20 @@
 		// Put the unread count in the tab title, so a backgrounded tab still says so.
 		document.title = count ? '(' + count + ') ' + baseTitle : baseTitle;
 
-		[
-			document.querySelector( '.hp-menu__item--notifications-view a' ),
-			document.querySelector( '.hp-notification-bell__toggle' )
-		].forEach( function( item ) {
+		// Every instance, not the first. Themes render the account menu several times over - a
+		// desktop menu, a mobile one, an off-canvas one and the account sidebar - so updating only
+		// the first match left the others showing the old number.
+		var targets = [];
+
+		Array.prototype.forEach.call( document.querySelectorAll( '.hp-menu__item--notifications-view a' ), function( item ) {
+			targets.push( item );
+		} );
+
+		Array.prototype.forEach.call( document.querySelectorAll( '.hp-notification-bell__toggle' ), function( item ) {
+			targets.push( item );
+		} );
+
+		targets.forEach( function( item ) {
 			if ( ! item ) {
 				return;
 			}
@@ -108,6 +198,39 @@
 
 			badge.textContent = String( count );
 		} );
+
+		syncListHeader( count );
+	}
+
+	/**
+	 * Brings the notification page's own header into line with the count.
+	 *
+	 * The page prints "7 unread" and a "Mark all as read" button server-side. Marking something
+	 * read without reloading used to leave both untouched, so the page contradicted its own badge.
+	 *
+	 * @param {number} count Unread count.
+	 */
+	function syncListHeader( count ) {
+		var summary = document.querySelector( '[data-component="notifications-count"]' );
+
+		if ( summary ) {
+			if ( count ) {
+				summary.textContent = ( 1 === count ? settings.unreadOneText : settings.unreadText ).replace( '%s', String( count ) );
+				summary.classList.remove( 'hp-notifications__count--clear' );
+			} else {
+				summary.textContent = settings.caughtUpText;
+				summary.classList.add( 'hp-notifications__count--clear' );
+			}
+		}
+
+		// Nothing left to mark, so the button goes - hidden rather than removed, because a
+		// notification arriving while the page is open makes it useful again and a removed button
+		// would have taken its click handler with it.
+		var readAll = document.querySelector( '[data-component="notifications-read-all"]' );
+
+		if ( readAll ) {
+			readAll.hidden = ! count;
+		}
 	}
 
 	/**
@@ -121,6 +244,14 @@
 	function buildVisual( notification, className ) {
 		var visual = document.createElement( 'div' );
 		visual.className = className;
+
+		// A notification can carry its own colour, which is how a badge award shows the badge's own
+		// colour rather than the shared accent. Only a six digit hex is accepted, so nothing from
+		// the server can turn into arbitrary CSS here.
+		if ( notification.color && /^#[0-9a-f]{6}$/i.test( notification.color ) ) {
+			visual.style.backgroundColor = notification.color;
+			visual.style.color = '#ffffff';
+		}
 
 		if ( notification.image ) {
 			var image = document.createElement( 'img' );
@@ -244,7 +375,7 @@
 		 * @param {Object} notification Notification data.
 		 */
 		add: function( notification ) {
-			if ( seen[ notification.id ] ) {
+			if ( seen[ notification.id ] || wasShown( notification.id ) ) {
 				return;
 			}
 
@@ -266,6 +397,14 @@
 		 */
 		show: function( notification ) {
 			var self = this;
+
+			// Checked again here, not only when the pop-up was queued. A pop-up waits when the
+			// on-screen limit is reached, and a queue deferred by a hidden tab is drained whenever
+			// that tab comes back, so minutes can pass between the two - long enough for the
+			// operating system to have announced this one in the meantime.
+			if ( wasShown( notification.id ) ) {
+				return;
+			}
 
 			this.visible += 1;
 
@@ -345,10 +484,15 @@
 
 			Chime.play();
 
-			// Trigger the entry transition once the pop-up is in the document.
-			window.requestAnimationFrame( function() {
+			// Trigger the entry transition once the pop-up is in the document. The timer is a
+			// safety net: requestAnimationFrame does not run in a background tab, and without it a
+			// pop-up could sit at opacity 0 for its whole life and then be removed unseen.
+			var reveal = function() {
 				toast.classList.add( 'hp-notification-toast--visible' );
-			} );
+			};
+
+			window.requestAnimationFrame( reveal );
+			window.setTimeout( reveal, 50 );
 		},
 
 		/**
@@ -371,7 +515,10 @@
 
 				self.visible -= 1;
 
-				if ( self.waiting.length ) {
+				// A waiting pop-up may have been announced by the operating system while it sat in
+				// the queue, in which case show() drops it. Looping means the freed slot goes to
+				// the next one that still needs showing instead of being left idle.
+				while ( self.waiting.length && self.visible < settings.limit ) {
 					self.show( self.waiting.shift() );
 				}
 			}, 240 );
@@ -384,27 +531,254 @@
 		 * @param {boolean} clicked Whether it was followed.
 		 */
 		markRead: function( id, clicked ) {
+
+			// A click is usually a navigation, so the request is sent keepalive to survive it.
 			request( '/notifications/read', {
 				ids: [ id ],
 				clicked: clicked ? 1 : 0
-			} ).then( function( response ) {
+			}, 'POST', !! clicked ).then( function( response ) {
 				setBadge( response.data.unread );
 			} ).catch( function() {} );
 		}
 	};
 
+	// Set when a queue check was skipped because the tab was hidden, so it runs on return.
+	var queueDeferred = false;
+
 	/**
 	 * Fetches and shows the pending pop-ups.
+	 *
+	 * Reading the queue empties it server-side, so it is only read while the tab can actually paint.
+	 * Fetching it in a hidden tab used to consume the notifications and then discard them unseen,
+	 * losing them permanently for anyone who left the site open in a second tab.
 	 */
 	function checkQueue() {
-		request( '/notifications/queue' ).then( function( response ) {
-			setBadge( response.data.unread );
+		if ( 'visible' !== document.visibilityState ) {
+			queueDeferred = true;
 
+			return;
+		}
+
+		queueDeferred = false;
+
+		request( '/notifications/queue' ).then( function( response ) {
 			response.data.notifications.forEach( function( notification ) {
 				Toasts.add( notification );
+				List.insert( notification );
 			} );
+
+			// After the rows, so the header count and the rows below it agree.
+			setBadge( response.data.unread );
 		} ).catch( function() {} );
 	}
+
+	/**
+	 * Refreshes the unread count on its own.
+	 *
+	 * Reading the queue is the other way to get this number, but that empties the queue, so it can
+	 * only be done by a tab that can actually paint the pop-ups. This endpoint reads the same single
+	 * meta value and changes nothing, which is what a hidden tab needs: the badge and the tab title
+	 * stay honest while its pop-ups keep waiting for it to come back.
+	 */
+	function refreshCount() {
+		request( '/notifications/count', null, 'GET' ).then( function( response ) {
+			setBadge( response.data.unread );
+		} ).catch( function() {} );
+	}
+
+	/**
+	 * Keeps the notifications page in step with what arrives while it is open.
+	 *
+	 * Someone sitting on their notifications page used to watch the count go up while the list
+	 * below it stayed exactly as it was, so the page contradicted itself until it was reloaded.
+	 */
+	var List = {
+		root: null,
+		ready: false,
+
+		/**
+		 * Finds the list, once.
+		 */
+		init: function() {
+			this.ready = true;
+			this.root  = document.querySelector( '[data-component="notifications-list"]' );
+		},
+
+		/**
+		 * Adds a notification to the top of the list.
+		 *
+		 * @param {Object} notification Notification data.
+		 */
+		insert: function( notification ) {
+			if ( ! this.ready ) {
+				this.init();
+			}
+
+			// Only a plain first page can take a new row. A filtered or searched list might
+			// legitimately exclude this notification, and the newest thing does not belong on page
+			// two of a list ordered newest first; in both cases it appears on the next load, as it
+			// always has. The server decides, because only it knows which page this is.
+			if ( ! this.root || '1' !== this.root.getAttribute( 'data-live' ) ) {
+				return;
+			}
+
+			var id = parseInt( notification.id, 10 );
+
+			if ( ! id || this.root.querySelector( '.hp-notification[data-id="' + id + '"]' ) ) {
+				return;
+			}
+
+			var list = this.getTodayList();
+
+			if ( ! list ) {
+				return;
+			}
+
+			list.insertBefore( this.buildRow( notification, id ), list.firstChild );
+
+			// There is now something to clear, on a page that may have loaded with nothing.
+			var clear = this.root.querySelector( '[data-component="notifications-delete-read"]' );
+
+			if ( clear ) {
+				clear.hidden = false;
+			}
+		},
+
+		/**
+		 * Gets today's group, creating it when the page has none.
+		 *
+		 * @return {Element|null}
+		 */
+		getTodayList: function() {
+
+			// A list that was empty is not empty any more.
+			var empty = this.root.querySelector( '.hp-notifications__empty' );
+
+			if ( empty ) {
+				empty.remove();
+			}
+
+			var section = this.root.querySelector( '.hp-notifications__group[data-today="1"]' );
+
+			if ( section ) {
+				return section.querySelector( '.hp-notifications__list' );
+			}
+
+			section = document.createElement( 'section' );
+			section.className = 'hp-notifications__group';
+			section.setAttribute( 'data-today', '1' );
+
+			var heading = document.createElement( 'h3' );
+			heading.className = 'hp-notifications__date';
+			heading.textContent = settings.todayText;
+
+			var list = document.createElement( 'ul' );
+			list.className = 'hp-notifications__list';
+
+			section.appendChild( heading );
+			section.appendChild( list );
+
+			// Above every other group, because the list runs newest first.
+			var first = this.root.querySelector( '.hp-notifications__group' );
+
+			if ( first ) {
+				this.root.insertBefore( section, first );
+			} else {
+				this.root.appendChild( section );
+			}
+
+			return list;
+		},
+
+		/**
+		 * Builds a row matching the ones the template renders.
+		 *
+		 * @param {Object} notification Notification data.
+		 * @param {number} id Notification ID.
+		 * @return {Element}
+		 */
+		buildRow: function( notification, id ) {
+			var row = document.createElement( 'li' );
+			row.className = 'hp-notification hp-notification--unread';
+			row.setAttribute( 'data-id', String( id ) );
+
+			// The same builder the pop-ups use, so a badge award shows its own icon and colour here
+			// too rather than the shared accent.
+			row.appendChild( buildVisual( notification, 'hp-notification__icon' ) );
+
+			var body = document.createElement( 'div' );
+			body.className = 'hp-notification__body';
+
+			var type = document.createElement( 'span' );
+			type.className = 'hp-notification__type';
+			type.textContent = notification.type || '';
+
+			body.appendChild( type );
+
+			// textContent throughout, never innerHTML: the text carries values a visitor supplied,
+			// such as a listing title or a display name.
+			var url = safeUrl( notification.url );
+			var text = document.createElement( url ? 'a' : 'span' );
+			text.className = 'hp-notification__text';
+			text.textContent = notification.text;
+
+			if ( url ) {
+				text.href = url;
+			}
+
+			body.appendChild( text );
+
+			if ( url ) {
+				var link = document.createElement( 'a' );
+				link.className = 'hp-notification__link';
+				link.href = url;
+				link.innerHTML = '<span></span><i class="hp-icon fas fa-chevron-right"></i>';
+				link.querySelector( 'span' ).textContent = notification.link_label || settings.viewText;
+
+				body.appendChild( link );
+			}
+
+			if ( notification.time ) {
+				var time = document.createElement( 'time' );
+				time.className = 'hp-notification__time';
+				time.textContent = notification.time;
+
+				if ( notification.datetime ) {
+					time.setAttribute( 'datetime', notification.datetime );
+				}
+
+				body.appendChild( time );
+			}
+
+			row.appendChild( body );
+
+			var controls = document.createElement( 'div' );
+			controls.className = 'hp-notification__controls';
+
+			// The list binds its controls by delegation, so a row built here answers to the tick
+			// and the cross with no extra wiring.
+			var toggle = document.createElement( 'button' );
+			toggle.type = 'button';
+			toggle.className = 'hp-notification__toggle';
+			toggle.setAttribute( 'data-component', 'notification-toggle' );
+			toggle.setAttribute( 'aria-label', settings.readText );
+			toggle.setAttribute( 'title', settings.readText );
+			toggle.innerHTML = '<i class="hp-icon fas fa-check"></i>';
+
+			var remove = document.createElement( 'button' );
+			remove.type = 'button';
+			remove.className = 'hp-notification__delete';
+			remove.setAttribute( 'data-component', 'notification-delete' );
+			remove.setAttribute( 'aria-label', settings.deleteText );
+			remove.innerHTML = '<i class="hp-icon fas fa-times"></i>';
+
+			controls.appendChild( toggle );
+			controls.appendChild( remove );
+			row.appendChild( controls );
+
+			return row;
+		}
+	};
 
 	/**
 	 * Checks for new notifications while the tab is open.
@@ -432,7 +806,13 @@
 		}, interval * 1000 );
 
 		document.addEventListener( 'visibilitychange', function() {
-			if ( 'visible' === document.visibilityState && Date.now() - last > interval * 1000 ) {
+			if ( 'visible' !== document.visibilityState ) {
+				return;
+			}
+
+			// Run on return either because the interval lapsed, or because a check was deferred
+			// while the tab was hidden and its pop-ups are still waiting to be shown.
+			if ( queueDeferred || Date.now() - last > interval * 1000 ) {
 				last = Date.now();
 
 				checkQueue();
@@ -657,6 +1037,15 @@
 			open.onerror = function() {
 				reject( open.error );
 			};
+
+			// Without this the promise could hang for ever. A version change waits for every other
+			// connection to the database to close, and the service worker holds one of its own, so
+			// with a second tab open neither onsuccess nor onerror ever fires. Nothing downstream
+			// settled either, which is how the push button was left reading "Waiting for your
+			// browser" minutes after the subscription had actually succeeded.
+			open.onblocked = function() {
+				reject( new Error( 'Blocked' ) );
+			};
 		} );
 	}
 
@@ -722,9 +1111,13 @@
 			return;
 		}
 
-		// Count the visit.
+		// Count the visit. A visit is one browsing session, not one page view, so the counter
+		// only moves once per session; without this, "ask after 3 visits" would really mean
+		// "ask three page loads in". Where sessionStorage is unavailable the count falls back
+		// to page views, which only means the prompt waits less.
 		var name = settings.push.views + '=';
 		var views = 0;
+		var counted = false;
 
 		document.cookie.split( ';' ).forEach( function( cookie ) {
 			cookie = cookie.trim();
@@ -734,9 +1127,21 @@
 			}
 		} );
 
-		views += 1;
+		try {
+			counted = !! window.sessionStorage.getItem( settings.push.views );
 
-		document.cookie = settings.push.views + '=' + views + ';path=/;max-age=31536000;samesite=lax';
+			if ( ! counted ) {
+				window.sessionStorage.setItem( settings.push.views, '1' );
+			}
+		} catch ( e ) {
+			counted = false;
+		}
+
+		if ( ! counted ) {
+			views += 1;
+
+			document.cookie = settings.push.views + '=' + views + ';path=/;max-age=31536000;samesite=lax';
+		}
 
 		if ( views <= settings.push.delay ) {
 			return;
@@ -897,11 +1302,17 @@
 		function show( state ) {
 			box.hidden = false;
 
+			// A hidden button keeps whatever label it had, and "Waiting for your browser…" left
+			// behind on a button that has done its job reads as the wrong state to anything going
+			// by button text - a tester, a screen reader walking hidden content, or a script. The
+			// label goes back to the offer it represents whenever the button leaves the screen.
 			if ( 'enabled' === state ) {
 				button.hidden      = true;
+				button.textContent = box.dataset.labelEnable;
 				status.textContent = box.dataset.labelEnabled;
 			} else if ( 'blocked' === state ) {
 				button.hidden      = true;
+				button.textContent = box.dataset.labelEnable;
 				status.textContent = box.dataset.labelBlocked;
 			} else {
 				button.hidden      = false;
@@ -911,11 +1322,25 @@
 			}
 		}
 
-		// Someone who has already said yes might still lack a subscription on this device, so
-		// the button stays available until one actually exists.
-		if ( 'denied' === window.Notification.permission ) {
-			show( 'blocked' );
-		} else if ( 'granted' === window.Notification.permission ) {
+		/**
+		 * Sets the state from what the browser actually reports, rather than from what the last
+		 * step happened to return.
+		 */
+		function refresh() {
+			if ( 'denied' === window.Notification.permission ) {
+				show( 'blocked' );
+
+				return;
+			}
+
+			if ( 'granted' !== window.Notification.permission ) {
+				show( 'default' );
+
+				return;
+			}
+
+			// Someone who has already said yes might still lack a subscription on this device, so
+			// the button stays available until one actually exists.
 			window.navigator.serviceWorker.getRegistration( '/' ).then( function( registration ) {
 				return registration ? registration.pushManager.getSubscription() : null;
 			} ).then( function( subscription ) {
@@ -923,27 +1348,42 @@
 			} ).catch( function() {
 				show( 'default' );
 			} );
-		} else {
-			show( 'default' );
 		}
+
+		refresh();
 
 		button.addEventListener( 'click', function() {
 			button.disabled    = true;
 			button.textContent = box.dataset.labelWorking;
 
+			// However this ends, the button ends up showing the state the browser is really in.
+			// Reporting success straight from the promise chain meant that a step which neither
+			// resolved nor rejected left the button on its working label for good: a blocked
+			// IndexedDB upgrade did exactly that, and the button still read "Waiting for your
+			// browser" eight minutes after the subscription had in fact succeeded.
+			var settled = false;
+
+			var settle = function() {
+				if ( settled ) {
+					return;
+				}
+
+				settled = true;
+
+				refresh();
+			};
+
 			window.Notification.requestPermission().then( function( permission ) {
 				if ( 'granted' !== permission ) {
-					show( 'denied' === permission ? 'blocked' : 'default' );
-
 					return null;
 				}
 
-				return subscribePush().then( function() {
-					show( 'enabled' );
-				} );
-			} ).catch( function() {
-				show( 'default' );
-			} );
+				// Only the machine steps get a deadline. The prompt itself has none, because how
+				// long someone takes to answer it is their business.
+				window.setTimeout( settle, 15000 );
+
+				return subscribePush();
+			} ).then( settle, settle );
 		} );
 	}
 
@@ -966,6 +1406,24 @@
 			} );
 		}
 
+		/**
+		 * Points a row's tick at whatever it will do next.
+		 *
+		 * The icon was being flipped without the label, so a read row still announced itself as
+		 * "Mark as read" while clicking it marked the row unread. A screen reader had no way to
+		 * tell, and it misled a sighted tester too.
+		 *
+		 * @param {Element} toggle Toggle button.
+		 * @param {boolean} read Whether the row is now read.
+		 */
+		function setToggleState( toggle, read ) {
+			var label = read ? settings.markUnreadText : settings.readText;
+
+			toggle.setAttribute( 'aria-label', label );
+			toggle.setAttribute( 'title', label );
+			toggle.querySelector( 'i' ).className = 'hp-icon fas fa-' + ( read ? 'envelope' : 'check' );
+		}
+
 		// Mark everything as read.
 		var readAll = list.querySelector( '[data-component="notifications-read-all"]' );
 
@@ -980,11 +1438,11 @@
 						item.classList.remove( 'hp-notification--unread' );
 					} );
 
-					list.querySelectorAll( '.hp-notification__toggle i' ).forEach( function( icon ) {
-						icon.className = 'hp-icon fas fa-envelope';
+					list.querySelectorAll( '.hp-notification__toggle' ).forEach( function( toggle ) {
+						setToggleState( toggle, true );
 					} );
 
-					readAll.remove();
+					readAll.disabled = false;
 				} ).catch( function() {
 					readAll.disabled = false;
 				} );
@@ -1034,6 +1492,10 @@
 
 					var undo = document.createElement( 'button' );
 					undo.type = 'button';
+
+					// The theme's own button classes, so Undo matches every other button on the
+					// page rather than being styled by us.
+					undo.className = 'hp-button button button--secondary';
 					undo.textContent = settings.undoText;
 
 					chip.appendChild( label );
@@ -1082,7 +1544,7 @@
 					setBadge( response.data.unread );
 
 					row.classList.toggle( 'hp-notification--unread', ! unread );
-					toggle.querySelector( 'i' ).className = 'hp-icon fas fa-' + ( unread ? 'envelope' : 'check' );
+					setToggleState( toggle, unread );
 					toggle.disabled = false;
 				} ).catch( function() {
 					toggle.disabled = false;
@@ -1127,9 +1589,47 @@
 			} );
 		}
 
+		// The worker announces every push through the operating system, because a subscription that
+		// stays silent gets throttled by the browser. It then says which notification it showed, so
+		// the page skips its own pop-up for that one and nothing is announced twice.
+		//
+		// Everything except the pop-up still has to happen. Bumping the count and adding the row
+		// used to ride along with the pop-up render, so skipping the pop-up silently stopped both
+		// and the page sat on a stale number - five behind, in one staging run - until it was
+		// reloaded. This listener is also outside the pop-ups check below, because a site with
+		// pop-ups switched off still has a count to keep honest.
+		if ( 'serviceWorker' in window.navigator ) {
+			window.navigator.serviceWorker.addEventListener( 'message', function( event ) {
+				if ( ! event.data || 'hp-notification-shown' !== event.data.type || ! event.data.id ) {
+					return;
+				}
+
+				markShown( event.data.id );
+
+				// Reading the queue empties it, so a hidden tab takes the count only and leaves its
+				// pop-ups waiting for it to come back.
+				if ( 'visible' === document.visibilityState ) {
+					checkQueue();
+				} else {
+					queueDeferred = true;
+
+					refreshCount();
+				}
+			} );
+		}
+
 		if ( ! settings.toasts ) {
 			return;
 		}
+
+		// Flush a deferred queue whenever the tab comes back, whatever the poll setting. Polling
+		// adds its own interval on top; without this listener a page opened in a background tab
+		// with polling switched off would never show its pop-ups at all.
+		document.addEventListener( 'visibilitychange', function() {
+			if ( 'visible' === document.visibilityState && queueDeferred ) {
+				checkQueue();
+			}
+		} );
 
 		// Wait for an idle moment so the pop-up request never competes with rendering.
 		if ( window.requestIdleCallback ) {

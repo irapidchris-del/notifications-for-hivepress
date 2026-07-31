@@ -1,0 +1,1027 @@
+# Copyright (C) 2026 ChrisB
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Notifications for HivePress 1.9.11\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/notifications-for-hivepress\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-31T18:46:24+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: notifications-for-hivepress\n"
+
+#. Plugin Name of the plugin
+#: notifications-for-hivepress.php
+msgid "Notifications for HivePress"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: notifications-for-hivepress.php
+msgid "https://github.com/irapidchris-del/notifications-for-hivepress"
+msgstr ""
+
+#. Description of the plugin
+#: notifications-for-hivepress.php
+msgid "Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions."
+msgstr ""
+
+#. Author of the plugin
+#: notifications-for-hivepress.php
+msgid "ChrisB"
+msgstr ""
+
+#. Author URI of the plugin
+#: notifications-for-hivepress.php
+msgid "https://community.hivepress.io/u/chrisb"
+msgstr ""
+
+#: includes/blocks/class-notifications.php:194
+#: includes/components/class-notification.php:2241
+msgid "Today"
+msgstr ""
+
+#: includes/blocks/class-notifications.php:196
+msgid "Yesterday"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:91
+msgid "Announcement"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:107
+#: includes/components/class-notification-broadcast.php:108
+#: includes/components/class-notification-broadcast.php:189
+#: includes/components/class-notification-broadcast.php:579
+#: notifications-for-hivepress.php:101
+msgid "Announcements"
+msgstr ""
+
+#. translators: %s: number of users.
+#: includes/components/class-notification-broadcast.php:138
+#, php-format
+msgid "The announcement is on its way to %s user."
+msgid_plural "The announcement is on its way to %s users."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: the names that could not be matched.
+#: includes/components/class-notification-broadcast.php:156
+#, php-format
+msgid "Nothing was sent. These could not be matched to an account: %s"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:190
+#: includes/components/class-notification-broadcast.php:559
+#: includes/components/class-notification-privacy.php:179
+#: includes/controllers/class-notification.php:117
+#: includes/forms/class-notification-update.php:31
+#: includes/templates/class-notification-settings-page.php:31
+msgid "Notification Settings"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:204
+msgid "Send"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:206
+#: includes/components/class-notification-broadcast.php:636
+msgid "History"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:217
+msgid "Sends an on-site notification, and a push notification to anyone who has allowed those. Announcements are never emailed and cannot be opted out of, so use them sparingly."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:218
+msgid "Because there is no opt-out, each person's own channel choices are bypassed. Quiet hours are still respected: the announcement waits in their list rather than interrupting. Nothing is emailed, so an announcement will not reach anyone who has stopped visiting the site."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:225
+msgid "View delivery statistics"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:244
+msgid "Nothing sent yet. Announcements you send from the Send tab are listed here, with the wording, who received them and when."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:258
+msgid "The last announcement you sent. Resend sends it again to that audience as it stands today, not to the people who received it originally."
+msgstr ""
+
+#. translators: %s: number of announcements kept.
+#: includes/components/class-notification-broadcast.php:262
+#, php-format
+msgid "The last %s announcements you sent. Resend sends one again to that audience as it stands today, not to the people who received it originally."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:272
+#: includes/components/class-notification-broadcast.php:514
+msgid "Sent"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:273
+#: includes/components/class-notification-broadcast.php:403
+msgid "Message"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:274
+msgid "Audience"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:275
+msgid "Recipients"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:276
+msgid "Sent by"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:277
+msgid "Action"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:304
+msgid "Unknown"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:311
+msgid "Send this announcement again?"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:311
+msgid "Resend"
+msgstr ""
+
+#. translators: %s: number of users.
+#: includes/components/class-notification-broadcast.php:364
+#, php-format
+msgid "Everyone (%s user)"
+msgid_plural "Everyone (%s users)"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of users.
+#: includes/components/class-notification-broadcast.php:366
+#, php-format
+msgid "Vendors, whatever their role (%s user)"
+msgid_plural "Vendors, whatever their role (%s users)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/components/class-notification-broadcast.php:367
+msgid "Specific users…"
+msgstr ""
+
+#. translators: %1$s: role name, %2$s: number of users.
+#: includes/components/class-notification-broadcast.php:374
+#, php-format
+msgid "%1$s (%2$s user)"
+msgid_plural "%1$s (%2$s users)"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %user.display_name% is a literal token the admin types, not a placeholder.
+#: includes/components/class-notification-broadcast.php:381
+#, php-format
+msgid "Up to 256 characters. Type %user.display_name% anywhere in the message to greet each person by name."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:382
+msgid "Optional. Adds a View link to the notification, so people can go straight to whatever it is about."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:383
+msgid "Counts are live, so you can see how many people each choice reaches before you send. The roles are WordPress roles, which your site or another plugin may have changed: HivePress promotes someone to Contributor when their vendor profile is published, so your vendors are usually Contributors. Vendors reaches anyone with a vendor profile whatever their role, which is normally what you want."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:384
+msgid "Usernames or email addresses, separated by commas or spaces. Suggestions match as you type. If any name cannot be matched, nothing is sent at all, so a typo can never mean half an announcement."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:385
+msgid "Announcements cannot be opted out of and cannot be recalled once sent."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:410
+#: includes/components/class-notification-privacy.php:140
+msgid "Link"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:417
+msgid "Send To"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:428
+msgid "Users"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:436
+msgid "Confirm"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:440
+msgid "I understand this notifies everyone I have chosen."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:447
+msgid "Send Announcement"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:513
+msgid "Notification"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:515
+msgid "Opened"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:516
+msgid "Open Rate"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:536
+msgid "Anonymous counts. Switch this off under Settings, in the Delivery section."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:549
+#: includes/components/class-notification-broadcast.php:558
+msgid "Notification Statistics"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:549
+#: includes/configs/settings.php:297
+msgid "Statistics"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:565
+msgid "Nothing counted yet. Sent and opened totals appear here once notifications start flowing."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:634
+msgid "Announcements page"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:638
+#: notifications-for-hivepress.php:100
+#: templates/notification/view/page/notifications.php:71
+msgid "Settings"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:672
+#: includes/components/class-notification-broadcast.php:884
+msgid "Sorry, you are not allowed to do that."
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:846
+msgid "Named people"
+msgstr ""
+
+#. translators: %1$s: names, %2$s: number of further people.
+#: includes/components/class-notification-broadcast.php:853
+#, php-format
+msgid "%1$s and %2$s more"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:863
+msgid "Vendors"
+msgstr ""
+
+#: includes/components/class-notification-broadcast.php:867
+msgid "Everyone"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:54
+#: includes/components/class-notification-privacy.php:69
+#: includes/components/class-notification-privacy.php:147
+#: includes/components/class-notification.php:2307
+#: includes/components/class-notification.php:2318
+#: includes/configs/settings.php:19
+#: includes/controllers/class-notification.php:108
+#: includes/templates/class-notifications-view-page.php:33
+#: templates/notification/view/page/notifications.php:211
+msgid "Notifications"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:118
+msgid "Date"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:123
+msgid "Type"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:128
+#: includes/configs/settings.php:43
+#: includes/models/class-notification.php:48
+msgid "Text"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:133
+msgid "Read"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:134
+msgid "Yes"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:134
+msgid "No"
+msgstr ""
+
+#: includes/components/class-notification-privacy.php:172
+msgid "Off"
+msgstr ""
+
+#: includes/components/class-notification-push.php:486
+msgid "You have a new notification."
+msgstr ""
+
+#: includes/components/class-notification.php:191
+msgid "Listing Favourited"
+msgstr ""
+
+#. translators: %1$s: user name, %2$s: listing title.
+#: includes/components/class-notification.php:193
+#, php-format
+msgid "%user.display_name% added %listing.title% to their favourites."
+msgstr ""
+
+#: includes/components/class-notification.php:202
+msgid "Booking Completed"
+msgstr ""
+
+#: includes/components/class-notification.php:203
+msgid "Your booking for %listing.title% is done. How did it go?"
+msgstr ""
+
+#: includes/components/class-notification.php:204
+msgid "Leave a review"
+msgstr ""
+
+#: includes/components/class-notification.php:212
+msgid "Review Received"
+msgstr ""
+
+#: includes/components/class-notification.php:213
+msgid "%author.display_name% reviewed %listing.title%."
+msgstr ""
+
+#: includes/components/class-notification.php:224
+msgid "Badge Earned"
+msgstr ""
+
+#. translators: %badge.name% and %user.display_name% are HivePress tokens, not printf placeholders: they are replaced by name, so they must keep their spelling and can be moved or removed freely when translating. The inline ignore is needed because the sniff reads %b and %u as printf conversions and would have them numbered, which would stop them being recognised as tokens at all.
+#: includes/components/class-notification.php:233
+#, php-format
+msgid "Congratulations! You have earned the %badge.name% badge. Keep up the good work, %user.display_name%!"
+msgstr ""
+
+#: includes/components/class-notification.php:234
+msgid "View your badges"
+msgstr ""
+
+#: includes/components/class-notification.php:267
+msgid "Listings"
+msgstr ""
+
+#: includes/components/class-notification.php:268
+msgid "Messages"
+msgstr ""
+
+#: includes/components/class-notification.php:269
+msgid "Bookings"
+msgstr ""
+
+#: includes/components/class-notification.php:270
+msgid "Orders & Payouts"
+msgstr ""
+
+#: includes/components/class-notification.php:271
+msgid "Requests & Offers"
+msgstr ""
+
+#: includes/components/class-notification.php:272
+msgid "Memberships"
+msgstr ""
+
+#: includes/components/class-notification.php:273
+msgid "Account"
+msgstr ""
+
+#: includes/components/class-notification.php:274
+msgid "Other"
+msgstr ""
+
+#: includes/components/class-notification.php:348
+#: includes/components/class-notification.php:2217
+msgid "View"
+msgstr ""
+
+#. translators: %s: sender name.
+#: includes/components/class-notification.php:591
+#, php-format
+msgid "%s sent you a message."
+msgstr ""
+
+#. translators: %s: badge name.
+#: includes/components/class-notification.php:1005
+#, php-format
+msgid "You have earned the %s badge."
+msgstr ""
+
+#: includes/components/class-notification.php:1522
+msgid "On-site"
+msgstr ""
+
+#: includes/components/class-notification.php:1523
+msgid "Email"
+msgstr ""
+
+#: includes/components/class-notification.php:1529
+#: includes/configs/settings.php:181
+msgid "Push"
+msgstr ""
+
+#: includes/components/class-notification.php:1921
+msgid "Users can choose how each of these reaches them. Anything left unticked here is sent by HivePress as usual and users cannot turn it off. Unticking a whole group also hides it from the text list below and from every user's settings page."
+msgstr ""
+
+#. translators: %s: role name.
+#: includes/components/class-notification.php:1961
+#, php-format
+msgid "Defaults: %s"
+msgstr ""
+
+#: includes/components/class-notification.php:1962
+msgid "The channels this role starts with before choosing their own. These are WordPress roles. HivePress promotes a user to Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings. Unticking every box restores all channels rather than none; to switch a type off for everyone, untick it in the list above."
+msgstr ""
+
+#: includes/components/class-notification.php:1993
+msgid "The email subject is used"
+msgstr ""
+
+#: includes/components/class-notification.php:2062
+msgid "The tokens for this notification are listed here once it has been sent for the first time. Until then, plain text works, and leaving this empty uses the email subject."
+msgstr ""
+
+#. translators: %s: comma-separated list of tokens.
+#: includes/components/class-notification.php:2081
+#, php-format
+msgid "Tokens: %s. Replace \"field\" with the one you want, such as %%listing.title%% or %%sender.display_name%%. A fallback goes after a pipe, such as %%listing.title|your listing%%."
+msgstr ""
+
+#: includes/components/class-notification.php:2216
+msgid "Close"
+msgstr ""
+
+#. translators: %s: number of unread notifications.
+#: includes/components/class-notification.php:2229
+#, php-format
+msgctxt "plural"
+msgid "%s unread"
+msgstr ""
+
+#. translators: %s: number of unread notifications, always one here.
+#: includes/components/class-notification.php:2231
+#, php-format
+msgctxt "singular"
+msgid "%s unread"
+msgstr ""
+
+#: includes/components/class-notification.php:2232
+#: templates/notification/view/page/notifications.php:44
+msgid "All caught up"
+msgstr ""
+
+#: includes/components/class-notification.php:2233
+#: templates/notification/view/page/notifications.php:163
+msgid "Mark as read"
+msgstr ""
+
+#: includes/components/class-notification.php:2236
+#: templates/notification/view/page/notifications.php:163
+msgid "Mark as unread"
+msgstr ""
+
+#: includes/components/class-notification.php:2237
+#: templates/notification/view/page/notifications.php:169
+msgid "Delete notification"
+msgstr ""
+
+#: includes/components/class-notification.php:2242
+msgid "Notification deleted."
+msgstr ""
+
+#: includes/components/class-notification.php:2243
+msgid "Undo"
+msgstr ""
+
+#: includes/components/class-notification.php:2245
+msgid "Nothing new."
+msgstr ""
+
+#: includes/components/class-notification.php:2319
+msgid "See all"
+msgstr ""
+
+#: includes/components/class-notification.php:2320
+msgid "Loading…"
+msgstr ""
+
+#: includes/configs/settings.php:24
+msgid "Types"
+msgstr ""
+
+#: includes/configs/settings.php:33
+msgid "Storage Period (days)"
+msgstr ""
+
+#: includes/configs/settings.php:34
+msgid "Set the number of days to keep notifications for, or leave it empty to keep them indefinitely."
+msgstr ""
+
+#: includes/configs/settings.php:52
+#: includes/configs/settings.php:57
+msgid "Pop-ups"
+msgstr ""
+
+#: includes/configs/settings.php:58
+msgid "Small cards that slide in while someone is browsing, announcing each new notification as it arrives."
+msgstr ""
+
+#: includes/configs/settings.php:59
+msgid "Show new notifications as pop-ups"
+msgstr ""
+
+#: includes/configs/settings.php:66
+msgid "Position"
+msgstr ""
+
+#: includes/configs/settings.php:67
+msgid "The corner of the screen pop-ups appear in on desktops and laptops."
+msgstr ""
+
+#: includes/configs/settings.php:75
+msgid "Top Right"
+msgstr ""
+
+#: includes/configs/settings.php:76
+msgid "Top Left"
+msgstr ""
+
+#: includes/configs/settings.php:77
+msgid "Bottom Right"
+msgstr ""
+
+#: includes/configs/settings.php:78
+msgid "Bottom Left"
+msgstr ""
+
+#: includes/configs/settings.php:83
+msgid "Position on Mobile"
+msgstr ""
+
+#: includes/configs/settings.php:84
+msgid "Small screens use this instead, because pop-ups span the full width there and left or right stops meaning anything."
+msgstr ""
+
+#: includes/configs/settings.php:92
+msgid "Top"
+msgstr ""
+
+#: includes/configs/settings.php:93
+msgid "Centre"
+msgstr ""
+
+#: includes/configs/settings.php:94
+msgid "Bottom"
+msgstr ""
+
+#: includes/configs/settings.php:99
+msgid "Maximum Pop-ups"
+msgstr ""
+
+#: includes/configs/settings.php:100
+msgid "Set the number of pop-ups shown at the same time. Any others wait their turn."
+msgstr ""
+
+#: includes/configs/settings.php:111
+msgid "Hiding"
+msgstr ""
+
+#: includes/configs/settings.php:112
+msgid "Untick to keep pop-ups on screen until they are dismissed by hand."
+msgstr ""
+
+#: includes/configs/settings.php:113
+msgid "Hide pop-ups automatically"
+msgstr ""
+
+#: includes/configs/settings.php:121
+msgid "Sound"
+msgstr ""
+
+#: includes/configs/settings.php:122
+msgid "Play a sound with pop-ups"
+msgstr ""
+
+#: includes/configs/settings.php:123
+msgid "Browsers only allow sound once someone has clicked on the page, so a pop-up waiting on arrival stays silent. Ones that turn up while the tab is open will chime."
+msgstr ""
+
+#: includes/configs/settings.php:130
+msgid "Sound Style"
+msgstr ""
+
+#: includes/configs/settings.php:131
+msgid "The tone that plays when a pop-up arrives."
+msgstr ""
+
+#: includes/configs/settings.php:143
+msgid "Chime"
+msgstr ""
+
+#: includes/configs/settings.php:144
+msgid "Ping"
+msgstr ""
+
+#: includes/configs/settings.php:145
+msgid "Pop"
+msgstr ""
+
+#: includes/configs/settings.php:146
+msgid "Bell"
+msgstr ""
+
+#: includes/configs/settings.php:147
+msgid "Soft"
+msgstr ""
+
+#: includes/configs/settings.php:152
+msgid "Hide After (seconds)"
+msgstr ""
+
+#: includes/configs/settings.php:153
+msgid "Set the number of seconds a pop-up stays on screen before it hides itself. Hovering over a pop-up pauses the countdown."
+msgstr ""
+
+#: includes/configs/settings.php:166
+msgid "Delivery"
+msgstr ""
+
+#: includes/configs/settings.php:171
+msgid "Check For New (seconds)"
+msgstr ""
+
+#: includes/configs/settings.php:172
+msgid "How often an open tab checks for new notifications, in seconds, so they appear without a reload. Clear the field to check only when a page loads. Checking is paused while a tab is in the background, and each check reads a single cached value, so the default of 60 costs very little."
+msgstr ""
+
+#: includes/configs/settings.php:182
+msgid "Send push notifications"
+msgstr ""
+
+#: includes/configs/settings.php:183
+msgid "Reaches people who have the site closed. Needs HTTPS, and keys are created for you the first time. Users are asked for permission after a few visits, never on their first, because a refused prompt cannot be asked again."
+msgstr ""
+
+#: includes/configs/settings.php:190
+msgid "Ask After (visits)"
+msgstr ""
+
+#: includes/configs/settings.php:191
+msgid "Number of visits before someone is asked to allow push notifications."
+msgstr ""
+
+#: includes/configs/settings.php:201
+msgid "Header Bell"
+msgstr ""
+
+#: includes/configs/settings.php:202
+msgid "Show a bell in the site header"
+msgstr ""
+
+#: includes/configs/settings.php:203
+msgid "Works with ListingHive and any theme that provides the HiveTheme site header area. This is separate from the count ListingHive already shows on the menu, which counts messages, bookings and orders rather than notifications."
+msgstr ""
+
+#: includes/configs/settings.php:209
+msgid "Bell Icon"
+msgstr ""
+
+#: includes/configs/settings.php:210
+msgid "The icon shown in the header bell. Start typing to search, such as \"inbox\" or \"envelope\". If your theme replaces or trims Font Awesome, an icon it no longer includes will not appear."
+msgstr ""
+
+#: includes/configs/settings.php:226
+msgid "Bell Icon Colour"
+msgstr ""
+
+#: includes/configs/settings.php:227
+msgid "The colour of the bell icon itself while the pointer is away from it. The unread count on the bell has its own colour, set under Appearance."
+msgstr ""
+
+#: includes/configs/settings.php:235
+msgid "Bell Icon Colour (Hover)"
+msgstr ""
+
+#: includes/configs/settings.php:236
+msgid "The colour of the bell icon while the pointer is over it, or while it has keyboard focus. Leave it empty to keep the colour above on hover."
+msgstr ""
+
+#: includes/configs/settings.php:243
+msgid "Bell Background"
+msgstr ""
+
+#: includes/configs/settings.php:244
+msgid "The circle behind the bell icon. Leave it empty for no background, which is how the bell has always looked and suits most headers."
+msgstr ""
+
+#: includes/configs/settings.php:251
+msgid "Bell Size (px)"
+msgstr ""
+
+#: includes/configs/settings.php:252
+msgid "The size of the bell icon in pixels; the button around it scales to match."
+msgstr ""
+
+#: includes/configs/settings.php:262
+msgid "Bell Background (Hover)"
+msgstr ""
+
+#: includes/configs/settings.php:263
+msgid "The circle behind the bell while the pointer is over it, or while it has keyboard focus. Leave it empty for a soft shade that suits both light and dark headers."
+msgstr ""
+
+#: includes/configs/settings.php:270
+msgid "Hide Combined Counter"
+msgstr ""
+
+#: includes/configs/settings.php:271
+msgid "Hide the combined count on the account link and menu button"
+msgstr ""
+
+#: includes/configs/settings.php:272
+msgid "HivePress adds up unread messages, unpaid bookings, booking requests and pending orders into one number, and shows it beside your name in the header and on the menu button. The bell mirrors those same events, so leaving both on counts everything twice."
+msgstr ""
+
+#: includes/configs/settings.php:279
+msgid "Hide Messages Counter"
+msgstr ""
+
+#: includes/configs/settings.php:280
+msgid "Hide the unread count beside Messages in the account menu"
+msgstr ""
+
+#: includes/configs/settings.php:281
+msgid "This is the separate count the Messages extension shows on its own account menu item. It is worth keeping: it says how many unread messages there are specifically, which the bell does not. Hide it only if you would rather people relied on the bell alone."
+msgstr ""
+
+#: includes/configs/settings.php:288
+msgid "Sticky Header"
+msgstr ""
+
+#: includes/configs/settings.php:289
+msgid "Keep the header on screen when scrolling"
+msgstr ""
+
+#: includes/configs/settings.php:290
+msgid "A convenience for themes that do not do this already, so the bell stays reachable. Turn it off if your theme or your own code already handles it."
+msgstr ""
+
+#: includes/configs/settings.php:298
+msgid "Count how many notifications are sent and opened"
+msgstr ""
+
+#: includes/configs/settings.php:299
+msgid "Anonymous per-type counts, shown on the <a href=\"admin.php?page=hp_notification_stats\">Statistics</a> page while this is on. A notification counts as opened when someone follows it, from a pop-up, the bell or the list. Simply marking one as read is not an open."
+msgstr ""
+
+#: includes/configs/settings.php:308
+msgid "Appearance"
+msgstr ""
+
+#: includes/configs/settings.php:313
+msgid "Background Colour"
+msgstr ""
+
+#: includes/configs/settings.php:314
+msgid "Applies to pop-ups, the bell dropdown, and the cards on the notifications page."
+msgstr ""
+
+#: includes/configs/settings.php:321
+msgid "Text Colour"
+msgstr ""
+
+#: includes/configs/settings.php:322
+msgid "The main text colour used in pop-ups, the bell dropdown, and the notifications page."
+msgstr ""
+
+#: includes/configs/settings.php:329
+msgid "Accent Colour"
+msgstr ""
+
+#: includes/configs/settings.php:330
+msgid "Used for the bar down the side of each pop-up and the unread marker in the notification list."
+msgstr ""
+
+#: includes/configs/settings.php:337
+msgid "Text Size (px)"
+msgstr ""
+
+#: includes/configs/settings.php:338
+msgid "The size of notification text in pixels, everywhere it appears."
+msgstr ""
+
+#: includes/configs/settings.php:347
+msgid "Text Weight"
+msgstr ""
+
+#: includes/configs/settings.php:348
+msgid "How bold notification text is, everywhere it appears."
+msgstr ""
+
+#: includes/configs/settings.php:355
+msgid "Normal"
+msgstr ""
+
+#: includes/configs/settings.php:356
+msgid "Medium"
+msgstr ""
+
+#: includes/configs/settings.php:357
+msgid "Semi-bold"
+msgstr ""
+
+#: includes/configs/settings.php:358
+msgid "Bold"
+msgstr ""
+
+#: includes/configs/settings.php:363
+msgid "Unread Badge Colour"
+msgstr ""
+
+#: includes/configs/settings.php:364
+msgid "The colour of the unread count on the bell and beside Notifications in the account menu. Leave it as it is to match the counts HivePress already shows elsewhere, such as unread messages."
+msgstr ""
+
+#: includes/configs/settings.php:371
+msgid "Dropdown Width (px)"
+msgstr ""
+
+#: includes/configs/settings.php:372
+msgid "The width of the bell dropdown in pixels. On small screens it spans the width available."
+msgstr ""
+
+#: includes/configs/settings.php:381
+msgid "Corner Radius (px)"
+msgstr ""
+
+#: includes/configs/settings.php:382
+msgid "Set the corner radius in pixels, or leave it empty to inherit the theme."
+msgstr ""
+
+#. translators: %s: human-readable time span, like "2 hours".
+#: includes/controllers/class-notification.php:305
+#, php-format
+msgid "%s ago"
+msgstr ""
+
+#: includes/forms/class-notification-update.php:94
+msgid "On-site covers your notifications list, the bell menu and pop-ups. Not every notification in this group has an email or a push behind it, so those only apply where one exists."
+msgstr ""
+
+#: includes/forms/class-notification-update.php:112
+msgid "Quiet Hours"
+msgstr ""
+
+#: includes/forms/class-notification-update.php:113
+msgid "No pop-ups or push notifications between these times. Anything that arrives still waits in your list. Set both the same to switch this off."
+msgstr ""
+
+#: includes/forms/class-notification-update.php:122
+msgid "Until"
+msgstr ""
+
+#: includes/forms/class-notification-update.php:132
+msgid "Choose how you want to hear about each of these. Clear every box in a row to turn that notification off."
+msgstr ""
+
+#: includes/forms/class-notification-update.php:133
+msgid "Your notification settings have been saved."
+msgstr ""
+
+#: includes/forms/class-notification-update.php:148
+msgid "Save Changes"
+msgstr ""
+
+#: includes/templates/class-notification-settings-page.php:48
+msgid "Push notifications are switched on, but this server could not generate the required keys, so they are unavailable. Your host can enable OpenSSL elliptic curve support."
+msgstr ""
+
+#: includes/templates/class-notification-settings-page.php:55
+msgid "Enable push notifications on this device"
+msgstr ""
+
+#: includes/templates/class-notification-settings-page.php:55
+msgid "Push notifications are on for this device."
+msgstr ""
+
+#: includes/templates/class-notification-settings-page.php:55
+msgid "Push notifications are blocked for this site in your browser settings."
+msgstr ""
+
+#: includes/templates/class-notification-settings-page.php:55
+msgid "Waiting for your browser…"
+msgstr ""
+
+#: notifications-for-hivepress.php:123
+msgid "Notifications for HivePress requires the HivePress plugin to be installed and active. Until then, its settings tab, Announcements page and notifications are unavailable."
+msgstr ""
+
+#. translators: %s: number of unread notifications.
+#: templates/notification/view/page/notifications.php:40
+#, php-format
+msgid "%s unread"
+msgid_plural "%s unread"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/notification/view/page/notifications.php:61
+msgid "Mark all as read"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:66
+msgid "Clear read"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:78
+#: templates/notification/view/page/notifications.php:79
+msgid "Search notifications"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:82
+msgid "Filter by type"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:85
+msgid "All types"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:93
+msgid "Search"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:96
+msgid "Reset"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:212
+msgid "Notifications navigation"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:225
+msgid "Nothing matches that."
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:226
+msgid "Show all notifications"
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:228
+msgid "No notifications yet. When something happens on your account, it will show up here."
+msgstr ""
+
+#: templates/notification/view/page/notifications.php:229
+msgid "Choose what you get notified about"
+msgstr ""
+
+#: updater.php:200
+msgid "See the GitHub releases page for the changelog."
+msgstr ""
+
+#: updater.php:215
+msgid "Check for updates"
+msgstr ""
+
+#. translators: %s: new version number.
+#: updater.php:280
+#, php-format
+msgid "A new version of Notifications for HivePress (%s) is available."
+msgstr ""
+
+#: updater.php:283
+msgid "Notifications for HivePress is up to date."
+msgstr ""
+
+#: updater.php:286
+msgid "Could not reach GitHub to check for updates. Please try again later."
+msgstr ""
+
+#: updater.php:331
+msgid "Could not rename the update directory."
+msgstr ""

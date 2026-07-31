@@ -73,12 +73,26 @@ class Notification_Update extends Form {
 				continue;
 			}
 
+			// Put them back in the canonical channel order. Accumulating them type by type left the
+			// order dependent on which type happened to contribute each one, so one group could read
+			// "Pop-up, Push, Email" while the next read "Pop-up, Email, Push".
+			$channels = array_intersect_key( $labels, $channels );
+
+			/*
+			 * A group covers several kinds of notification, and they don't all support the same
+			 * channels: Listings, for instance, holds both the HivePress listing emails and our own
+			 * "Review Received", which has no email behind it at all. The tick box list is the union
+			 * of what the group can do, so ticking Email here does not promise an email for every
+			 * event in the group. Saying so stops the gap reading as a fault - a staging tester
+			 * spent twenty minutes on a "missing" review email that was never going to exist.
+			 */
 			$fields[ $group ] = [
-				'label'   => $group_label,
-				'type'    => 'checkboxes',
-				'options' => $channels,
-				'default' => array_keys( $channels ),
-				'_order'  => $order,
+				'label'       => $group_label,
+				'type'        => 'checkboxes',
+				'options'     => $channels,
+				'default'     => array_keys( $channels ),
+				'description' => esc_html__( 'On-site covers your notifications list, the bell menu and pop-ups. Not every notification in this group has an email or a push behind it, so those only apply where one exists.', 'notifications-for-hivepress' ),
+				'_order'      => $order,
 			];
 
 			$order += 10;
@@ -115,10 +129,20 @@ class Notification_Update extends Form {
 
 		$args = hp\merge_arrays(
 			[
-				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear both boxes to turn a notification off.', 'notifications-for-hivepress' ),
+				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear every box in a row to turn that notification off.', 'notifications-for-hivepress' ),
 				'message'     => esc_html__( 'Your notification settings have been saved.', 'notifications-for-hivepress' ),
 				'action'      => hivepress()->router->get_url( 'notification_update_action' ),
 				'fields'      => $fields,
+
+				// Core's form script resets a form after a successful save unless it carries a
+				// data-id ("form.data('reset') || !form.is('[data-id]')", common.js:1196). Without
+				// this the tick a user just cleared springs straight back, so a save that worked
+				// looks like one that failed - and a second save then posts those restored values
+				// over the top, undoing the change for real. The id is the user whose preferences
+				// these are, which is what a model-backed form would put there.
+				'attributes'  => [
+					'data-id' => get_current_user_id(),
+				],
 
 				'button'      => [
 					'label' => esc_html__( 'Save Changes', 'notifications-for-hivepress' ),

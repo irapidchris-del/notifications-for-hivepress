@@ -97,7 +97,7 @@
 .hp-notification-toast__type {
 	display: block;
 	margin-bottom: 2px;
-	font-size: 11px;
+	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
@@ -105,10 +105,11 @@
 }
 
 .hp-notification-toast__text {
+	/* The size comes from the Text Size setting. A literal font-size used to follow this line and
+	   quietly overrode it, so the setting appeared to do nothing on the pop-up text. */
 	font-size: var(--hp-notification-font-size, 14px);
 	font-weight: var(--hp-notification-font-weight, 400);
 	display: block;
-	font-size: 14px;
 	line-height: 1.45;
 	color: inherit;
 	text-decoration: none;
@@ -187,7 +188,6 @@ a.hp-notification-toast__text:focus {
 }
 
 .hp-notifications__count {
-	font-size: 14px;
 	font-weight: 600;
 }
 
@@ -213,37 +213,13 @@ a.hp-notification-toast__text:focus {
 	max-width: 220px;
 }
 
-.hp-notifications__settings,
-.hp-notifications__read-all {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 0;
-	font-size: 13px;
-	color: inherit;
-	background: none;
-	border: none;
-	cursor: pointer;
-	opacity: 0.7;
-	transition: opacity 0.16s ease;
-}
-
-.hp-notifications__settings {
-	text-decoration: none;
-}
-
-.hp-notifications__settings:hover,
-.hp-notifications__read-all:hover {
-	opacity: 1;
-}
-
 .hp-notifications__group {
 	margin-bottom: 24px;
 }
 
 .hp-notifications__date {
 	margin: 0 0 8px;
-	font-size: 12px;
+	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
@@ -278,7 +254,7 @@ a.hp-notification-toast__text:focus {
 .hp-notification__type {
 	display: block;
 	margin-bottom: 2px;
-	font-size: 11px;
+	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
@@ -286,10 +262,10 @@ a.hp-notification-toast__text:focus {
 }
 
 .hp-notification__text {
+	/* As above: the literal size that used to sit here defeated the Text Size setting. */
 	font-size: var(--hp-notification-font-size, 14px);
 	font-weight: var(--hp-notification-font-weight, 400);
 	display: block;
-	font-size: 15px;
 	line-height: 1.45;
 	color: inherit;
 	overflow-wrap: break-word;
@@ -313,7 +289,7 @@ a.hp-notification-toast__text:focus {
 
 .hp-notification__details {
 	margin: 4px 0 0;
-	font-size: 13px;
+	font-size: 85%;
 	line-height: 1.5;
 	opacity: 0.65;
 	overflow-wrap: break-word;
@@ -325,7 +301,7 @@ a.hp-notification-toast__text:focus {
 	align-items: center;
 	gap: 4px;
 	margin-top: 6px;
-	font-size: 13px;
+	font-size: 85%;
 	font-weight: 600;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
@@ -350,7 +326,7 @@ a.hp-notification-toast__text:focus {
 .hp-notification__time {
 	display: block;
 	margin-top: 4px;
-	font-size: 12px;
+	font-size: 80%;
 	opacity: 0.5;
 }
 
@@ -382,32 +358,16 @@ a.hp-notification-toast__text:focus {
 	outline-offset: 1px;
 }
 
-.hp-notifications__empty p {
-	margin: 12px 0 4px;
-	opacity: 0.7;
-}
-
-/* Unread badge in the account menu. */
-
-.hp-menu__item--notifications-view a {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-}
-
-.hp-menu__item--notifications-view small {
-	display: inline-block;
-	min-width: 18px;
-	padding: 1px 5px;
-	font-size: 11px;
-	font-weight: 600;
-	line-height: 16px;
-	color: #ffffff;
-	text-align: center;
-	background-color: var(--hp-notification-accent);
-	border-radius: 9px;
-}
+/* Unread badge in the account menu.
+ *
+ * Deliberately unstyled. HivePress already styles every menu count -
+ * ".hp-menu__item small" gives a centred circle in its own red (#ff5a5f), and
+ * "hp-menu li > a" already lays the row out - so the count beside Notifications
+ * matches the one beside Messages with no CSS from us, and follows any theme
+ * that restyles it. An earlier override here set the accent colour and a width
+ * without a matching height, which showed as a blue oval that distorted further
+ * at two digits. Only a badge colour chosen in the settings overrides core, and
+ * that rule is emitted inline (see get_inline_styles()). */
 
 @media (max-width: 480px) {
 	.hp-notification-toasts {
@@ -449,7 +409,17 @@ a.hp-notification-toast__text:focus {
 	vertical-align: middle;
 	line-height: 1;
 	margin: 0 4px 0 10px;
+}
+
+/* Keeping the bell and its badge on one line belongs to the toggle alone. Set on the wrapper it
+ * was inherited by the dropdown, where it stopped every notification wrapping: the line clamp had
+ * a single unwrappable line to work with, so overflow simply chopped the text mid-word. */
+.hp-notification-bell__toggle {
 	white-space: nowrap;
+}
+
+.hp-notification-bell__panel {
+	white-space: normal;
 }
 
 @media (max-width: 1024px) {
@@ -472,51 +442,73 @@ a.hp-notification-toast__text:focus {
 	gap: 2px;
 }
 
-.hp-notification-bell__toggle {
+/* The bell has four colours the admin can set: the icon and the circle behind it, each with a
+ * resting and a hover value. Every one falls back to what the theme would have done, so an
+ * untouched site looks exactly as before. All are scoped through the wrapper because a theme's own
+ * "a" and "a:hover" rules style this element too - that unscoped tint is what made the bell look
+ * blue on some themes - and equal specificity would leave the winner down to load order. */
+.hp-notification-bell .hp-notification-bell__toggle {
 	position: relative;
-	color: var(--hp-notification-bell-color, inherit);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	width: calc(var(--hp-notification-bell-size, 17px) + 21px);
 	height: calc(var(--hp-notification-bell-size, 17px) + 21px);
 	border-radius: 50%;
-	color: inherit;
 	text-decoration: none;
+
+	/* A literal "color: inherit" used to follow this line and quietly overrode it, which is why
+	   the Bell Colour setting appeared to do nothing at all. */
+	color: var(--hp-notification-bell-color, inherit);
+	background-color: var(--hp-notification-bell-background, transparent);
 }
 
-.hp-notification-bell__toggle:hover,
-.hp-notification-bell__toggle:focus-visible {
-	background-color: rgba(0, 0, 0, 0.06);
+/* Hover and keyboard focus share one look. Each falls back to its own resting colour, so setting
+ * only the resting pair still behaves sensibly, and the background's last resort is a translucent
+ * wash rather than a fixed grey so it reads on a dark header as well as a light one. */
+.hp-notification-bell .hp-notification-bell__toggle:hover,
+.hp-notification-bell .hp-notification-bell__toggle:focus-visible {
+	color: var(--hp-notification-bell-color-hover, var(--hp-notification-bell-color, inherit));
+	background-color: var(--hp-notification-bell-background-hover, rgba(0, 0, 0, 0.06));
 }
 
 .hp-notification-bell__toggle i {
 	font-size: var(--hp-notification-bell-size, 17px);
 }
 
+/* The bell's own badge. Core styles menu counts but knows nothing about the bell,
+ * so this is ours - built to match core's badge: the same red, and min-width plus
+ * min-height with a pill radius so 1, 2 or 3 digits all stay a circle or a
+ * capsule rather than squashing. */
 .hp-notification-bell__toggle small {
 	position: absolute;
 	top: 1px;
 	right: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 	min-width: 16px;
-	height: 16px;
+	min-height: 16px;
 	padding: 0 4px;
-	border-radius: 8px;
-	background-color: #e0245e;
+	border-radius: 9999px;
+	background-color: var(--hp-notification-badge, #ff5a5f);
 	color: #ffffff;
 	font-size: 10px;
 	font-weight: 700;
-	line-height: 16px;
+	line-height: 1;
 	text-align: center;
+	box-sizing: border-box;
 }
 
 .hp-notification-bell__panel {
-	width: var(--hp-notification-panel-width, 320px);
 	position: absolute;
 	top: calc(100% + 8px);
 	right: 0;
 	z-index: 1010;
-	width: 320px;
+
+	/* A literal "width: 320px" used to follow this line and overrode it, so the Dropdown Width
+	   setting had no effect either. Same slip as the bell colour above. */
+	width: var(--hp-notification-panel-width, 320px);
 	max-width: calc(100vw - 24px);
 	background-color: var(--hp-notification-background);
 	color: var(--hp-notification-text);
@@ -534,7 +526,7 @@ a.hp-notification-toast__text:focus {
 }
 
 .hp-notification-bell__header a {
-	font-size: 13px;
+	font-size: 85%;
 	font-weight: 600;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
@@ -554,7 +546,7 @@ a.hp-notification-toast__text:focus {
 .hp-notification-bell__empty {
 	padding: 22px 14px;
 	text-align: center;
-	font-size: 13px;
+	font-size: 85%;
 	opacity: 0.7;
 }
 
@@ -600,7 +592,7 @@ a.hp-notification-bell__item:focus-visible {
 
 .hp-notification-bell__meta {
 	margin-top: 2px;
-	font-size: 11px;
+	font-size: 80%;
 	opacity: 0.55;
 }
 
@@ -685,41 +677,41 @@ a.hp-notification-bell__item:focus-visible {
 	font-weight: 400;
 }
 
-.hp-notifications__actions {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 6px;
-}
 
-.hp-notifications__action {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 8px 14px;
-	border: 1px solid rgba(0, 0, 0, 0.12);
-	border-radius: var(--hp-notification-radius);
-	background: none;
-	color: inherit;
-	font-size: 14px;
-	line-height: 1;
-	text-decoration: none;
-	cursor: pointer;
-}
-
-.hp-notifications__action:hover,
-.hp-notifications__action:focus-visible {
-	border-color: var(--hp-notification-accent);
-	color: var(--hp-notification-accent);
-}
-
+/* Appearance comes from the theme's own "button button--secondary"; hp-button supplies the
+ * structure. All that is left is the disabled state, which neither provides. Re-creating padding,
+ * borders, a radius and a pixel font size here is what made these read as someone else's buttons
+ * sitting on a HivePress page. */
 .hp-notifications__action:disabled {
 	opacity: 0.5;
 	cursor: default;
 }
 
-.hp-notifications__action i {
-	font-size: 13px;
+/* A button with nothing to act on is hidden rather than removed, so it can come back when a
+ * notification arrives. The attribute needs restating because themes give ".button" a display
+ * value, and a class beats the browser's own [hidden] rule - the same trap as the push button
+ * below, which left an empty button sitting in the row. */
+.hp-notifications__action[hidden] {
+	display: none;
+}
+
+/* Keeps a link styled as a button readable on hover.
+ *
+ * Themes carry a bare "a:hover" colour for body links, and that selector - one element plus one
+ * pseudo-class - outranks the single class that gives the button its white text. So a link wearing
+ * button classes kept its coloured background and turned its text the theme's link blue, which on
+ * HiveTheme's green secondary button is close to unreadable. Restating white at a specificity the
+ * link rule cannot reach fixes it, and only for this plugin's own buttons.
+ *
+ * White is what all six official themes set for both modifiers (hivetheme frontend.min.css:
+ * ".button--primary,.button--secondary{color:#fff}"), and both modifiers mean a filled, coloured
+ * button everywhere else too. A button with no modifier is left alone, because there the theme's
+ * own text colour is the one that belongs. */
+a.hp-notifications__action.button--primary:hover,
+a.hp-notifications__action.button--primary:focus,
+a.hp-notifications__action.button--secondary:hover,
+a.hp-notifications__action.button--secondary:focus {
+	color: #ffffff;
 }
 
 .hp-notifications__filters {
@@ -736,7 +728,7 @@ a.hp-notification-bell__item:focus-visible {
 }
 
 .hp-notifications__reset {
-	font-size: 13px;
+	font-size: 85%;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
 }
@@ -865,10 +857,23 @@ a.hp-notification-bell__item:focus-visible {
 	margin-top: 24px;
 }
 
+/* Once push is on, the script hides the button with the hidden attribute. That alone is not
+ * enough: themes style ".button" with a display value, and a class beats the browser's own
+ * [hidden] rule, which left an empty grey button sitting beside the status text. Matching the
+ * attribute inside our own container outranks the theme's class without needing !important. */
+.hp-notification-push button[hidden] {
+	display: none;
+}
+
 .hp-notification-push__status {
 	margin-left: 10px;
-	font-size: 13px;
+	font-size: 85%;
 	opacity: 0.75;
+}
+
+/* The status reads on its own once the button is gone. */
+.hp-notification-push button[hidden] + .hp-notification-push__status {
+	margin-left: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -924,13 +929,4 @@ a.hp-notification-bell__item:focus-visible {
 	opacity: 0.85;
 }
 
-.hp-notification-undo button {
-	border: 0;
-	padding: 4px 10px;
-	border-radius: var(--hp-notification-radius);
-	background-color: var(--hp-notification-accent);
-	color: #ffffff;
-	font-size: 13px;
-	font-weight: 600;
-	cursor: pointer;
-}
+/* The Undo control carries the theme's own button classes, so nothing is styled here. */

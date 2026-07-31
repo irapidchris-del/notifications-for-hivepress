@@ -79,13 +79,21 @@ final class Notification_Push extends Component {
 			return [];
 		}
 
-		// Generate key.
-		$resource = openssl_pkey_new(
-			[
-				'curve_name'       => 'prime256v1',
-				'private_key_type' => OPENSSL_KEYTYPE_EC,
-			]
-		);
+		$args = [
+			'curve_name'       => 'prime256v1',
+			'private_key_type' => OPENSSL_KEYTYPE_EC,
+		];
+
+		// Generate key. A host without a usable system openssl.cnf - common on Windows and in
+		// minimal containers - fails here outright, so the plugin's bundled minimal configuration
+		// is retried before giving up. It changes nothing about the keys themselves.
+		$resource = openssl_pkey_new( $args );
+
+		if ( ! $resource ) {
+			$args['config'] = plugin_dir_path( HP_NOTIFICATIONS_FILE ) . 'assets/openssl.cnf';
+
+			$resource = openssl_pkey_new( $args );
+		}
 
 		if ( ! $resource ) {
 			return [];
@@ -98,10 +106,10 @@ final class Notification_Push extends Component {
 			return [];
 		}
 
-		// Export the private key.
+		// Export the private key, with the same configuration fallback the generation used.
 		$private = '';
 
-		if ( ! openssl_pkey_export( $resource, $private ) ) {
+		if ( ! openssl_pkey_export( $resource, $private, null, isset( $args['config'] ) ? [ 'config' => $args['config'] ] : null ) ) {
 			return [];
 		}
 

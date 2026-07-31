@@ -33,9 +33,10 @@
 		<severity>0</severity>
 	</rule>
 
-	<!-- The plugin header declares "Requires PHP: 7.2", so compatibility is checked from
-	     that version upwards. -->
-	<config name="testVersion" value="7.2-"/>
+	<!-- The plugin header declares "Requires PHP: 7.4", matching HivePress core, so compatibility
+	     is checked from that version upwards. HivePress is a hard dependency: a site below its
+	     floor cannot run this plugin at all. -->
+	<config name="testVersion" value="7.4-"/>
 	<rule ref="PHPCompatibility"/>
 
 	<rule ref="Generic.Arrays.DisallowLongArraySyntax.Found"/>

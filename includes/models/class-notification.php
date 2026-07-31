@@ -18,6 +18,20 @@ defined( 'ABSPATH' ) || exit;
  * Stored as a comment of the "hp_notification" type, matching the storage model used by the
  * Messages, Reviews and Favorites extensions. The read flag uses the comment karma column so
  * that comment_approved stays at 1 and notifications are never treated as pending comments.
+ *
+ * Field getters are resolved by the model's __call(), so they are declared here for static
+ * analysis and editor completion. Each one matches a field defined in the constructor below.
+ *
+ * @method string get_text()
+ * @method int get_user__id()
+ * @method \HivePress\Models\User|null get_user()
+ * @method string get_created_date()
+ * @method int get_read()
+ * @method string get_type()
+ * @method string get_image()
+ * @method string get_url()
+ * @method string get_icon()
+ * @method string get_color()
  */
 class Notification extends Comment {
 
@@ -70,6 +84,21 @@ class Notification extends Comment {
 					'image'        => [
 						'type'      => 'url',
 						'_external' => true,
+					],
+
+					// A notification can carry its own icon and colour instead of the generic one
+					// its type would give it, so a badge award can show the badge that was
+					// actually earned rather than a stand-in.
+					'icon'         => [
+						'type'       => 'text',
+						'max_length' => 64,
+						'_external'  => true,
+					],
+
+					'color'        => [
+						'type'       => 'text',
+						'max_length' => 7,
+						'_external'  => true,
 					],
 
 					'url'          => [

@@ -39,6 +39,19 @@ final class Notification extends Controller {
 						'rest'   => true,
 					],
 
+					// Returns the unread count and nothing else. The queue endpoint above also
+					// carries this number, but reading it empties the queue, so only a tab that can
+					// actually paint the pop-ups may call it. A hidden tab needs the count without
+					// that side effect: the service worker tells every tab when the operating
+					// system has announced a push, and a tab that stayed on a stale number until it
+					// was reloaded was the bug this exists to fix.
+					'notification_count_resource'    => [
+						'path'   => '/notifications/count',
+						'method' => 'GET',
+						'action' => [ $this, 'get_notification_count' ],
+						'rest'   => true,
+					],
+
 					// Answers the service worker on a push. Authenticated by token rather than cookie,
 					// because a push arrives when no page is open and WordPress ignores a REST
 					// cookie that has no nonce.
@@ -151,6 +164,27 @@ final class Notification extends Controller {
 	}
 
 	/**
+	 * Returns the unread count without touching the queue.
+	 *
+	 * @param \WP_REST_Request $request API request.
+	 * @return \WP_REST_Response
+	 */
+	public function get_notification_count( $request ) {
+
+		// Check authentication.
+		if ( ! is_user_logged_in() ) {
+			return hp\rest_error( 401 );
+		}
+
+		return hp\rest_response(
+			200,
+			[
+				'unread' => hivepress()->notification->get_unread_count( get_current_user_id() ),
+			]
+		);
+	}
+
+	/**
 	 * Marks notifications as read.
 	 *
 	 * @param \WP_REST_Request $request API request.
@@ -235,9 +269,15 @@ final class Notification extends Controller {
 		return hp\rest_response(
 			200,
 			[
-				'id'   => $notification->get_id(),
-				'text' => $notification->get_text(),
-				'url'  => (string) $notification->get_url(),
+				'id'    => $notification->get_id(),
+				'text'  => $notification->get_text(),
+				'url'   => (string) $notification->get_url(),
+
+				// The notification's own picture, where it has one: a badge's image, or the avatar
+				// of whoever caused it. Without this the operating system showed the site icon for
+				// everything, so a badge award carried its own visual in the list and the bell and
+				// then lost it at the one place people actually look first.
+				'image' => (string) $notification->get_image(),
 			]
 		);
 	}
@@ -315,7 +355,8 @@ final class Notification extends Controller {
 				'id'         => $notification->get_id(),
 				'text'       => $notification->get_text(),
 				'type'       => hivepress()->notification->get_type_label( $notification->get_type() ),
-				'icon'       => hivepress()->notification->get_type_icon( $notification->get_type() ),
+				'icon'       => hivepress()->notification->get_notification_icon( $notification ),
+				'color'      => (string) $notification->get_color(),
 				'image'      => (string) $notification->get_image(),
 				'url'        => (string) $notification->get_url(),
 				'read'       => (bool) $notification->get_read(),

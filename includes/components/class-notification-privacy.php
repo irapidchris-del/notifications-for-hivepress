@@ -259,6 +259,7 @@ final class Notification_Privacy extends Component {
 			delete_user_meta( $user->ID, 'hp_notification_preferences' );
 			delete_user_meta( $user->ID, 'hp_notification_push' );
 			delete_user_meta( $user->ID, 'hp_notification_quiet' );
+			delete_user_meta( $user->ID, 'hp_notification_badges_sent' );
 
 			$response['items_removed'] = true;
 		}

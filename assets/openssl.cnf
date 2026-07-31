@@ -1,0 +1,9 @@
+# Minimal OpenSSL configuration, used only as a fallback when the server has no usable
+# openssl.cnf of its own (common on Windows hosts and minimal containers). Key generation
+# fails outright there without one; nothing in this file weakens or alters the keys.
+
+[req]
+default_bits       = 2048
+distinguished_name = req_dn
+
+[req_dn]

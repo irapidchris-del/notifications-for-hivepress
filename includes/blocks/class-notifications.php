@@ -166,12 +166,15 @@ class Notifications extends Block {
 		$groups = [];
 
 		// Get dates.
-		// The dates being grouped are comment dates, which WordPress stores on the site's clock,
-		// so "today" has to come from the same clock rather than UTC.
+		// The dates being grouped are comment dates, which WordPress stores on the site's clock.
+		// current_time( 'timestamp' ) is that same clock, and gmdate() formats it without adding
+		// any further offset, so today, yesterday and every group key stay in one frame; wp_date()
+		// here would add the UTC offset a second time and shift evenings into the next day.
 		// phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
-		$today = wp_date( 'Y-m-d' );
-		// phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
-		$yesterday = wp_date( 'Y-m-d', strtotime( '-1 day', (int) current_time( 'timestamp' ) ) );
+		$now = (int) current_time( 'timestamp' );
+
+		$today     = gmdate( 'Y-m-d', $now );
+		$yesterday = gmdate( 'Y-m-d', $now - DAY_IN_SECONDS );
 
 		foreach ( $notifications as $notification ) {
 
@@ -185,19 +188,22 @@ class Notifications extends Block {
 			// Get date.
 			$date = gmdate( 'Y-m-d', $time );
 
-			// Get label.
+			// Get label. date_i18n() formats the site-clock timestamp as it is; wp_date() would
+			// shift it again and could head a group with the next day's date.
 			if ( $date === $today ) {
 				$label = esc_html__( 'Today', 'notifications-for-hivepress' );
 			} elseif ( $date === $yesterday ) {
 				$label = esc_html__( 'Yesterday', 'notifications-for-hivepress' );
 			} else {
-				$label = wp_date( (string) get_option( 'date_format' ), $time );
+				$label = date_i18n( (string) get_option( 'date_format' ), $time );
 			}
 
-			// Add notification.
+			// Add notification. Today's group is flagged so the script can find it: a notification
+			// arriving while the page is open is added to it rather than waiting for a reload.
 			if ( ! isset( $groups[ $date ] ) ) {
 				$groups[ $date ] = [
 					'label'         => $label,
+					'today'         => $date === $today,
 					'notifications' => [],
 				];
 			}
