@@ -169,9 +169,12 @@ does, and every item was verified on a live staging site before release.
 * Web push for people who have the site closed, with keys generated on first use and a payloadless
   push, so nothing sensitive travels and the token cannot be used as a login.
 * An optional header bell with its own unread count and dropdown, with configurable icon and
-  background colours for both resting and hover states.
+  background colours for both resting and hover states, and a pixel nudge for lining it up with
+  whatever your theme puts beside it.
 * Announcements: send a notification to everyone, one role, all vendors, or named users, with a
   history of what was sent and a resend that recomputes the audience at send time.
+* An optional sticky header, which also keeps page anchors clear of itself so a link to a review
+  or a section lands where you meant it to.
 * Anonymous per-type delivery and open statistics, so you can tell which wording works.
 * A storage period that removes notifications once they pass a chosen age.
 * WP-CLI commands for listing types, rebuilding the cached counts and running the cleanup.

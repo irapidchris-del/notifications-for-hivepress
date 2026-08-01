@@ -409,6 +409,19 @@ a.hp-notification-toast__text:focus {
 	vertical-align: middle;
 	line-height: 1;
 	margin: 0 4px 0 10px;
+
+	/* Two nudges the admin can set, because no two themes put the same things beside the bell and a
+	 * few pixels either way is the difference between lined up and not. Both default to zero, so a
+	 * site that never touches them is unaffected.
+	 *
+	 * These are relative offsets on the already-relative wrapper, NOT a transform. Transform was
+	 * the obvious choice and is wrong here: an element with a transform becomes the containing
+	 * block for any fixed-position descendant, which silently broke the mobile dropdown - the panel
+	 * went from spanning the screen to 14px wide, because "position: fixed; left: 12px; right: 12px"
+	 * started resolving against the bell instead of the viewport. Relative offsets move the bell
+	 * just as well, leave the header layout untouched, and create no containing block. */
+	left: var(--hp-notification-bell-offset-x, 0);
+	top: var(--hp-notification-bell-offset-y, 0);
 }
 
 /* Keeping the bell and its badge on one line belongs to the toggle alone. Set on the wrapper it
@@ -514,6 +527,36 @@ a.hp-notification-toast__text:focus {
 	color: var(--hp-notification-text);
 	border-radius: var(--hp-notification-radius);
 	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}
+
+/* On a phone the panel is pinned to the viewport rather than to the bell.
+ *
+ * "right: 0" positions it against the bell, and the bell is not at the edge of the screen - themes
+ * put an Add Listing button, a burger or both after it. A 320px panel hanging from a bell that sits
+ * 100px in therefore ran off the left-hand side, and "max-width" could not save it because the
+ * overflow was on the opposite side to the constraint. Reported from a real phone, where the panel
+ * heading was sliced in half.
+ *
+ * position: fixed takes it out of the header's flow entirely, so it spans the screen with an even
+ * margin whatever the theme has put beside the bell. The width setting is deliberately ignored
+ * here: there is no room to honour it, and a horizontal scrollbar would be worse than a narrower
+ * dropdown. Breakpoint matches the one HiveTheme collapses its header at. */
+@media (max-width: 47.99em) {
+	.hp-notification-bell__panel {
+		position: fixed;
+
+		/* The script sets "top" from the bell's own position when the panel opens, because a fixed
+		 * box has no vertical anchor of its own. */
+		right: 12px;
+		left: 12px;
+		width: auto;
+		max-width: none;
+	}
+
+	/* Whatever height the dropdown reaches, it must not run past the bottom of the screen. */
+	.hp-notification-bell__body {
+		max-height: calc(100vh - 160px);
+	}
 }
 
 .hp-notification-bell__header {

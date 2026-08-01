@@ -50,6 +50,7 @@ class Notification_Update extends Form {
 		// Get fields.
 		$fields = [];
 		$order  = 10;
+		$note   = esc_html__( 'On-site means your notifications list, the bell menu and pop-ups while you browse. Not every notification has an email or a push behind it, so those two only apply where one exists.', 'notifications-for-hivepress' );
 
 		foreach ( hivepress()->notification->get_groups() as $group => $group_label ) {
 			$channels = [];
@@ -85,15 +86,22 @@ class Notification_Update extends Form {
 			 * of what the group can do, so ticking Email here does not promise an email for every
 			 * event in the group. Saying so stops the gap reading as a fault - a staging tester
 			 * spent twenty minutes on a "missing" review email that was never going to exist.
+			 *
+			 * It is said once, on the first group only. Repeating it under all seven turned the page
+			 * into the same wall of identical paragraphs that the dashboard widget was pulled up on.
 			 */
 			$fields[ $group ] = [
-				'label'       => $group_label,
-				'type'        => 'checkboxes',
-				'options'     => $channels,
-				'default'     => array_keys( $channels ),
-				'description' => esc_html__( 'On-site covers your notifications list, the bell menu and pop-ups. Not every notification in this group has an email or a push behind it, so those only apply where one exists.', 'notifications-for-hivepress' ),
-				'_order'      => $order,
+				'label'   => $group_label,
+				'type'    => 'checkboxes',
+				'options' => $channels,
+				'default' => array_keys( $channels ),
+				'_order'  => $order,
 			];
+
+			if ( $note ) {
+				$fields[ $group ]['description'] = $note;
+				$note                            = '';
+			}
 
 			$order += 10;
 		}
@@ -129,7 +137,7 @@ class Notification_Update extends Form {
 
 		$args = hp\merge_arrays(
 			[
-				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear every box in a row to turn that notification off.', 'notifications-for-hivepress' ),
+				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear every box in a row to stop that kind of notification altogether.', 'notifications-for-hivepress' ),
 				'message'     => esc_html__( 'Your notification settings have been saved.', 'notifications-for-hivepress' ),
 				'action'      => hivepress()->router->get_url( 'notification_update_action' ),
 				'fields'      => $fields,

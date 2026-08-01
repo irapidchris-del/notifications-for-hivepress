@@ -880,12 +880,32 @@
 			this.panel.hidden = false;
 			this.toggle.setAttribute( 'aria-expanded', 'true' );
 
+			this.place();
 			this.load();
 		},
 
 		close: function() {
 			this.panel.hidden = true;
 			this.toggle.setAttribute( 'aria-expanded', 'false' );
+		},
+
+		/**
+		 * Pins the panel below the bell on small screens.
+		 *
+		 * The stylesheet switches the panel to position: fixed on phones so it can span the screen
+		 * instead of hanging off a bell that sits well in from the edge. Fixed positioning loses the
+		 * vertical anchor, though - "top: auto" falls back to the static position, which is not
+		 * dependably under the bell once a theme has laid the header out its own way. So the top is
+		 * measured from the bell itself, which is right whatever the theme does.
+		 */
+		place: function() {
+			if ( ! window.matchMedia || ! window.matchMedia( '(max-width: 47.99em)' ).matches ) {
+				this.panel.style.top = '';
+
+				return;
+			}
+
+			this.panel.style.top = Math.round( this.toggle.getBoundingClientRect().bottom + 8 ) + 'px';
 		},
 
 		load: function() {
@@ -1199,6 +1219,34 @@
 			return admin && 'fixed' === window.getComputedStyle( admin ).position ? admin.offsetHeight : 0;
 		}
 
+		/**
+		 * Keeps anchor links clear of the sticky header.
+		 *
+		 * A fixed header covers the top of the page, so following a link to "#reviews" leaves the
+		 * thing you were sent to hidden underneath it. That includes our own notifications: a
+		 * review notification links to "#review-123", which is exactly the case this breaks.
+		 *
+		 * scroll-padding-top is the browser's own answer - it offsets every scroll-into-view,
+		 * including the jump the browser makes for a fragment in the address bar, so it fixes links
+		 * arriving from anywhere without intercepting clicks or fighting the browser for the scroll
+		 * position. It is set on the scrolling element, and only while the header is actually
+		 * sticky, so a site with this switched off behaves exactly as before.
+		 *
+		 * @param {boolean} on Whether the header is currently fixed.
+		 */
+		function padScroll( on ) {
+			var root = document.documentElement;
+
+			if ( ! on ) {
+				root.style.scrollPaddingTop = '';
+
+				return;
+			}
+
+			// A little breathing room under the header, so the target is not flush against it.
+			root.style.scrollPaddingTop = ( bar.offsetHeight + offset() + 12 ) + 'px';
+		}
+
 		function apply( on ) {
 			if ( on === fixed ) {
 				return;
@@ -1232,7 +1280,14 @@
 
 		observe();
 
+		// Set once, up front, rather than only while the header is stuck. Landing on a link with a
+		// fragment scrolls the page immediately, which is what makes the header stick in the first
+		// place - so waiting for it to stick would be too late for the jump that needed it.
+		padScroll( true );
+
 		window.addEventListener( 'resize', function() {
+			padScroll( true );
+
 			if ( fixed ) {
 				holder.style.height = bar.offsetHeight + 'px';
 				bar.style.top       = offset() + 'px';

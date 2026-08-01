@@ -141,7 +141,11 @@ final class Notification extends Component {
 				$label = call_user_func( [ $class, 'get_meta' ], 'label' );
 
 				$types[ $name ] = [
-					'label'    => $label ? $label : ucfirst( str_replace( '_', ' ', $name ) ),
+					// Emails HivePress sends to the site administrator declare no label, so the
+					// name is humanised. Title case rather than ucfirst, or the admin list reads
+					// "Listing Approved, Listing Expired, Listing report, Listing submit" - the
+					// odd ones out looking like a mistake rather than a different kind of email.
+					'label'    => $label ? $label : ucwords( str_replace( '_', ' ', $name ) ),
 					'tokens'   => array_filter( (array) call_user_func( [ $class, 'get_meta' ], 'tokens' ) ),
 					'channels' => [ 'onsite', 'email', 'push' ],
 					'email'    => true,
@@ -1942,9 +1946,9 @@ final class Notification extends Component {
 		}
 
 		// One field per group keeps forty types from arriving as one wall, and only the groups
-		// your active extensions provide ever appear.
-		$order       = 10;
-		$description = esc_html__( 'Users can choose how each of these reaches them. Anything left unticked here is sent by HivePress as usual and users cannot turn it off. Unticking a whole group also hides it from the text list below and from every user\'s settings page.', 'notifications-for-hivepress' );
+		// your active extensions provide ever appear. The section itself carries the explanation,
+		// so nothing is repeated per group.
+		$order = 10;
 
 		foreach ( $this->get_groups() as $group => $group_label ) {
 			$options = [];
@@ -1959,7 +1963,7 @@ final class Notification extends Component {
 				continue;
 			}
 
-			$field = [
+			$settings['notifications']['sections']['types']['fields'][ 'notification_types_' . $group ] = [
 				'label'   => $group_label,
 				'type'    => 'checkboxes',
 				'options' => $options,
@@ -1967,30 +1971,32 @@ final class Notification extends Component {
 				'_order'  => $order,
 			];
 
-			if ( $description ) {
-				$field['description'] = $description;
-				$description          = '';
-			}
-
-			$settings['notifications']['sections']['types']['fields'][ 'notification_types_' . $group ] = $field;
-
 			$order += 5;
 		}
 
-		// Add the per-role defaults.
-		if ( isset( $settings['notifications']['sections']['types'] ) ) {
-			$order = 200;
+		// Add the per-role defaults, in their own section so they are not mistaken for more types.
+		// Only the first carries the long explanation; repeating it on every role turned the screen
+		// into a wall of identical paragraphs.
+		if ( isset( $settings['notifications']['sections']['defaults'] ) ) {
+			$order = 10;
+			$note  = esc_html__( 'These are WordPress roles. HivePress promotes someone to Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings. Unticking every box here restores all channels rather than none; to switch a notification off for everyone, untick it under Types.', 'notifications-for-hivepress' );
 
 			foreach ( wp_roles()->get_names() as $role => $label ) {
-				$settings['notifications']['sections']['types']['fields'][ 'notification_default_' . $role ] = [
+				$field = [
 					/* translators: %s: role name. */
-					'label'       => sprintf( esc_html__( 'Defaults: %s', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
-					'description' => esc_html__( 'The channels this role starts with before choosing their own. These are WordPress roles. HivePress promotes a user to Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings. Unticking every box restores all channels rather than none; to switch a type off for everyone, untick it in the list above.', 'notifications-for-hivepress' ),
-					'type'        => 'checkboxes',
-					'options'     => $this->get_channels(),
-					'default'     => array_keys( $this->get_channels() ),
-					'_order'      => $order,
+					'label'   => sprintf( esc_html__( '%s Defaults', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
+					'type'    => 'checkboxes',
+					'options' => $this->get_channels(),
+					'default' => array_keys( $this->get_channels() ),
+					'_order'  => $order,
 				];
+
+				if ( $note ) {
+					$field['description'] = $note;
+					$note                 = '';
+				}
+
+				$settings['notifications']['sections']['defaults']['fields'][ 'notification_default_' . $role ] = $field;
 
 				$order += 10;
 			}
@@ -2397,6 +2403,20 @@ final class Notification extends Component {
 
 		if ( $bell ) {
 			$styles['--hp-notification-bell-size'] = $bell . 'px';
+		}
+
+		// Nudge the bell. These are signed, so intval rather than absint, and clamped to a range
+		// that can only ever tidy alignment - enough to line the bell up with whatever a theme has
+		// put beside it, not enough to move it somewhere it does not belong.
+		foreach ( [
+			'x' => 'hp_notification_bell_offset_x',
+			'y' => 'hp_notification_bell_offset_y',
+		] as $axis => $option ) {
+			$offset = intval( get_option( $option, 0 ) );
+
+			if ( $offset ) {
+				$styles[ '--hp-notification-bell-offset-' . $axis ] = max( -30, min( 30, $offset ) ) . 'px';
+			}
 		}
 
 		// Get the text size and weight.
