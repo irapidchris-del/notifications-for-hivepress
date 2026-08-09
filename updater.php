@@ -69,8 +69,15 @@ function fetch_latest_release() {
 	$response = wp_remote_get(
 		'https://api.github.com/repos/' . UPDATE_REPO . '/releases/latest',
 		[
-			'timeout' => 10,
-			'headers' => [ 'Accept' => 'application/vnd.github+json' ],
+			'timeout'    => 10,
+			'headers'    => [ 'Accept' => 'application/vnd.github+json' ],
+
+			// Our own User-Agent, because WordPress's default is "WordPress/{version}; {site url}"
+			// (wp-includes/class-wp-http.php:211) and that puts the site's address and its exact
+			// WordPress version into every release check. GitHub only requires that the header
+			// identifies something, so this satisfies it while telling them nothing about the site.
+			// The house rule for the updater is no site or user data in the request at all.
+			'user-agent' => 'notifications-for-hivepress/' . HP_NOTIFICATIONS_VERSION,
 		]
 	);
 

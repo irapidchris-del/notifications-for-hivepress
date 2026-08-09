@@ -127,6 +127,9 @@ final class Notification_Broadcast extends Component {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$error = sanitize_text_field( wp_unslash( (string) hp\get_array_value( $_GET, 'error' ) ) );
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$empty = (bool) hp\get_array_value( $_GET, 'empty' );
+
 		if ( $sent ) :
 			?>
 			<div class="notice notice-success is-dismissible">
@@ -158,6 +161,16 @@ final class Notification_Broadcast extends Component {
 						)
 					);
 					?>
+				</p>
+			</div>
+			<?php
+		endif;
+
+		if ( $empty ) :
+			?>
+			<div class="notice notice-error is-dismissible">
+				<p>
+					<?php esc_html_e( 'Nothing was sent. Add at least one username or email address to send to.', 'notifications-for-hivepress' ); ?>
 				</p>
 			</div>
 			<?php
@@ -484,7 +497,7 @@ final class Notification_Broadcast extends Component {
 		?>
 		<datalist id="hp-broadcast-users-list">
 			<?php foreach ( $users as $user ) : ?>
-				<option value="<?php echo esc_attr( $user->user_login ); ?>"><?php echo esc_html( $user->display_name . ' — ' . $user->user_email ); ?></option>
+				<option value="<?php echo esc_attr( $user->user_login ); ?>"><?php echo esc_html( $user->display_name . ' (' . $user->user_email . ')' ); ?></option>
 			<?php endforeach; ?>
 		</datalist>
 		<?php
@@ -526,7 +539,8 @@ final class Notification_Broadcast extends Component {
 						<td><?php echo esc_html( hivepress()->notification->get_type_label( $type ) ); ?></td>
 						<td><?php echo esc_html( number_format_i18n( $sent ) ); ?></td>
 						<td><?php echo esc_html( number_format_i18n( $opened ) ); ?></td>
-						<td><?php echo esc_html( $sent ? number_format_i18n( round( $opened / $sent * 100 ) ) . '%' : '—' ); ?></td>
+						<?php // Capped at 100%. Each open is counted once now, but a site that ran an earlier build may already hold figures that were counted twice. ?>
+						<td><?php echo esc_html( $sent ? number_format_i18n( min( 100, round( $opened / $sent * 100 ) ) ) . '%' : esc_html__( 'None sent yet', 'notifications-for-hivepress' ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
@@ -709,8 +723,18 @@ final class Notification_Broadcast extends Component {
 				}
 			}
 
-			if ( $unresolved || ! $user_ids ) {
-				wp_safe_redirect( $this->get_redirect_url( [ 'error' => rawurlencode( implode( ', ', array_slice( $unresolved ? $unresolved : [ '—' ], 0, 10 ) ) ) ] ) );
+			// Two different failures, and they were sharing one message. A name that matched nothing
+			// can be listed back to the sender; an empty box has no names to list, and putting a
+			// dash in the gap produced "These could not be matched to an account: -", which tells
+			// the sender nothing about what to do next.
+			if ( $unresolved ) {
+				wp_safe_redirect( $this->get_redirect_url( [ 'error' => rawurlencode( implode( ', ', array_slice( $unresolved, 0, 10 ) ) ) ] ) );
+
+				exit;
+			}
+
+			if ( ! $user_ids ) {
+				wp_safe_redirect( $this->get_redirect_url( [ 'empty' => 1 ] ) );
 
 				exit;
 			}

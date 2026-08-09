@@ -425,6 +425,14 @@ final class Notification_Push extends Component {
 				'blocking'           => false,
 				'reject_unsafe_urls' => true,
 
+				// Same reason as the updater, and it matters more here. WordPress's default
+				// User-Agent is "WordPress/{version}; {site url}", and this request goes to Google,
+				// Mozilla or Microsoft once per push rather than twice a day, so the default would
+				// hand the site's address and WordPress version to a third party on every
+				// notification. The push itself carries no payload; the header should carry no site
+				// either.
+				'user-agent'         => 'notifications-for-hivepress/' . HP_NOTIFICATIONS_VERSION,
+
 				'headers'            => [
 					'Authorization'  => 'vapid t=' . $token . ', k=' . $this->get_keys()['public'],
 					'TTL'            => 86400,

@@ -526,6 +526,11 @@ a.hp-notification-toast__text:focus {
 	background-color: var(--hp-notification-background);
 	color: var(--hp-notification-text);
 	border-radius: var(--hp-notification-radius);
+
+	/* Clip the rows to the rounded corners. Without it the last row's unread tint or hover wash
+	   paints into the corner and squares it off again - invisible at the 3px default, obvious
+	   once the Corner Radius setting is turned up. */
+	overflow: hidden;
 	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
 }
 
@@ -660,7 +665,11 @@ a.hp-notification-bell__item:focus-visible {
 	justify-content: center;
 	width: 38px;
 	height: 38px;
-	border-radius: 50%;
+
+	/* Circle unless the Icon Shape setting says otherwise. The variable carries the radius rather
+	 * than a shape name, so the three choices are one value each and any future shape needs no CSS
+	 * change here. */
+	border-radius: var(--hp-notification-icon-radius, 50%);
 	overflow: hidden;
 	background-color: color-mix(in srgb, var(--hp-notification-accent) 12%, transparent);
 	color: var(--hp-notification-accent);
@@ -947,12 +956,18 @@ a.hp-notifications__action.button--secondary:focus {
  * Sticky header
  * ----------------------------------------------------------------------- */
 
+/*
+ * No background is set here on purpose. Fixing the bar takes it out of its ancestor's paint
+ * order, so a bar that was transparent over a coloured .site-header needs a colour of its own -
+ * but a bar that already has one does not, and painting white over it made JobHive's white
+ * navigation text invisible on a white bar. initSticky() reads the theme's own colour and sets
+ * it inline, and only in the case that actually needs it.
+ */
 .hp-nfh-sticky {
 	position: fixed !important;
 	left: 0;
 	right: 0;
 	z-index: 1001;
-	background-color: #ffffff;
 	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 

@@ -81,14 +81,21 @@
 			// Iris seeds an empty field with its own starting colour, black. Saving the settings
 			// page without touching the field would then store #000000 - so a bell background
 			// nobody asked for turned solid black simply by pressing Save. Blank it again after
-			// the picker has initialised, and keep it blank until the admin actually picks: the
-			// picker's own swatch button is what tells us they did.
+			// the picker has initialised, and keep it blank until the admin actually picks.
+			//
+			// "Actually picks" is detected on irischange, because that is the only signal Iris
+			// gives: it writes every palette, square and strip pick into the input with jQuery
+			// .val(), which fires no DOM event at all, so an input/change listener misses the
+			// picker's primary interaction entirely. That exact miss shipped in another plugin as
+			// a guard like this one wiping palette-picked colours on save. (This block previously
+			// also bound "irisAftershow", which does not exist - Iris fires nothing by that name -
+			// and survived only because opening the picker takes a click on the swatch button.)
 			if ( wasEmpty ) {
 				input.value = '';
 
 				var chosen = false;
 
-				$( input ).on( 'irisAftershow', function() {
+				$( input ).on( 'irischange', function() {
 					chosen = true;
 				} );
 

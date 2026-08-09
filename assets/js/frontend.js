@@ -9,7 +9,9 @@
 ( function() {
 	'use strict';
 
-	var settings = window.hpNotificationsData;
+	// The payload lives one level down, under "config": wp_localize_script() turns every
+	// top-level scalar into a string, so booleans and numbers only keep their types when nested.
+	var settings = window.hpNotificationsData && window.hpNotificationsData.config;
 
 	// Pop-ups already shown this page view, so polling never repeats one.
 	var seen = {};
@@ -473,9 +475,60 @@
 				progress.className = 'hp-notification-toast__progress';
 				progress.style.animationDuration = settings.duration + 's';
 
-				progress.addEventListener( 'animationend', function() {
-					self.hide( toast );
-				} );
+				/*
+				 * A timer hides the pop-up, and the bar above is only the picture of it.
+				 *
+				 * This used to hang off the bar's own animationend, which broke twice over. Under
+				 * "prefers-reduced-motion: reduce" the stylesheet sets "animation: none" on the bar
+				 * (frontend.css:390), so the event never fired at all and pop-ups stayed on screen
+				 * for ever - and once the on-screen limit was reached the whole feature went silent
+				 * for the rest of the page. That is a system setting, not one of ours, so it never
+				 * showed up in ordinary testing.
+				 *
+				 * The obvious repair, a plain setTimeout beside the listener, quietly broke the
+				 * other half: the CSS pauses the bar while the pointer is on a pop-up
+				 * (frontend.css:164-167), and a timer that ignores that whips the notification away
+				 * from somebody in the middle of reading it.
+				 *
+				 * So the timer pauses too, on hover and on keyboard focus, matching the CSS
+				 * exactly. One thing decides when a pop-up goes, it works whether or not the
+				 * animation runs, and the promise the setting makes is true again.
+				 */
+				var remaining = Math.max( 1, settings.duration ) * 1000;
+				var startedAt = 0;
+				var timer     = null;
+
+				var resume = function() {
+					if ( timer || remaining <= 0 ) {
+						return;
+					}
+
+					startedAt = Date.now();
+
+					timer = window.setTimeout( function() {
+						timer = null;
+
+						self.hide( toast );
+					}, remaining );
+				};
+
+				var pause = function() {
+					if ( ! timer ) {
+						return;
+					}
+
+					window.clearTimeout( timer );
+
+					timer      = null;
+					remaining -= Date.now() - startedAt;
+				};
+
+				toast.addEventListener( 'mouseenter', pause );
+				toast.addEventListener( 'mouseleave', resume );
+				toast.addEventListener( 'focusin', pause );
+				toast.addEventListener( 'focusout', resume );
+
+				resume();
 
 				toast.appendChild( progress );
 			}
@@ -545,6 +598,12 @@
 	// Set when a queue check was skipped because the tab was hidden, so it runs on return.
 	var queueDeferred = false;
 
+	// When the queue was last actually requested. Kept here rather than inside startPolling()
+	// because two listeners fire on one visibilitychange: the flush in initToasts() runs first,
+	// then the poller's. With the timestamp local to the poller, the flush's request was invisible
+	// to it, so returning to a tab hidden for longer than the poll interval read the queue twice.
+	var queueChecked = 0;
+
 	/**
 	 * Fetches and shows the pending pop-ups.
 	 *
@@ -560,6 +619,7 @@
 		}
 
 		queueDeferred = false;
+		queueChecked  = Date.now();
 
 		request( '/notifications/queue' ).then( function( response ) {
 			response.data.notifications.forEach( function( notification ) {
@@ -793,14 +853,12 @@
 			return;
 		}
 
-		var last = Date.now();
+		queueChecked = Date.now();
 
 		window.setInterval( function() {
 			if ( 'visible' !== document.visibilityState ) {
 				return;
 			}
-
-			last = Date.now();
 
 			checkQueue();
 		}, interval * 1000 );
@@ -810,11 +868,12 @@
 				return;
 			}
 
-			// Run on return either because the interval lapsed, or because a check was deferred
-			// while the tab was hidden and its pop-ups are still waiting to be shown.
-			if ( queueDeferred || Date.now() - last > interval * 1000 ) {
-				last = Date.now();
-
+			// Run on return if the interval lapsed while the tab was hidden. A check deferred
+			// during that time is not tested for here: the flush listener in initToasts() runs
+			// first on this same event and has already made the request, and checkQueue() stamps
+			// queueChecked, so the comparison below now sees it and stays quiet. Reading the queue
+			// empties it, so a wasted round trip here is not free.
+			if ( Date.now() - queueChecked > interval * 1000 ) {
 				checkQueue();
 			}
 		} );
@@ -874,6 +933,18 @@
 					self.toggle.focus();
 				}
 			} );
+
+			// Re-measure while the panel is open. place() ran only on open, so turning a phone with
+			// the dropdown showing left a coordinate taken in the other orientation: the panel
+			// detached from the bell and floated below it. Crossing the breakpoint the other way
+			// left "top" set on a panel that is no longer fixed, which place() now clears.
+			[ 'resize', 'orientationchange' ].forEach( function( name ) {
+				window.addEventListener( name, function() {
+					if ( ! self.panel.hidden ) {
+						self.place();
+					}
+				} );
+			} );
 		},
 
 		open: function() {
@@ -887,6 +958,10 @@
 		close: function() {
 			this.panel.hidden = true;
 			this.toggle.setAttribute( 'aria-expanded', 'false' );
+
+			// Drop the measurement with the panel. It was taken against one viewport, and leaving
+			// it behind means the next open starts from a stale number before place() runs.
+			this.panel.style.top = '';
 		},
 
 		/**
@@ -925,7 +1000,24 @@
 				window.setTimeout( function() {
 					self.loaded = false;
 				}, 30000 );
-			} ).catch( function() {} );
+			} ).catch( function() {
+
+				// Say so rather than sitting on "Loading…" for ever. An expired nonce, an offline
+				// phone or a 500 all land here, and this was the one place in the file that entered
+				// a visible in-progress state with no way out of it. "loaded" is still false, so
+				// closing and reopening the bell tries again.
+				var body = self.wrap.querySelector( '[data-component="notification-bell-body"]' );
+
+				if ( body ) {
+					body.innerHTML = '';
+
+					var failed = document.createElement( 'div' );
+					failed.className = 'hp-notification-bell__empty';
+					failed.textContent = settings.errorText;
+
+					body.appendChild( failed );
+				}
+			} );
 		},
 
 		render: function( notifications ) {
@@ -1213,6 +1305,56 @@
 		var fixed    = false;
 		var observer = null;
 
+		/**
+		 * Works out what colour the bar needs while it is fixed.
+		 *
+		 * Fixing the bar lifts it out of its ancestors' paint order, so the page scrolls underneath
+		 * whatever part of it is transparent. Themes split this two ways: some paint .header-navbar
+		 * itself, others leave it clear and paint .site-header behind it.
+		 *
+		 * A bar that already has its own opaque colour needs nothing, so it gets nothing - this
+		 * used to paint white unconditionally, which turned JobHive's white navigation text
+		 * invisible against a newly white bar. Only a see-through bar borrows a colour, and it
+		 * borrows the one the theme was already showing behind it rather than a guess.
+		 *
+		 * Read once, before the class is added, or it would read back our own value.
+		 *
+		 * @return {string} A colour to apply, or an empty string to leave the bar alone.
+		 */
+		function background() {
+			var node = bar;
+
+			function opaque( color ) {
+				if ( ! color || 'transparent' === color ) {
+					return false;
+				}
+
+				// rgba() with a zero alpha is transparent too, and it is what themes actually emit.
+				var parts = color.match( /^rgba?\(([^)]+)\)$/ );
+
+				return ! parts || 0 !== parseFloat( parts[1].split( ',' )[3] || '1' );
+			}
+
+			if ( opaque( window.getComputedStyle( node ).backgroundColor ) ) {
+				return '';
+			}
+
+			while ( node && node !== document.documentElement ) {
+				var color = window.getComputedStyle( node ).backgroundColor;
+
+				if ( opaque( color ) ) {
+					return color;
+				}
+
+				node = node.parentNode;
+			}
+
+			// Nothing opaque anywhere above it. White is the last resort rather than the default.
+			return '#ffffff';
+		}
+
+		var barBackground = background();
+
 		function offset() {
 			var admin = document.getElementById( 'wpadminbar' );
 
@@ -1258,11 +1400,17 @@
 				holder.style.height  = bar.offsetHeight + 'px';
 				holder.style.display = 'block';
 				bar.style.top        = offset() + 'px';
+
+				if ( barBackground ) {
+					bar.style.backgroundColor = barBackground;
+				}
+
 				bar.classList.add( 'hp-nfh-sticky' );
 			} else {
 				bar.classList.remove( 'hp-nfh-sticky' );
-				bar.style.top        = '';
-				holder.style.display = 'none';
+				bar.style.top             = '';
+				bar.style.backgroundColor = '';
+				holder.style.display      = 'none';
 			}
 		}
 
@@ -1528,6 +1676,14 @@
 			if ( remove ) {
 				var item = remove.closest( '.hp-notification' );
 				var id = parseInt( item.getAttribute( 'data-id' ), 10 );
+
+				// One deletion at a time per row. Two taps used to send two requests and build two
+				// Undo chips: the user clicks Undo on the one they can see, the row comes back, and
+				// the other chip's eight-second timer still runs item.remove() - so the row they
+				// just restored vanishes again while the notification is alive on the server.
+				if ( item.classList.contains( 'hp-notification--removing' ) ) {
+					return;
+				}
 
 				item.classList.add( 'hp-notification--removing' );
 

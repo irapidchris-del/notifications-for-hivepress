@@ -137,10 +137,15 @@ final class Notification extends Component {
 
 			// Get email types. Emails HivePress sends to the site administrator declare no label,
 			// so the email name is humanised for those.
+			$defaults = $this->get_default_texts();
+
 			foreach ( hivepress()->get_classes( 'emails' ) as $name => $class ) {
 				$label = call_user_func( [ $class, 'get_meta' ], 'label' );
 
 				$types[ $name ] = [
+					// Wording written for a notification list, falling back to the email subject
+					// for the ones addressed to the site administrator.
+					'text'     => hp\get_array_value( $defaults, $name, '' ),
 					// Emails HivePress sends to the site administrator declare no label, so the
 					// name is humanised. Title case rather than ucfirst, or the admin list reads
 					// "Listing Approved, Listing Expired, Listing report, Listing submit" - the
@@ -180,6 +185,147 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Gets the default wording for the notifications HivePress emails.
+	 *
+	 * Without these, an on-site notification falls back to the email's subject line, and a subject
+	 * is written to be read in an inbox next to a sender and a body. On its own in a list it says
+	 * very little: "Order Completed" or "User Registered" tells someone what happened to something,
+	 * but not what happened to them. These say the second thing.
+	 *
+	 * Every token used here is declared by the email it belongs to, checked against the source
+	 * rather than assumed, because replace_tokens() leaves an unknown token in the text verbatim -
+	 * so a wrong guess would put a raw %token% in front of a real user.
+	 *
+	 * Two traps that shaped the wording. **%user_name% is the recipient**, not whoever caused the
+	 * notification: every HivePress email body opens "Hi, %user_name%!", so it names the person
+	 * reading it. And **%user_password% is never used**, despite user_register offering it: an
+	 * on-site notification is stored in the database and sits in a list for weeks, which is the last
+	 * place a password should be.
+	 *
+	 * Emails HivePress addresses to the site administrator declare no tokens at all, so they are
+	 * absent here and keep the subject-line fallback, which is the right shape for them anyway.
+	 *
+	 * @return array
+	 */
+	protected function get_default_texts() {
+		/*
+		 * One sniff has to stay off here, and it is the dangerous kind: one phpcbf will "fix" for
+		 * you, silently and wrongly.
+		 *
+		 * It reads every %word% as a printf placeholder. These are HivePress tokens, replaced by
+		 * NAME rather than by position, by replace_tokens() in core's helpers. Told to order them,
+		 * phpcbf rewrites "%site_name%" into "%1$site_name%" in any string holding two or more,
+		 * producing a token replace_tokens() can never match - so the notification reaches a real
+		 * user with a raw "%1$site_name%" in it.
+		 *
+		 * That is not hypothetical. Running phpcbf on this file did exactly that to five of the
+		 * strings below, twice, and the only thing that caught it was a test that renders every
+		 * default and looks for tokens left over. Never accept the fixer's version of these lines.
+		 *
+		 * The translators comments below are real, not sniff appeasement: a translator who renders
+		 * %listing_title% into their own language breaks the notification, and they have no way to
+		 * know that without being told.
+		 *
+		 * These are __() and not esc_html__() on purpose. esc_html__() escapes after translating,
+		 * so the first French string containing "n'a" would be stored as "n&#039;a" and shown that
+		 * way for the life of the notification. Escaping belongs at the point of output, and every
+		 * consumer already does it: the templates use esc_html(), the pop-up, bell and undo bar
+		 * assign to textContent, and the REST routes hand back JSON.
+		 */
+		// phpcs:disable WordPress.WP.I18n.UnorderedPlaceholdersText
+
+		$texts = [
+
+			/* translators: keep %site_name% and %user_name% exactly as written; they are replaced with the site name and the reader's name. */
+			'user_register'          => __( 'Welcome to %site_name%, %user_name%. Your account is ready to use.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_approve'        => __( 'Your listing %listing_title% has been approved and is now live.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_reject'         => __( 'Your listing %listing_title% was not approved.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_expire'         => __( 'Your listing %listing_title% has expired and is no longer shown.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_sellout'        => __( 'Your listing %listing_title% has sold out.', 'notifications-for-hivepress' ),
+			'listing_find'           => __( 'New listings have been added that match your saved search.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_claim_approve'  => __( 'Your claim for %listing_title% has been approved. The listing is yours to manage.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'listing_claim_reject'   => __( 'Your claim for %listing_title% was not approved.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %sender.display_name% exactly as written; it is replaced with the sender's name. */
+			'message_send'           => __( '%sender.display_name% sent you a message.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_request'        => __( 'New booking request for %listing_title%, %booking_dates%.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_accept'         => __( 'Your booking of %listing_title% was accepted for %booking_dates%.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_decline'        => __( 'Your booking of %listing_title% for %booking_dates% was declined.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_confirm_user'   => __( 'Your booking of %listing_title% is confirmed for %booking_dates%.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_confirm_vendor' => __( 'A booking of %listing_title% is confirmed for %booking_dates%.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_cancel_user'    => __( 'Your booking of %listing_title% for %booking_dates% has been cancelled.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% and %booking_dates% exactly as written; they are replaced with the listing name and the booking dates. */
+			'booking_cancel_vendor'  => __( 'A booking of %listing_title% for %booking_dates% has been cancelled.', 'notifications-for-hivepress' ),
+			/* translators: keep %booking_number% and %booking_dates% exactly as written; they are replaced with the booking reference and its dates. */
+			'booking_remind'         => __( 'Reminder: booking %booking_number% is coming up on %booking_dates%.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %order_number% and %order_amount% exactly as written; they are replaced with the order reference and its total. */
+			'order_receive'          => __( 'You have a new order, %order_number%, for %order_amount%.', 'notifications-for-hivepress' ),
+			/* translators: keep %order_number% and %order_amount% exactly as written; they are replaced with the order reference and its total. */
+			'order_complete'         => __( 'Order %order_number% is complete. Total %order_amount%.', 'notifications-for-hivepress' ),
+			/* translators: keep %order_number% exactly as written; it is replaced with the order reference. */
+			'order_deliver'          => __( 'Order %order_number% has been delivered.', 'notifications-for-hivepress' ),
+			/* translators: keep %order_number% and %order_amount% exactly as written; they are replaced with the order reference and its total. */
+			'order_refund'           => __( 'Order %order_number% has been refunded, %order_amount%.', 'notifications-for-hivepress' ),
+			/* translators: keep %order_number% exactly as written; it is replaced with the order reference. */
+			'order_reject'           => __( 'The delivery for order %order_number% was rejected.', 'notifications-for-hivepress' ),
+			/* translators: keep %payout_amount% and %payout_method% exactly as written; they are replaced with the amount and how it was paid. */
+			'payout_complete'        => __( 'Your payout of %payout_amount% has been sent by %payout_method%.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %membership_plan% exactly as written; it is replaced with the plan name. */
+			'membership_activate'    => __( 'Your %membership_plan% membership is now active.', 'notifications-for-hivepress' ),
+			/* translators: keep %membership_plan% exactly as written; it is replaced with the plan name. */
+			'membership_renew'       => __( 'Your %membership_plan% membership has renewed.', 'notifications-for-hivepress' ),
+			/* translators: keep %membership_plan% exactly as written; it is replaced with the plan name. */
+			'membership_expire'      => __( 'Your %membership_plan% membership has expired.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %request_title% exactly as written; it is replaced with the request name. */
+			'request_send'           => __( 'New request: %request_title%.', 'notifications-for-hivepress' ),
+			/* translators: keep %request_title% exactly as written; it is replaced with the request name. */
+			'request_approve'        => __( 'Your request %request_title% has been approved.', 'notifications-for-hivepress' ),
+			/* translators: keep %request_title% exactly as written; it is replaced with the request name. */
+			'request_reject'         => __( 'Your request %request_title% was not approved.', 'notifications-for-hivepress' ),
+			/* translators: keep %request_title% exactly as written; it is replaced with the request name. */
+			'request_expire'         => __( 'Your request %request_title% has expired.', 'notifications-for-hivepress' ),
+			'request_find'           => __( 'New requests have been posted that match what you offer.', 'notifications-for-hivepress' ),
+			'offer_make'             => __( 'You have received a new offer.', 'notifications-for-hivepress' ),
+
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'review_add'             => __( 'A new review has been left on %listing_title%.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'review_approve'         => __( 'Your review of %listing_title% has been approved.', 'notifications-for-hivepress' ),
+			/* translators: keep %listing_title% exactly as written; it is replaced with the listing name. */
+			'review_reply'           => __( 'Your review of %listing_title% has a reply.', 'notifications-for-hivepress' ),
+		];
+
+		// phpcs:enable WordPress.WP.I18n.UnorderedPlaceholdersText
+
+		/**
+		 * Filters the default wording for each notification type. The site owner's own wording, set
+		 * under Settings, always wins over anything returned here.
+		 *
+		 * @hook hivepress/v1/notification_default_texts
+		 * @param {array} $texts Default texts, keyed by notification type.
+		 * @return {array} Default texts.
+		 */
+		return (array) apply_filters( 'hivepress/v1/notification_default_texts', $texts );
+	}
+
+	/**
 	 * Gets the notification types that aren't backed by a HivePress email.
 	 *
 	 * These have no email to mirror, so they're on-site only. Each one is registered only when the
@@ -193,8 +339,8 @@ final class Notification extends Component {
 		if ( class_exists( '\HivePress\Models\Favorite' ) ) {
 			$types['listing_favorite'] = [
 				'label'    => esc_html__( 'Listing Favourited', 'notifications-for-hivepress' ),
-				/* translators: %1$s: user name, %2$s: listing title. */
-				'text'     => esc_html__( '%user.display_name% added %listing.title% to their favourites.', 'notifications-for-hivepress' ),
+				/* translators: keep %user.display_name% and %listing.title% exactly as written; they are HivePress tokens replaced by name, not numbered placeholders, so they may be reordered or dropped but never translated. */
+				'text'     => __( '%user.display_name% added %listing.title% to their favourites.', 'notifications-for-hivepress' ),
 				'tokens'   => [ 'user', 'listing', 'listing_title', 'listing_url' ],
 				'channels' => [ 'onsite', 'push' ],
 				'icon'     => 'heart',
@@ -204,7 +350,8 @@ final class Notification extends Component {
 		if ( class_exists( '\HivePress\Models\Booking' ) ) {
 			$types['booking_complete'] = [
 				'label'     => esc_html__( 'Booking Completed', 'notifications-for-hivepress' ),
-				'text'      => esc_html__( 'Your booking for %listing.title% is done. How did it go?', 'notifications-for-hivepress' ),
+				/* translators: keep %listing.title% exactly as written; it is a HivePress token replaced with the listing name, not a placeholder to translate. */
+				'text'      => __( 'Your booking for %listing.title% is done. How did it go?', 'notifications-for-hivepress' ),
 				'link_text' => esc_html__( 'Leave a review', 'notifications-for-hivepress' ),
 				'tokens'    => [ 'user', 'listing', 'booking', 'listing_title', 'listing_url' ],
 				'channels'  => [ 'onsite', 'push' ],
@@ -214,7 +361,8 @@ final class Notification extends Component {
 		if ( class_exists( '\HivePress\Models\Review' ) ) {
 			$types['listing_review'] = [
 				'label'    => esc_html__( 'Review Received', 'notifications-for-hivepress' ),
-				'text'     => esc_html__( '%author.display_name% reviewed %listing.title%.', 'notifications-for-hivepress' ),
+				/* translators: keep %author.display_name% and %listing.title% exactly as written; they are HivePress tokens replaced by name, not numbered placeholders, so they may be reordered or dropped but never translated. */
+				'text'     => __( '%author.display_name% reviewed %listing.title%.', 'notifications-for-hivepress' ),
 				'tokens'   => [ 'author', 'listing', 'review', 'listing_title', 'listing_url', 'review_url' ],
 				'channels' => [ 'onsite', 'push' ],
 			];
@@ -234,7 +382,7 @@ final class Notification extends Component {
 				 * the sniff reads %b and %u as printf conversions and would have them numbered,
 				 * which would stop them being recognised as tokens at all.
 				 */
-				'text'      => esc_html__( 'Congratulations! You have earned the %badge.name% badge. Keep up the good work, %user.display_name%!', 'notifications-for-hivepress' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText
+				'text'      => __( 'Congratulations! You have earned the %badge.name% badge. Keep up the good work, %user.display_name%!', 'notifications-for-hivepress' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText
 				'link_text' => esc_html__( 'View your badges', 'notifications-for-hivepress' ),
 				'tokens'    => [ 'user', 'badge', 'badge_name' ],
 				'channels'  => [ 'onsite', 'push' ],
@@ -397,7 +545,32 @@ final class Notification extends Component {
 			return '';
 		}
 
-		return trim( wp_strip_all_tags( hp\replace_tokens( (array) $tokens, $text ) ) );
+		$tokens = (array) $tokens;
+
+		/*
+		 * Two tokens every notification can rely on, whichever extension raised it.
+		 *
+		 * replace_tokens() only walks the tokens it is given, so a %token% with nothing behind it is
+		 * left in the text exactly as typed - a site owner who writes "Welcome to %site_name%" and
+		 * gets "Welcome to %site_name%" in front of their users has been let down by us, not by
+		 * their typing. Adding them here rather than at each call site means every path gets them:
+		 * the email listener, the extras, badges, announcements and the backfill alike.
+		 *
+		 * They never overwrite an extension's own token of the same name.
+		 *
+		 * The site name is decoded on the way in. WordPress stores blogname already run through
+		 * esc_html(), so get_bloginfo( 'name' ) hands back "Bob &amp; Sons" for a site called
+		 * "Bob & Sons". This string is stored in comment_content and later printed as text by the
+		 * pop-up, the bell and the OS push body, so an entity here is an entity in front of the
+		 * user for as long as the notification is kept - and no later code fix can repair the rows
+		 * already written. The push title does the same thing for the same reason.
+		 */
+		$tokens += [
+			'site_name' => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'site_url'  => home_url( '/' ),
+		];
+
+		return trim( wp_strip_all_tags( hp\replace_tokens( $tokens, $text ) ) );
 	}
 
 	/**
@@ -428,6 +601,21 @@ final class Notification extends Component {
 			if ( is_array( $choice ) ) {
 				$saved   = true;
 				$enabled = array_merge( $enabled, array_intersect( $choice, $group_types ) );
+			} elseif ( '' === $choice ) {
+				/*
+				 * Nothing ticked, deliberately. The settings form posts no value at all for a
+				 * checkbox group with every box clear, so the option stores as an empty string
+				 * rather than an empty array - the stored-empty trap in hivepress-settings.md.
+				 *
+				 * Without this branch an empty string fell through to "never configured" below and
+				 * switched the entire group back on. Measured: unticking all eight ticked boxes in
+				 * the Listings group and saving left thirteen types enabled, five more than before
+				 * the admin touched anything, and the screen then redrew with them all ticked.
+				 *
+				 * An absent option is still false, not '', so the two cases stay distinguishable
+				 * and a site that has never saved keeps the sensible defaults.
+				 */
+				$saved = true;
 			} else {
 				$enabled = array_merge( $enabled, array_diff( $group_types, [ 'user_password_request', 'user_email_verify' ] ) );
 			}
@@ -666,8 +854,11 @@ final class Notification extends Component {
 			return;
 		}
 
-		// Get tokens.
-		$tokens = (array) $email->get_tokens();
+		// Get tokens. The registration password is dropped before anything can see it: it must never
+		// reach the stored text, and it must not be recorded as an available token either. Anyone
+		// who typed it into the settings box under an older build now gets a literal %user_password%
+		// in the notification, which is ugly but visible - far better than a silent leak.
+		$tokens = array_diff_key( (array) $email->get_tokens(), [ 'user_password' => '' ] );
 
 		$this->update_seen_tokens( $type, $tokens );
 
@@ -1540,6 +1731,7 @@ final class Notification extends Component {
 		 * @param {array} $channels Notification channels.
 		 * @return {array} Notification channels.
 		 */
+
 		/*
 		 * "On-site" rather than "Pop-up", which is what this said in development and was wrong in a
 		 * way that mattered. Turning this off does not just stop the pop-up: the notification is
@@ -1806,6 +1998,17 @@ final class Notification extends Component {
 	 * A stylist and a client want different things by default, and neither should have to go and
 	 * set that up before the site behaves sensibly.
 	 *
+	 * The screen is taken at its word. Three states, not two: a saved list means those channels, a
+	 * saved-but-empty list means none of them, and no saved value at all means the role has never
+	 * been configured and gets everything.
+	 *
+	 * The middle one used to be missing. Unticking every box for a role posts nothing, so the option
+	 * stores as an empty string rather than an empty array, is_array( '' ) is false, and the role
+	 * fell through to the last line and got every channel - the exact opposite of what the admin had
+	 * just set, and in the noisier direction. It was documented in a tooltip rather than fixed,
+	 * which is not the same thing: a settings screen that needs a footnote to explain why it does
+	 * the reverse of what it shows is a broken settings screen.
+	 *
 	 * @param int $user_id User ID.
 	 * @return array
 	 */
@@ -1819,12 +2022,16 @@ final class Notification extends Component {
 			return $channels;
 		}
 
-		// Take the first role that has defaults set.
+		// Take the first role that has been configured either way.
 		foreach ( (array) $user->roles as $role ) {
 			$default = get_option( 'hp_notification_default_' . $role );
 
 			if ( is_array( $default ) ) {
 				return array_values( array_intersect( $channels, $default ) );
+			}
+
+			if ( '' === $default ) {
+				return [];
 			}
 		}
 
@@ -1945,6 +2152,35 @@ final class Notification extends Component {
 			return $settings;
 		}
 
+		/*
+		 * The email-less types are named here, at runtime, rather than in the config's static
+		 * description. That sentence used to hard-code all four names, and a site without the
+		 * extension behind one of them then read about a checkbox that was nowhere on its screen:
+		 * a staging install with no Badges extension was told "unticking Badge Earned turns it off
+		 * altogether" while no Badge Earned existed anywhere on the page. Building the list from
+		 * the types actually registered means the copy can only ever name what the site can see.
+		 */
+		$hp_emailless = [];
+
+		foreach ( $this->get_optional_types() as $type => $args ) {
+			if ( isset( $args['channels'] ) && ! in_array( 'email', (array) $args['channels'], true ) ) {
+				$hp_emailless[] = hp\get_array_value( $args, 'label', $type );
+			}
+		}
+
+		if ( $hp_emailless ) {
+			$settings['notifications']['sections']['types']['description'] .= ' ' . sprintf(
+				/* translators: %s: comma-separated list of notification names. */
+				_n(
+					'One of these has no email behind it, so unticking %s switches that notification off altogether.',
+					'These have no email behind them, so unticking one of them switches that notification off altogether: %s.',
+					count( $hp_emailless ),
+					'notifications-for-hivepress'
+				),
+				implode( ', ', $hp_emailless )
+			);
+		}
+
 		// One field per group keeps forty types from arriving as one wall, and only the groups
 		// your active extensions provide ever appear. The section itself carries the explanation,
 		// so nothing is repeated per group.
@@ -1963,42 +2199,91 @@ final class Notification extends Component {
 				continue;
 			}
 
+			/*
+			 * Every group carries the same tooltip. These eight fields had none at all, which broke
+			 * the house rule that every setting gets one, and did it on the tallest part of the
+			 * screen: forty-odd tick boxes whose only guidance was a single paragraph the owner had
+			 * to scroll back up to reread. One shared string keeps it to a single line to translate.
+			 */
+			$group_hint = esc_html__( 'Tick what this plugin should turn into an on-site notification, with a pop-up and a push notification where someone has allowed them, and let each person choose how they receive it. Leave one unticked and nothing here changes for it: any email HivePress already sends still goes out, and nobody can switch that off. Untick every box in this group and none of the group is handled.', 'notifications-for-hivepress' );
+
+			/*
+			 * Two boxes on the Account group arrive unticked on purpose, and nothing said why.
+			 * Ticking one puts it under that person's Email box, and anybody who has cleared Email
+			 * then stops receiving it - which for a password reset or an email verification means
+			 * they cannot get back into their account at all. HivePress refuses the login outright
+			 * (reference/hivepress/includes/components/class-user.php:154-155).
+			 */
+			if ( 'account' === $group ) {
+				$group_hint .= ' ' . esc_html__( 'Password Reset and Email Verification start unticked on purpose, because ticking one puts it under the Email box for Account, and anyone whose Email box is clear then stops receiving it and cannot sign in to put that right.', 'notifications-for-hivepress' );
+			}
+
+			// Review notifications sit in two places, so each group says where the others are. The
+			// tidier answer is a Reviews group of its own, but that would move them to a different
+			// stored option and silently switch them back on for anyone upgrading.
+			if ( 'listings' === $group && isset( $options['listing_review'] ) ) {
+				$group_hint .= ' ' . esc_html__( 'Review Received is here because it is about your own listing. The other review notifications are under Other.', 'notifications-for-hivepress' );
+			}
+
+			// Only when Review Received is really on the screen: it is registered by the Reviews
+			// extension, so on a site without Reviews this sentence pointed at a checkbox that was
+			// nowhere on the page - the same class of mistake as the hard-coded email-less list.
+			if ( 'other' === $group && isset( $this->get_types()['listing_review'] ) ) {
+				$group_hint .= ' ' . esc_html__( 'Review Received, for a review left on your own listing, is under Listings.', 'notifications-for-hivepress' );
+			}
+
 			$settings['notifications']['sections']['types']['fields'][ 'notification_types_' . $group ] = [
-				'label'   => $group_label,
-				'type'    => 'checkboxes',
-				'options' => $options,
-				'default' => array_diff( array_keys( $options ), [ 'user_password_request', 'user_email_verify' ] ),
-				'_order'  => $order,
+				'label'       => $group_label,
+				'description' => $group_hint,
+				'type'        => 'checkboxes',
+				'options'     => $options,
+				'default'     => array_diff( array_keys( $options ), [ 'user_password_request', 'user_email_verify' ] ),
+				'_order'      => $order,
 			];
 
 			$order += 5;
 		}
 
 		// Add the per-role defaults, in their own section so they are not mistaken for more types.
-		// Only the first carries the long explanation; repeating it on every role turned the screen
-		// into a wall of identical paragraphs.
 		if ( isset( $settings['notifications']['sections']['defaults'] ) ) {
 			$order = 10;
-			$note  = esc_html__( 'These are WordPress roles. HivePress promotes someone to Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings. Unticking every box here restores all channels rather than none; to switch a notification off for everyone, untick it under Types.', 'notifications-for-hivepress' );
+
+			/*
+			 * Every role row gets a tooltip, not just whichever role WordPress happened to return
+			 * first. Only the first used to have one, and it explained what a WordPress role is
+			 * without ever mentioning the three tick boxes beside it - so on a WooCommerce site the
+			 * Customer and Shop Manager rows sat there bare, with nothing to say that clearing
+			 * Email stops HivePress's own email reaching those people.
+			 */
+			$role_hint = esc_html__( 'What people with this role receive until they choose for themselves. Unticking Email stops the email HivePress already sends from reaching them. Untick every box and this role gets nothing until someone turns something on.', 'notifications-for-hivepress' );
+
+			// The long note about which role is which goes on the first row only. Repeating it on
+			// every role turned the section into a wall of identical paragraphs.
+			$note = esc_html__( 'These are WordPress roles. HivePress makes someone a Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings.', 'notifications-for-hivepress' );
 
 			foreach ( wp_roles()->get_names() as $role => $label ) {
 				$field = [
 					/* translators: %s: role name. */
-					'label'   => sprintf( esc_html__( '%s Defaults', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
-					'type'    => 'checkboxes',
-					'options' => $this->get_channels(),
-					'default' => array_keys( $this->get_channels() ),
-					'_order'  => $order,
+					'label'       => sprintf( esc_html__( '%s Defaults', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
+					'description' => $note ? $role_hint . ' ' . $note : $role_hint,
+					'type'        => 'checkboxes',
+					'options'     => $this->get_channels(),
+					'default'     => array_keys( $this->get_channels() ),
+					'_order'      => $order,
 				];
 
-				if ( $note ) {
-					$field['description'] = $note;
-					$note                 = '';
-				}
+				$note = '';
 
 				$settings['notifications']['sections']['defaults']['fields'][ 'notification_default_' . $role ] = $field;
 
 				$order += 10;
+			}
+
+			// The section description explains On-site and Email unconditionally, but Push is only
+			// on the screen when it is actually on offer, so its sentence is only added then. A
+			// screen that explains a box nobody can see is its own kind of confusing.
+			if ( isset( $this->get_channels()['push'] ) ) {
+				$settings['notifications']['sections']['defaults']['description'] .= ' ' . esc_html__( 'Push reaches their phone or computer while your site is closed, and it goes out with the on-site notification, so a role with Push ticked but On-site unticked gets neither.', 'notifications-for-hivepress' );
 			}
 		}
 
@@ -2022,7 +2307,56 @@ final class Notification extends Component {
 				'description' => $this->get_token_hint( $type ),
 				'type'        => 'text',
 				'max_length'  => 256,
+
+				/*
+				 * Sanitised through wp_kses rather than sanitize_text_field, which eats tokens.
+				 *
+				 * sanitize_text_field() strips percent-encoded octets, and it cannot tell one from
+				 * a HivePress token: in "%badge.name%" it reads the "%ba" as an encoded byte,
+				 * because b and a are both hex digits, and saves "dge.name%". The admin types the
+				 * token this very field's hint told them to use, presses Save, and the notification
+				 * goes out reading "You have earned the dge.name% badge". Measured on WP 7.0.2.
+				 *
+				 * It is a whole class of tokens, not one: any name whose first two characters are
+				 * both hex digits goes the same way, so %category...%, %date...% and anything an
+				 * extension adds starting ba, ca, da, de, fa and so on are all affected. %user...%
+				 * and %listing...% happen to survive, which is what makes this so easy to miss.
+				 *
+				 * Setting "html" to a non-empty array routes the value through wp_kses instead
+				 * (reference/hivepress/includes/fields/class-text.php:194-201), which leaves
+				 * percent sequences alone. The list is HivePress's own minimal set, the one
+				 * hp\sanitize_html() uses. Nothing is loosened by this in practice: render_text()
+				 * puts every stored string through wp_strip_all_tags() before it reaches anyone,
+				 * the notifications page escapes with esc_html(), and the pop-up and bell assign to
+				 * textContent. The control itself is unchanged - class-text.php:234 renders a plain
+				 * input either way.
+				 */
+				'html'        => [
+					'strong' => [],
+					'i'      => [ 'class' => [] ],
+					'a'      => [
+						'href'   => [],
+						'target' => [],
+						'class'  => [],
+					],
+				],
+
+				// The default wording shows here as grey hint text, so leaving the box empty is a
+				// visible choice rather than a blank. Types HivePress only emails to the site
+				// administrator have no wording of their own and say so.
 				'placeholder' => hp\get_array_value( $args, 'text' ) ? $args['text'] : esc_html__( 'The email subject is used', 'notifications-for-hivepress' ),
+
+				/*
+				 * Full width, because these hold a whole sentence and the box is otherwise about
+				 * 350px - roughly a third of a default, and none of the end of a 256 character one,
+				 * so nobody can read what they are editing.
+				 *
+				 * An inline width rather than a class: HivePress's admin stylesheet sizes these
+				 * with ".hp-field.regular-text{width:25em}" and ships no rule for WordPress's
+				 * "large-text", so adding that class changes nothing. An inline style wins on the
+				 * cascade without an !important arms race, and only for these fields.
+				 */
+				'attributes'  => [ 'style' => 'width:100%;max-width:52em;' ],
 				'_order'      => $order,
 			];
 
@@ -2090,8 +2424,18 @@ final class Notification extends Component {
 			$tokens[ $name ] = (bool) $is_model;
 		}
 
+		/*
+		 * One token is never offered. HivePress's registration email declares %user_password% and
+		 * it does work, so it would otherwise appear in this list - and the list is what tells the
+		 * site owner which tokens to use. Anyone who takes the hint writes a plaintext password
+		 * into wp_comments, where it is served by two REST routes and pushed to the OS notification
+		 * body until the storage period expires. An email is read once and can be deleted; an
+		 * on-site notification sits in a list for weeks.
+		 */
+		unset( $tokens['user_password'] );
+
 		if ( ! $tokens ) {
-			return esc_html__( 'The tokens for this notification are listed here once it has been sent for the first time. Until then, plain text works, and leaving this empty uses the email subject.', 'notifications-for-hivepress' );
+			return esc_html__( 'Tokens are placeholders such as %listing.title% that are swapped for the real wording when a notification is sent. The ones this notification offers are listed here once it has been sent for the first time. Until then ordinary words work, and leaving the box empty uses the subject line of the email HivePress sends.', 'notifications-for-hivepress' );
 		}
 
 		ksort( $tokens );
@@ -2109,8 +2453,8 @@ final class Notification extends Component {
 		}
 
 		return sprintf(
-			/* translators: %s: comma-separated list of tokens. */
-			esc_html__( 'Tokens: %s. Replace "field" with the one you want, such as %%listing.title%% or %%sender.display_name%%. A fallback goes after a pipe, such as %%listing.title|your listing%%.', 'notifications-for-hivepress' ),
+			/* translators: %s: comma-separated list of tokens. Keep the doubled percent signs as they are; they print as single ones. */
+			esc_html__( 'Tokens: %s. A token is a placeholder, swapped for the real wording when the notification is sent, so %%listing.title%% becomes the name of the listing. Copy them exactly, because anything else you put between percent signs is sent to people exactly as you typed it. Where one ends in ".field", change that word to the detail you want, and to choose your own wording for when a detail is missing, add a vertical bar (|) inside the token, as in %%listing.title|your listing%%.', 'notifications-for-hivepress' ),
 			implode( ', ', $list )
 		);
 	}
@@ -2232,52 +2576,66 @@ final class Notification extends Component {
 
 		// Add script data. This is localized whether or not pop-ups are enabled, because the
 		// notification list uses the same endpoints to mark notifications as read and delete them.
+		//
+		// Everything sits one level down, under "config", because wp_localize_script() casts every
+		// top-level scalar to a string (class-wp-scripts.php:655-663): false becomes "", true
+		// becomes "1" and 6 becomes "6". The booleans survive that only by luck, "" being falsy,
+		// which is one strict comparison away from a bug that exists only in the browser. Values
+		// nested one level deep keep their real types.
 		wp_localize_script(
 			'hivepress-notifications',
 			'hpNotificationsData',
 			[
-				'apiURL'         => esc_url_raw( rest_url( 'hivepress/v1' ) ),
-				'apiNonce'       => wp_create_nonce( 'wp_rest' ),
-				'toasts'         => (bool) get_option( 'hp_notification_toasts', true ),
-				'position'       => (string) get_option( 'hp_notification_toast_position', 'bottom-left' ),
-				'positionMobile' => (string) get_option( 'hp_notification_toast_position_mobile', 'bottom' ),
-				'sticky'         => (bool) get_option( 'hp_notification_sticky_header' ),
-				'autohide'       => (bool) get_option( 'hp_notification_toast_autohide', true ),
-				'duration'       => max( 1, absint( get_option( 'hp_notification_toast_duration', 6 ) ) ),
-				'limit'          => max( 1, absint( get_option( 'hp_notification_toast_limit', 3 ) ) ),
-				'closeText'      => esc_html__( 'Close', 'notifications-for-hivepress' ),
-				'viewText'       => esc_html__( 'View', 'notifications-for-hivepress' ),
+				'config' => [
+					'apiURL'         => esc_url_raw( rest_url( 'hivepress/v1' ) ),
+					'apiNonce'       => wp_create_nonce( 'wp_rest' ),
+					'toasts'         => (bool) get_option( 'hp_notification_toasts', true ),
+					'position'       => (string) get_option( 'hp_notification_toast_position', 'bottom-left' ),
+					'positionMobile' => (string) get_option( 'hp_notification_toast_position_mobile', 'bottom' ),
+					// Gated on the bell, like the two hide-counter settings. Its row is a "_parent" child
+					// of Header Bell, so it disappears from the screen when the bell is switched off,
+					// but the stored value stays behind: without this check an admin who tried the bell
+					// with a sticky header and then changed their mind kept a header pinned to the top
+					// of every page, with the tick box that would undo it no longer on the screen.
+					'sticky'         => (bool) get_option( 'hp_notification_bell' ) && (bool) get_option( 'hp_notification_sticky_header' ),
+					'autohide'       => (bool) get_option( 'hp_notification_toast_autohide', true ),
+					'duration'       => max( 1, absint( get_option( 'hp_notification_toast_duration', 6 ) ) ),
+					'limit'          => max( 1, absint( get_option( 'hp_notification_toast_limit', 3 ) ) ),
+					'closeText'      => esc_html__( 'Close', 'notifications-for-hivepress' ),
+					'viewText'       => esc_html__( 'View', 'notifications-for-hivepress' ),
 
-				/*
-				 * Both plural forms and the empty state, so the page header can be rewritten in the
-				 * reader's language when a notification is marked read without a reload.
-				 *
-				 * These carry a gettext context rather than only a translator comment. English
-				 * spells both forms the same way, so without a context they collapse into one POT
-				 * entry with two contradictory comments, and a language that does need different
-				 * forms has no way to supply them.
-				 */
-				/* translators: %s: number of unread notifications. */
-				'unreadText'     => esc_html_x( '%s unread', 'plural', 'notifications-for-hivepress' ),
-				/* translators: %s: number of unread notifications, always one here. */
-				'unreadOneText'  => esc_html_x( '%s unread', 'singular', 'notifications-for-hivepress' ),
-				'caughtUpText'   => esc_html__( 'All caught up', 'notifications-for-hivepress' ),
-				'readText'       => esc_html__( 'Mark as read', 'notifications-for-hivepress' ),
+					/*
+					 * Both plural forms and the empty state, so the page header can be rewritten in the
+					 * reader's language when a notification is marked read without a reload.
+					 *
+					 * These carry a gettext context rather than only a translator comment. English
+					 * spells both forms the same way, so without a context they collapse into one POT
+					 * entry with two contradictory comments, and a language that does need different
+					 * forms has no way to supply them.
+					 */
+					/* translators: %s: number of unread notifications. */
+					'unreadText'     => esc_html_x( '%s unread', 'plural', 'notifications-for-hivepress' ),
+					/* translators: %s: number of unread notifications, always one here. */
+					'unreadOneText'  => esc_html_x( '%s unread', 'singular', 'notifications-for-hivepress' ),
+					'caughtUpText'   => esc_html__( 'All caught up', 'notifications-for-hivepress' ),
+					'readText'       => esc_html__( 'Mark as read', 'notifications-for-hivepress' ),
 
-				// Both halves of the tick's label, so it can say what the next click will do.
-				'markUnreadText' => esc_html__( 'Mark as unread', 'notifications-for-hivepress' ),
-				'deleteText'     => esc_html__( 'Delete notification', 'notifications-for-hivepress' ),
+					// Both halves of the tick's label, so it can say what the next click will do.
+					'markUnreadText' => esc_html__( 'Mark as unread', 'notifications-for-hivepress' ),
+					'deleteText'     => esc_html__( 'Delete notification', 'notifications-for-hivepress' ),
 
-				// The heading the script gives the group it creates for a notification that arrives
-				// while the page is open, matching the one the block prints for today.
-				'todayText'      => esc_html__( 'Today', 'notifications-for-hivepress' ),
-				'deletedText'    => esc_html__( 'Notification deleted.', 'notifications-for-hivepress' ),
-				'undoText'       => esc_html__( 'Undo', 'notifications-for-hivepress' ),
-				'soundStyle'     => (string) get_option( 'hp_notification_sound_style', 'chime' ),
-				'emptyText'      => esc_html__( 'Nothing new.', 'notifications-for-hivepress' ),
-				'sound'          => (bool) get_option( 'hp_notification_sound' ),
-				'poll'           => absint( get_option( 'hp_notification_poll', 60 ) ),
-				'push'           => $this->get_push_data(),
+					// The heading the script gives the group it creates for a notification that arrives
+					// while the page is open, matching the one the block prints for today.
+					'todayText'      => esc_html__( 'Today', 'notifications-for-hivepress' ),
+					'deletedText'    => esc_html__( 'Notification deleted.', 'notifications-for-hivepress' ),
+					'undoText'       => esc_html__( 'Undo', 'notifications-for-hivepress' ),
+					'soundStyle'     => (string) get_option( 'hp_notification_sound_style', 'chime' ),
+					'emptyText'      => esc_html__( 'Nothing new.', 'notifications-for-hivepress' ),
+					'errorText'      => esc_html__( 'These could not be loaded. Please try again in a moment.', 'notifications-for-hivepress' ),
+					'sound'          => (bool) get_option( 'hp_notification_sound' ),
+					'poll'           => absint( get_option( 'hp_notification_poll', 60 ) ),
+					'push'           => $this->get_push_data(),
+				],
 			]
 		);
 	}
@@ -2370,10 +2728,12 @@ final class Notification extends Component {
 		];
 
 		// Get the four bell colours: the icon and the circle behind it, each resting and hovered.
-		// Only the resting icon colour has a default; the rest are emitted only when chosen, so an
-		// untouched bell keeps the look it has always had.
+		// None of them has a default, so an untouched bell inherits its colour from the header it
+		// sits in - see the "inherit" fallback in frontend.css. Forcing a near-black here made the
+		// bell all but invisible on the themes with a dark header, JobHive's #012132 among them, on
+		// sites whose owner had never opened Appearance.
 		$bell_colors = [
-			'--hp-notification-bell-color'            => sanitize_hex_color( (string) get_option( 'hp_notification_bell_color', '#1a1a1a' ) ),
+			'--hp-notification-bell-color'            => sanitize_hex_color( (string) get_option( 'hp_notification_bell_color' ) ),
 			'--hp-notification-bell-color-hover'      => sanitize_hex_color( (string) get_option( 'hp_notification_bell_color_hover' ) ),
 			'--hp-notification-bell-background'       => sanitize_hex_color( (string) get_option( 'hp_notification_bell_background' ) ),
 			'--hp-notification-bell-background-hover' => sanitize_hex_color( (string) get_option( 'hp_notification_bell_background_hover' ) ),
@@ -2396,6 +2756,22 @@ final class Notification extends Component {
 
 		if ( $panel ) {
 			$styles['--hp-notification-panel-width'] = min( max( $panel, 280 ), 420 ) . 'px';
+		}
+
+		// The leading picture's shape. The variable holds the radius rather than the name, so the
+		// stylesheet needs no knowledge of the choices.
+		// "0px" rather than "0": the whole array is run through array_filter() below, which drops a
+		// bare "0" as falsy and would have quietly left square corners rendering as circles.
+		$shapes = [
+			'circle'  => '50%',
+			'rounded' => '8px',
+			'square'  => '0px',
+		];
+
+		$shape = (string) get_option( 'hp_notification_icon_shape', 'circle' );
+
+		if ( isset( $shapes[ $shape ] ) && 'circle' !== $shape ) {
+			$styles['--hp-notification-icon-radius'] = $shapes[ $shape ];
 		}
 
 		// Get the bell size.
@@ -2432,8 +2808,11 @@ final class Notification extends Component {
 			$styles['--hp-notification-font-weight'] = (string) $weight;
 		}
 
-		// Get radius.
-		$radius = get_option( 'hp_notification_toast_radius' );
+		// Get radius. The default is repeated here and not just declared in the config, because
+		// HivePress seeds its options on an admin request and this method runs on the front end:
+		// before that first admin page load get_option() returns false, which passes the guard
+		// below and emits 0px, so every corner squares off while the settings box still reads 3.
+		$radius = get_option( 'hp_notification_toast_radius', 3 );
 
 		if ( '' !== $radius && ! is_null( $radius ) ) {
 			$styles['--hp-notification-radius'] = absint( $radius ) . 'px';
@@ -2473,24 +2852,31 @@ final class Notification extends Component {
 		// Descendant combinators throughout: HiveTheme's own rule is
 		// ".header-navbar__burger>a small", so the count is not always a direct child of the link
 		// and a child combinator quietly matched nothing.
+		// Both are read only while the bell itself is on. HivePress's "_parent" argument hides a
+		// child row in the admin but leaves the stored value alone, so without this guard an admin
+		// who ticked Hide Combined Counter and later unticked Header Bell lost HivePress's own
+		// unread count for good: the bell is gone, core's count is still suppressed, and the
+		// setting that would bring it back is no longer on the screen to untick.
 		$hidden = [];
 
-		if ( get_option( 'hp_notification_bell_hide_count' ) ) {
-			$hidden[] = '.hp-menu__item--user-account small';
+		if ( get_option( 'hp_notification_bell' ) ) {
+			if ( get_option( 'hp_notification_bell_hide_count' ) ) {
+				$hidden[] = '.hp-menu__item--user-account small';
 
-			// Scoped to the burger's own link. The burger also contains the whole drop-down menu,
-			// so a plain descendant match reached the per-item counts inside it and hid the
-			// Notifications and Messages numbers as well - the opposite of what this setting says.
-			// The count itself is not always a direct child of that link, hence "> a small".
-			$hidden[] = '.header-navbar__burger > a small';
-		}
+				// Scoped to the burger's own link. The burger also contains the whole drop-down
+				// menu, so a plain descendant match reached the per-item counts inside it and hid
+				// the Notifications and Messages numbers as well - the opposite of what this
+				// setting says. The count is not always a direct child of that link, hence "> a".
+				$hidden[] = '.header-navbar__burger > a small';
+			}
 
-		// The Messages count is a separate, narrower number: unread messages only, shown on the
-		// Messages item of the account menu (messages/components/class-message.php:417, item key
-		// "messages_thread"). Hiding it is a different decision from hiding the combined total,
-		// which is why it is its own setting.
-		if ( get_option( 'hp_notification_bell_hide_message_count' ) ) {
-			$hidden[] = '.hp-menu__item--messages-thread small';
+			// The Messages count is a separate, narrower number: unread messages only, shown on the
+			// Messages item of the account menu (messages/components/class-message.php:417, item
+			// key "messages_thread"). Hiding it is a different decision from hiding the combined
+			// total, which is why it is its own setting.
+			if ( get_option( 'hp_notification_bell_hide_message_count' ) ) {
+				$hidden[] = '.hp-menu__item--messages-thread small';
+			}
 		}
 
 		if ( $hidden ) {

@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,16 +33,20 @@ that sends email, including any installed later. Nothing is hard-coded per exten
 
 Under HivePress > Settings > Notifications:
 
-* **Types** - choose which notifications users can manage, how long to keep them, and the default
-  channels for each user role. Anything left unticked is sent by HivePress as usual and users cannot
-  turn it off.
-* **Text** - write the wording for each notification, using tokens. Leave one blank to use the email
-  subject as it is.
-* **Delivery** - how often an open tab checks for new notifications, web push, the header bell, the
-  sticky header, and statistics.
+* **Delivery** - how often an open tab checks for new notifications, web push, the header bell and
+  where it sits, the sticky header, and statistics.
 * **Pop-ups** - turn pop-ups on or off, set the position, cap how many show at once, choose whether
   they hide themselves, and set how many seconds they stay on screen.
-* **Appearance** - background, text and accent colours, plus corner radius.
+* **Appearance** - background, text and accent colours, the shape of the icon on each notification
+  (circle, rounded square or square), corner radius, text size and weight.
+* **Types** - choose which notifications users can manage. Anything left unticked is sent by
+  HivePress as usual and users cannot turn it off.
+* **Defaults** - the channels each user role starts with before anyone changes their own settings,
+  and how long notifications are kept before they're deleted automatically.
+* **Text** - write the wording for each notification, using tokens. Leave one blank to use the email
+  subject as it is.
+* **Removing the Plugin** - your data is kept when the plugin is deleted, unless you tick the box
+  here that says otherwise.
 
 == How it works ==
 
@@ -76,17 +80,22 @@ are already deep links: the Messages extension's `message_url`, for example, poi
 conversation with an anchor for the exact message, so following a notification lands on the message
 itself. Use the `hivepress/v1/notification_url` filter to pin a different link for a type.
 
-**Extras.** Two notifications HivePress has no email for are included, and each is registered only
-when its extension is active:
+**Extras.** Four notifications HivePress has no email for are included, and each is registered only
+when the extension it depends on is active:
 
-* *Listing Favourited* - tells the listing owner when someone favourites their listing.
+* *Listing Favourited* - tells the listing owner when someone favourites their listing. Needs
+  HivePress Favorites.
 * *Review Received* - tells the listing owner when a review is left, or when a moderated review is
-  approved.
+  approved. Needs HivePress Reviews.
+* *Booking Completed* - asks the customer how their booking went once it's finished. Needs HivePress
+  Bookings.
+* *Badge Earned* - tells someone when they've been awarded a badge. Needs HivePress Badges.
 
 These have no email behind them, so they're on-site and push only, and the settings page offers just
 those channels. A group's tick boxes are the union of what its notifications support, so ticking
-Email on a group does not promise an email for the ones that have none. Neither fires when the owner
-is the one who did it, and each notifies once per favourite or review. Add your own with the `hivepress/v1/notification_types` filter and `add_notification()`.
+Email on a group does not promise an email for the ones that have none. The favourite and review
+ones don't fire when the owner is the one who did it, and each notifies once per favourite or
+review. Add your own with the `hivepress/v1/notification_types` filter and `add_notification()`.
 
 **Channels.** Each user picks the channels they want per type. Turning the email off doesn't empty
 the email body, because that's how HivePress disables an email site-wide and it would also hide
@@ -140,6 +149,14 @@ which no pop-ups or pushes arrive. Notifications still land in their list, so no
 **Privacy.** Notifications are personal data, so they're included in the WordPress personal data
 export and erasure tools, along with the person's notification settings.
 
+**Removing the plugin.** Deactivating it never removes anything. Deleting it keeps your
+notifications, everyone's channel choices and every setting, so you can reinstall and carry on
+where you left off. Only the things that would otherwise be left pointing at a plugin that no
+longer exists are cleared: the cached update lookup and any queued announcement batches. If you
+genuinely want it all gone, tick "Delete All Data" under Removing the Plugin before you delete.
+WordPress will warn you on its delete screen that the data goes too, but it prints that for every
+plugin that has an uninstaller, and here it's only true if you ticked that box.
+
 **The list.** Search, a type filter, mark all as read, clear read, per-notification mark as
 read/unread and delete, an icon per type, and the sender's avatar or the listing photo where one is
 available. Anonymous per-type counts of how many notifications are sent and opened can be switched
@@ -151,6 +168,53 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 == Changelog ==
 
+= 1.0.1 =
+Deleting the plugin now keeps your data, and the tick boxes do what they say.
+
+* **Unticking every box now means "none of these", not "all of them".** This affected two
+  places, and in both the screen showed one thing and the plugin did the opposite. Under Types,
+  clearing every box in a group switched that whole group back on, sometimes leaving more
+  notifications enabled than before you touched it. Under Defaults, clearing every box for a
+  role gave that role every channel instead of none. Both now do exactly what you set. If you
+  had cleared a group or a role to mean "everything", set it explicitly instead, because that
+  is no longer how it is read.
+* **Fixed wording being mangled when you saved it.** Any token whose name began with two
+  characters that happen to be hexadecimal was destroyed on save: `%badge.name%` became
+  `dge.name%` and `%decline_reason%` became `cline_reason%`, so the notification went out with
+  a fragment in it. The tokens the box recommends now survive being typed into it.
+* **Every setting on the page has been rewritten.** Several were describing something the plugin
+  did not do. Types said that unticking a notification left it "working exactly as HivePress
+  sends it", which was untrue of the four that have no HivePress email behind them, so unticking
+  one of those turned the feature off rather than handing it back. Text said an empty box used
+  the email subject line, when almost every box has wording of its own built in, shown in grey
+  inside it. Appearance implied every colour reached the notifications page, when three of them
+  do not. Every setting now has a tooltip, including the notification groups and the per-role
+  boxes, which had none at all.
+* **Storage Period has moved and been renamed.** It is now "Delete Notifications Older Than
+  (days)" in its own section, Deleting Old Notifications, instead of sitting under a heading
+  that promised nothing could be lost. Your existing setting is unchanged.
+* **Sticky Header no longer gets stuck.** Switching the header bell off after using a sticky
+  header left the header pinned to the top of every page, with the tick box that would undo it
+  no longer on screen.
+* Translations no longer keep HTML entities in the notification wording, and the site name is
+  no longer written into notifications as "Bob &amp;amp; Sons".
+* Two pieces of internal hardening: the browser settings payload now keeps its true number and
+  yes/no types rather than relying on WordPress's string conversion behaving, and the admin
+  colour pickers detect a colour being picked by the picker's own signal rather than an event it
+  never sends.
+* The updater and web push no longer send your site address and WordPress version to GitHub or
+  to the push service in the request header.
+
+* **Your notifications and settings survive deleting the plugin.** Until now, deleting it removed
+  everything straight away. It now keeps the lot unless you tick the new "Delete All Data" box in
+  the Removing the Plugin section, so an accidental delete, or removing the plugin to install a
+  clean copy, no longer costs you anything. WordPress still shows its own "(will also delete its
+  data)" warning on the delete screen because it shows that for every plugin with an uninstaller,
+  but it does not apply here unless you ticked the box. Switching the plugin off has never removed
+  anything and still doesn't.
+* Deleting the plugin always clears the things that would otherwise be left behind pointing at a
+  plugin that is gone: the cached update lookup, and any announcement batches still queued.
+
 = 1.0.0 =
 First public release.
 
@@ -160,6 +224,9 @@ does, and every item was verified on a live staging site before release.
 
 * Mirrors every email HivePress and its extensions send as an on-site notification, working from
   the email layer so it covers extensions installed later without any per-extension code.
+* Sensible wording out of the box for thirty-five notification types, written for a notification
+  list rather than an inbox: "Welcome to your site, Alex. Your account is ready to use." instead of
+  "User Registered". Every word is editable, and %site_name% is available in any of them.
 * Adds four notifications HivePress has no email for at all: Listing Favourited, Review Received,
   Booking Completed and Badge Earned.
 * A notifications page under the user's account, grouped by date, with search, a type filter,

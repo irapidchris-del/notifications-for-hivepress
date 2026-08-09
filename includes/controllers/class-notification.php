@@ -226,7 +226,18 @@ final class Notification extends Controller {
 		foreach ( $notifications as $notification ) {
 			$notification->fill( [ 'read' => $read ] )->save( [ 'read' ] );
 
-			if ( $clicked ) {
+			/*
+			 * Each notification counts as opened once, and the notification itself remembers it.
+			 *
+			 * The "clicked" flag comes from the browser and the count used to be added every time
+			 * it arrived, so anyone who marked a notification unread and followed it again added a
+			 * second open for the same send - an honest user could show the administrator an open
+			 * rate of 200%, which reads as a broken plugin. add_comment_meta() with $unique set
+			 * returns false when the marker is already there, so it is the test as well as the
+			 * marker. It sits on the notification's own comment, so the uninstall sweep already
+			 * takes it.
+			 */
+			if ( $clicked && add_comment_meta( $notification->get_id(), 'hp_notification_clicked', 1, true ) ) {
 				hivepress()->notification->add_stat( $notification->get_type(), 'clicked' );
 			}
 		}

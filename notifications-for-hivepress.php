@@ -3,9 +3,9 @@
  * Plugin Name: Notifications for HivePress
  * Plugin URI: https://github.com/irapidchris-del/notifications-for-hivepress
  * Description: Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: ChrisB
- * Author URI: https://community.hivepress.io/u/chrisb
+ * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: notifications-for-hivepress
  * Domain Path: /languages
  * Requires at least: 6.0
@@ -21,7 +21,7 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
-define( 'HP_NOTIFICATIONS_VERSION', '1.0.0' );
+define( 'HP_NOTIFICATIONS_VERSION', '1.0.1' );
 define( 'HP_NOTIFICATIONS_FILE', __FILE__ );
 
 /**
