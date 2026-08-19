@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
  * fires "hivepress/v1/emails/{email_name}/send" when it's sent, so this component enumerates the
  * registered email classes and listens to all of them.
  */
-final class Notification extends Component {
+final class Hpnf_Notification extends Component {
 
 	/**
 	 * Default unread badge colour.
@@ -67,6 +67,9 @@ final class Notification extends Component {
 		// Seed notifications for unread messages that predate the plugin, once.
 		add_action( 'init', [ $this, 'maybe_backfill' ], 1200 );
 
+		// Run the one-time upgrade rewrites.
+		add_action( 'init', [ $this, 'maybe_upgrade' ] );
+
 		// Listen to the extras that HivePress has no email for.
 		add_action( 'hivepress/v1/models/favorite/create', [ $this, 'add_favorite_notification' ], 10, 2 );
 		add_action( 'hivepress/v1/models/review/create', [ $this, 'add_review_notification' ], 10, 2 );
@@ -83,6 +86,10 @@ final class Notification extends Component {
 		// Add the colour picker on the settings screen.
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_color_picker' ] );
 
+		// Add the live preview panel to the Notifications settings tab. Priority 20 because
+		// HivePress registers its own sections at 10 and this has to see them.
+		add_action( 'admin_init', [ $this, 'register_preview_section' ], 20 );
+
 		// Delete notifications. The daily event is scheduled by the HivePress scheduler component,
 		// so this only attaches to it.
 		add_action( 'hivepress/v1/events/daily', [ $this, 'delete_notifications' ] );
@@ -91,6 +98,12 @@ final class Notification extends Component {
 
 			// Answer 200 rather than 404 on page two of the list.
 			add_action( 'template_redirect', [ $this, 'fix_paged_status' ], 1 );
+
+			// Restore the template body classes. Core derives them from a template class named
+			// after the current route (components/class-template.php:220-227); the prefixed
+			// template classes no longer match the route names, so the classes the pages have
+			// always carried are appended here, the same classes as before the rename.
+			add_filter( 'body_class', [ $this, 'add_template_classes' ] );
 
 			// Alter menus.
 			add_filter( 'hivepress/v1/menus/user_account', [ $this, 'alter_user_account_menu' ] );
@@ -558,19 +571,64 @@ final class Notification extends Component {
 		 *
 		 * They never overwrite an extension's own token of the same name.
 		 *
-		 * The site name is decoded on the way in. WordPress stores blogname already run through
-		 * esc_html(), so get_bloginfo( 'name' ) hands back "Bob &amp; Sons" for a site called
-		 * "Bob & Sons". This string is stored in comment_content and later printed as text by the
-		 * pop-up, the bell and the OS push body, so an entity here is an entity in front of the
-		 * user for as long as the notification is kept - and no later code fix can repair the rows
-		 * already written. The push title does the same thing for the same reason.
+		 * The site name used to be decoded here, because WordPress stores blogname already run
+		 * through esc_html() and get_bloginfo( 'name' ) hands back "Bob &amp; Sons" for a site
+		 * called "Bob & Sons". That decode has moved to decode_text(), which every surface now
+		 * calls as it serves the stored string: an entity was never unique to the site name (an
+		 * order total arrives as "&pound;10.00" from the same class of escaping), and decoding on
+		 * the way in could only ever help rows written after the fix shipped. Decoding here as
+		 * well would decode twice, which is wrong for the one site owner who really did type
+		 * "&amp;" into their title.
 		 */
 		$tokens += [
-			'site_name' => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'site_name' => (string) get_bloginfo( 'name' ),
 			'site_url'  => home_url( '/' ),
 		];
 
 		return trim( wp_strip_all_tags( hp\replace_tokens( $tokens, $text ) ) );
+	}
+
+	/**
+	 * Decodes the HTML entities in a stored notification text.
+	 *
+	 * @param string $text Stored notification text.
+	 * @return string
+	 */
+	public function decode_text( $text ) {
+		/*
+		 * Notification text is plain text, but it is assembled from token values that reached us
+		 * already HTML-escaped, and nothing in the pipeline decodes them: replace_tokens() only
+		 * substitutes and wp_strip_all_tags() removes tags without touching entities.
+		 *
+		 * The order emails are the clearest case. HivePress builds %order_amount% with
+		 * format_price(), which is wp_strip_all_tags( wc_price( $total ) )
+		 * (reference/hivepress/includes/components/class-woocommerce.php:194), and WooCommerce
+		 * writes the currency symbol as an entity - so the markup around it is stripped and a bare
+		 * "&pound;10.00" is what gets stored. The site name does the same thing through
+		 * get_bloginfo( 'name' ), and any esc_html'd listing title or display name will too.
+		 *
+		 * Only one of the two renderers ever showed it. The notifications page prints the string
+		 * with esc_html(), which does not double-encode, so "&pound;" survives into the HTML and
+		 * the browser paints "£" - correct entirely by accident. The pop-up, the bell and the
+		 * service worker's OS notification assign the same string to textContent, where an entity
+		 * is just characters, and the reader saw "Total &pound;10.00" (staging, 18 Aug 2026).
+		 *
+		 * So the decode belongs here, at the point each surface serves the string, not at the
+		 * point it is written: every notification already in the database is repaired by it, with
+		 * no migration. Decoding it once anywhere else as well would be a second decode.
+		 *
+		 * html_entity_decode() rather than wp_specialchars_decode(), because the latter knows only
+		 * the five specialchars and would leave "&pound;" - the actual symptom - untouched.
+		 * ENT_QUOTES covers both quote forms, ENT_HTML5 is needed for "&apos;", and the charset is
+		 * named rather than left to the PHP default.
+		 *
+		 * This cannot open an escaping hole, and the check is that every consumer still escapes
+		 * for its own context afterwards: the page escapes with esc_html(), the exporter's values
+		 * go through core's own esc_html(), and the three JSON payloads are read into textContent
+		 * by the script - never innerHTML. A stored "&lt;script&gt;" therefore decodes to a
+		 * literal "<script>" that every surface shows as visible characters.
+		 */
+		return html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 	}
 
 	/**
@@ -756,7 +814,7 @@ final class Notification extends Component {
 
 			// Skip anyone who already has notifications: mirroring was active for them, so their
 			// unread messages either have one or were deliberately cleared.
-			if ( ! isset( $seeded[ $recipient_id ] ) && Models\Notification::query()->filter( [ 'user' => $recipient_id ] )->get_first_id() ) {
+			if ( ! isset( $seeded[ $recipient_id ] ) && Models\Hpnf_Notification::query()->filter( [ 'user' => $recipient_id ] )->get_first_id() ) {
 				$seeded[ $recipient_id ] = 100;
 
 				continue;
@@ -797,6 +855,61 @@ final class Notification extends Component {
 
 			if ( $notification ) {
 				$seeded[ $recipient_id ] = $seeded_count + 1;
+			}
+		}
+	}
+
+	/**
+	 * Runs the one-time rewrites an update needs, once per version.
+	 *
+	 * @return void
+	 */
+	public function maybe_upgrade() {
+		if ( version_compare( (string) get_option( 'hp_notification_version' ), HP_NOTIFICATIONS_VERSION, '>=' ) ) {
+			return;
+		}
+
+		// The version goes first, so two requests arriving together can't both run the rewrites.
+		update_option( 'hp_notification_version', HP_NOTIFICATIONS_VERSION );
+
+		/*
+		 * 1.1.0 renamed the settings form from "notification_update" to "hpnf_notification_update":
+		 * the form meta name follows the class name, and the class gained the plugin's Hpnf_ prefix.
+		 * HivePress's reCAPTCHA option stores a list of form names (components/class-form.php:499),
+		 * so a saved tick for the old name would silently stop protecting the form after the update.
+		 * The stored value is rewritten once, and only where it is actually present.
+		 */
+		$forms = get_option( 'hp_recaptcha_forms' );
+
+		if ( is_array( $forms ) ) {
+			$key = array_search( 'notification_update', $forms, true );
+
+			if ( false !== $key ) {
+				$forms[ $key ] = 'hpnf_notification_update';
+
+				update_option( 'hp_recaptcha_forms', $forms );
+			}
+		}
+
+		/*
+		 * The same rename invalidates Turnstile for HivePress's saved tick too: that plugin keeps
+		 * its own list of protected form names in "tfhp_protected_forms" and matches them by exact
+		 * name, so a stored "notification_update" would silently stop protecting the settings form.
+		 * A sibling plugin's option is touched here because it was this plugin's rename that broke
+		 * the stored value, and it is touched directly rather than through Turnstile's functions
+		 * because Turnstile may be inactive right now yet its option must already be correct when
+		 * it comes back. Absent (false), stored-'' or any other non-array value means no tick was
+		 * ever saved, so there is nothing to rewrite and the guard leaves it untouched.
+		 */
+		$forms = get_option( 'tfhp_protected_forms' );
+
+		if ( is_array( $forms ) ) {
+			$key = array_search( 'notification_update', $forms, true );
+
+			if ( false !== $key ) {
+				$forms[ $key ] = 'hpnf_notification_update';
+
+				update_option( 'tfhp_protected_forms', $forms );
 			}
 		}
 	}
@@ -947,7 +1060,7 @@ final class Notification extends Component {
 		}
 
 		// Add notification.
-		$notification = ( new Models\Notification() )->fill(
+		$notification = ( new Models\Hpnf_Notification() )->fill(
 			[
 				'text'         => $this->truncate( $args['text'], 256 ),
 				'user'         => $args['user'],
@@ -1702,7 +1815,7 @@ final class Notification extends Component {
 	 * @return int
 	 */
 	public function update_unread_count( $user_id ) {
-		$count = Models\Notification::query()->filter(
+		$count = Models\Hpnf_Notification::query()->filter(
 			[
 				'user' => $user_id,
 				'read' => 0,
@@ -1747,11 +1860,34 @@ final class Notification extends Component {
 
 		// Push is only offered once it's switched on and has keys, so nobody can choose a channel
 		// that has nowhere to go.
-		if ( hivepress()->notification_push && hivepress()->notification_push->is_enabled() ) {
+		if ( hivepress()->hpnf_notification_push && hivepress()->hpnf_notification_push->is_enabled() ) {
 			$channels['push'] = esc_html__( 'Push', 'notifications-for-hivepress' );
 		}
 
 		return apply_filters( 'hivepress/v1/notification_channels', $channels );
+	}
+
+	/**
+	 * Gets the channels members must opt into themselves.
+	 *
+	 * An opt-in channel is never granted by a role default: it starts off for
+	 * everyone, in every stored state, until a member ticks it on their own
+	 * Notification Settings page. Built for paid channels such as SMS, where
+	 * "on by default" would mean unsolicited texts on the site owner's bill.
+	 *
+	 * @return array
+	 */
+	public function get_optin_channels() {
+
+		/**
+		 * Filters the channels members must opt into themselves. Add a channel
+		 * name here as well as to the channels filter to make it strictly opt-in.
+		 *
+		 * @hook hivepress/v1/notification_optin_channels
+		 * @param {array} $channels Channel names.
+		 * @return {array} Channel names.
+		 */
+		return array_values( array_intersect( array_keys( $this->get_channels() ), array_unique( (array) apply_filters( 'hivepress/v1/notification_optin_channels', [] ) ) ) );
 	}
 
 	/**
@@ -1838,6 +1974,12 @@ final class Notification extends Component {
 	 *
 	 * Colours are the opposite case: core's Color field is a plain input and core ships no picker
 	 * at all, so the Iris picker is ours to add. The field still works and saves without it.
+	 *
+	 * The live preview panel's assets load here too. The front-end stylesheet is the real one, not
+	 * a copy: every rule in it is scoped to .hp-notification* or .hp-nfh-*, and the only thing it
+	 * emits globally is a block of :root custom properties that nothing in wp-admin reads. Loading
+	 * it means the preview and the site are drawn by one stylesheet, so the panel doubles as a
+	 * check on the front-end appearance rather than being a replica that can drift out of step.
 	 */
 	public function enqueue_color_picker() {
 
@@ -1854,6 +1996,179 @@ final class Notification extends Component {
 		// The file time rides along in the version so caches refresh whenever the file changes.
 		wp_enqueue_style( 'wp-color-picker' );
 		wp_enqueue_script( 'hp-notification-admin-colors', $url . 'assets/js/admin-colors.js', [ 'jquery', 'wp-color-picker' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-colors.js' ), true );
+
+		wp_enqueue_style( 'hp-notification-frontend', $url . 'assets/css/frontend.css', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/frontend.css' ) );
+		wp_enqueue_style( 'hp-notification-admin', $url . 'assets/css/admin.css', [ 'hp-notification-frontend' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/admin.css' ) );
+		wp_enqueue_script( 'hp-notification-admin-preview', $url . 'assets/js/admin-preview.js', [ 'jquery', 'wp-color-picker' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-preview.js' ), true );
+	}
+
+	/**
+	 * Registers the live preview panel on the Notifications settings tab.
+	 *
+	 * The panel is a settings section of our own with no title and no fields, which is what gets it
+	 * into the settings form at all. WordPress prints an <h2> only for a section that has a title
+	 * (wp-admin/includes/template.php:1782) and a <table> only for a section that has registered
+	 * fields (:1790), so a section with neither leaves the callback's own markup standing on its own
+	 * as a block-level sibling inside the form, above settings_fields() and the Save button
+	 * (reference/hivepress/templates/admin/settings.php:16-18).
+	 */
+	public function register_preview_section() {
+		global $pagenow;
+
+		// HivePress registers its settings on options.php as well, so that a save has the field list
+		// to validate against (reference/hivepress/includes/components/class-admin.php:278). Nothing
+		// is rendered on that request, so a panel registered there is pure waste.
+		if ( 'admin.php' !== $pagenow ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'hp_settings' !== sanitize_key( (string) hp\get_array_value( $_GET, 'page' ) ) ) {
+			return;
+		}
+
+		/*
+		 * Whether the tab being registered is ours.
+		 *
+		 * Tested by the presence of our own Pop-ups section rather than by reading $_GET['tab'],
+		 * because the tab in the address is not the tab that gets registered: get_settings_tab()
+		 * falls back to the FIRST tab whenever "tab" is absent (class-admin.php:607-622), and the
+		 * bare admin.php?page=hp_settings link in the HivePress menu is exactly that case. Testing
+		 * the address would have put this panel on whichever tab happens to sort first, beside
+		 * settings it knows nothing about. Only the sections actually registered tell the truth.
+		 */
+		if ( ! isset( $GLOBALS['wp_settings_sections']['hp_settings']['popups'] ) ) {
+			return;
+		}
+
+		add_settings_section( 'hpnf_preview', '', [ $this, 'render_preview_section' ], 'hp_settings' );
+
+		if ( ! isset( $GLOBALS['wp_settings_sections']['hp_settings']['hpnf_preview'] ) ) {
+			return;
+		}
+
+		/*
+		 * Move the panel to the front of the list.
+		 *
+		 * Sections render in registration order and ours is necessarily last, which on a narrow
+		 * screen would leave "here is what it looks like" underneath every control that changes it.
+		 * On a wide screen the panel is lifted into a column of its own and the order stops
+		 * mattering, so this only shows below 1400px - which is where it matters.
+		 *
+		 * This is a plain reorder of a data array that WordPress reads later in the same request. It
+		 * runs no callbacks and changes no section, so there is nothing here to fire twice.
+		 */
+		$sections = $GLOBALS['wp_settings_sections']['hp_settings'];
+		$preview  = $sections['hpnf_preview'];
+
+		unset( $sections['hpnf_preview'] );
+
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Reordering our own entry in the settings section list, which is the documented way sections are held and has no setter.
+		$GLOBALS['wp_settings_sections']['hp_settings'] = array_merge( [ 'hpnf_preview' => $preview ], $sections );
+	}
+
+	/**
+	 * Renders the live preview panel.
+	 *
+	 * The pop-up below is the same markup frontend.js builds, element for element and in the same
+	 * order (assets/js/frontend.js, Toasts.show()), drawn by the same stylesheet. Mirroring it
+	 * exactly is the point: a spacing or wrapping bug then appears here, on a screen somebody looks
+	 * at while working, instead of only in production.
+	 *
+	 * There are no form inputs of any kind in here, on purpose. options.php calls update_option()
+	 * for every option registered on the tab, so a stray input that posted would take part in the
+	 * save, and anything this panel left out would be blanked (resources/hivepress-settings.md).
+	 * The replay control is a plain type="button".
+	 *
+	 * WordPress does not filter or escape a section callback's output, so everything below is
+	 * escaped here.
+	 */
+	public function render_preview_section() {
+
+		// The same reads the front end makes, so an untouched setting previews as the site draws it.
+		$position        = (string) get_option( 'hp_notification_toast_position', 'bottom-left' );
+		$position_mobile = (string) get_option( 'hp_notification_toast_position_mobile', 'bottom' );
+		$autohide        = (bool) get_option( 'hp_notification_toast_autohide', true );
+		$duration        = max( 1, absint( get_option( 'hp_notification_toast_duration', 6 ) ) );
+
+		// Fall back rather than trust, because these two go straight into a class name.
+		if ( ! in_array( $position, [ 'top-right', 'top-left', 'bottom-right', 'bottom-left' ], true ) ) {
+			$position = 'bottom-left';
+		}
+
+		if ( ! in_array( $position_mobile, [ 'top', 'center', 'bottom' ], true ) ) {
+			$position_mobile = 'bottom';
+		}
+
+		// The sample is fixed wording, never a real notification. A preview built from real data is
+		// empty on a fresh site, which is precisely when somebody is choosing colours. It uses the
+		// most elements any pop-up can have - icon, type, text, link and countdown - so no setting on
+		// this tab is left with nothing to change.
+		$user = wp_get_current_user();
+		$name = trim( (string) $user->display_name );
+
+		// A display name is all but guaranteed here, but a stand-in keeps the sentence readable if a
+		// site has somehow left one blank. Given context, because a bare "Sam" in the translation
+		// file is impossible to place.
+		if ( ! $name ) {
+			$name = _x( 'Sam', 'stand-in name in the settings preview', 'notifications-for-hivepress' );
+		}
+
+		echo '<div class="hpnf-preview"><div class="hpnf-preview__inner">';
+
+		echo '<h2 class="hpnf-preview__title">' . esc_html__( 'Live preview', 'notifications-for-hivepress' ) . '</h2>';
+
+		/*
+		 * The stage carries the appearance settings as custom properties, set by admin-preview.js as
+		 * the settings change. They go here rather than on :root, which is what the front end uses,
+		 * so that nothing this panel does can reach the rest of wp-admin.
+		 *
+		 * Hidden from screen readers because it is a picture of a pop-up rather than a pop-up: its
+		 * close button closes nothing and its link goes nowhere, so announcing them would offer two
+		 * controls that do not exist. The button is also taken out of the tab order, which
+		 * aria-hidden alone does not do.
+		 */
+		echo '<div class="hpnf-preview__stage" aria-hidden="true">';
+
+		echo '<div class="hp-notification-toasts hp-notification-toasts--' . esc_attr( $position ) . ' hp-notification-toasts--m-' . esc_attr( $position_mobile ) . '">';
+
+		echo '<div class="hp-notification-toast hp-notification-toast--visible">';
+
+		echo '<div class="hp-notification-toast__icon"><i class="hp-icon fas fa-envelope"></i></div>';
+
+		echo '<div class="hp-notification-toast__body">';
+		echo '<span class="hp-notification-toast__type">' . esc_html__( 'New message', 'notifications-for-hivepress' ) . '</span>';
+
+		echo '<span class="hp-notification-toast__text">' . esc_html(
+			sprintf(
+				/* translators: %s: name of the person signed in. */
+				__( '%s sent you a message about Riverside Studio.', 'notifications-for-hivepress' ),
+				$name
+			)
+		) . '</span>';
+
+		// No href: the link has to be an <a> to be drawn like the real one, and an <a> without one
+		// cannot be followed or focused, so the preview stays inert.
+		echo '<a class="hp-notification-toast__link"><span>' . esc_html__( 'View message', 'notifications-for-hivepress' ) . '</span><i class="hp-icon fas fa-chevron-right"></i></a>';
+		echo '</div>';
+
+		echo '<button type="button" class="hp-notification-toast__close" tabindex="-1"><i class="hp-icon fas fa-times"></i></button>';
+
+		/*
+		 * The countdown bar is rendered here rather than left to the script, because its animation
+		 * ends in a "forwards" fill: with no duration on the element it would run to empty in the
+		 * frame before the script loads and stay there, and setting a duration afterwards does not
+		 * bring a finished animation back.
+		 */
+		echo '<div class="hp-notification-toast__progress" style="animation-duration:' . esc_attr( (string) $duration ) . 's"' . ( $autohide ? '' : ' hidden' ) . '></div>';
+
+		echo '</div></div></div>';
+
+		echo '<p class="description hpnf-preview__description">' . esc_html__( 'How a pop-up will look with the settings on this page. It follows every change as you make it, and nothing is stored until you press Save Changes. The wording is a sample rather than a real notification.', 'notifications-for-hivepress' ) . '</p>';
+
+		echo '<button type="button" class="button hpnf-preview__replay">' . esc_html__( 'Play again', 'notifications-for-hivepress' ) . '</button>';
+
+		echo '</div></div>';
 	}
 
 	/**
@@ -2009,11 +2324,13 @@ final class Notification extends Component {
 	 * which is not the same thing: a settings screen that needs a footnote to explain why it does
 	 * the reverse of what it shows is a broken settings screen.
 	 *
+	 * Opt-in channels are excluded throughout: a role default can never grant one.
+	 *
 	 * @param int $user_id User ID.
 	 * @return array
 	 */
 	public function get_role_channels( $user_id ) {
-		$channels = array_keys( $this->get_channels() );
+		$channels = array_values( array_diff( array_keys( $this->get_channels() ), $this->get_optin_channels() ) );
 
 		// Get user.
 		$user = get_userdata( $user_id );
@@ -2267,8 +2584,12 @@ final class Notification extends Component {
 					'label'       => sprintf( esc_html__( '%s Defaults', 'notifications-for-hivepress' ), translate_user_role( $label ) ),
 					'description' => $note ? $role_hint . ' ' . $note : $role_hint,
 					'type'        => 'checkboxes',
-					'options'     => $this->get_channels(),
-					'default'     => array_keys( $this->get_channels() ),
+
+					// Opt-in channels are left off this screen on purpose: a role default can never
+					// grant one, so a box here would be the lying-checkbox class of mistake - ticked
+					// on the screen while delivery refuses it.
+					'options'     => array_diff_key( $this->get_channels(), array_flip( $this->get_optin_channels() ) ),
+					'default'     => array_diff( array_keys( $this->get_channels() ), $this->get_optin_channels() ),
 					'_order'      => $order,
 				];
 
@@ -2517,6 +2838,40 @@ final class Notification extends Component {
 	}
 
 	/**
+	 * Restores the hp-template body classes on the plugin's account pages.
+	 *
+	 * Core resolves a template class from the route name (components/class-template.php:220-227),
+	 * so once the template classes carry the Hpnf_ prefix that lookup fails and both pages would
+	 * silently lose their hp-template classes, taking the theme's account-page styling with them.
+	 * The list matches the class set core derived before the rename.
+	 *
+	 * @param array $classes Body classes.
+	 * @return array
+	 */
+	public function add_template_classes( $classes ) {
+		$route = hivepress()->router->get_current_route_name();
+
+		$leaves = [
+			'notifications_view_page'    => 'hp-template--notifications-view-page',
+			'notification_settings_page' => 'hp-template--notification-settings-page',
+		];
+
+		if ( isset( $leaves[ $route ] ) ) {
+			$classes = array_merge(
+				$classes,
+				[
+					'hp-template',
+					'hp-template--page-sidebar-left',
+					'hp-template--user-account-page',
+					$leaves[ $route ],
+				]
+			);
+		}
+
+		return $classes;
+	}
+
+	/**
 	 * Adds the notifications item to the account menu.
 	 *
 	 * @param array $menu Menu arguments.
@@ -2646,11 +3001,11 @@ final class Notification extends Component {
 	 * @return mixed
 	 */
 	protected function get_push_data() {
-		if ( ! hivepress()->notification_push || ! hivepress()->notification_push->is_enabled() ) {
+		if ( ! hivepress()->hpnf_notification_push || ! hivepress()->hpnf_notification_push->is_enabled() ) {
 			return null;
 		}
 
-		$keys = hivepress()->notification_push->get_keys();
+		$keys = hivepress()->hpnf_notification_push->get_keys();
 
 		if ( ! $keys ) {
 			return null;
@@ -2833,6 +3188,27 @@ final class Notification extends Component {
 			$output = ':root{' . $output . '}';
 		}
 
+		/*
+		 * Round this extension's own buttons, and only when a radius was actually entered.
+		 *
+		 * Written as a whole rule rather than a custom property on purpose. A property would mean
+		 * "border-radius: var( --hp-notification-button-radius )" sitting in the stylesheet
+		 * permanently, and an undefined custom property makes that declaration invalid at
+		 * computed-value time - which resolves to the inherited value, NOT to whatever the theme
+		 * set. So the unset case would square every button off instead of leaving it alone, the
+		 * exact opposite of the intent. Emitting nothing emits nothing.
+		 *
+		 * Two classes in each selector because both really are on the element: it beats a theme's
+		 * single-class ".button--secondary" without an !important, and reaches only the buttons
+		 * this extension puts on the page - the account pages, the push prompt and the undo
+		 * action. Core's own buttons elsewhere are none of our business.
+		 */
+		$button_radius = get_option( 'hp_notification_button_radius' );
+
+		if ( '' !== $button_radius && ! is_null( $button_radius ) && false !== $button_radius ) {
+			$output .= '.hp-button.hp-notifications__action,.hp-button.hp-notifications__filter-submit,.hp-notification-push .hp-button,.hp-notification-undo .hp-button{border-radius:' . absint( $button_radius ) . 'px;}';
+		}
+
 		// Recolour the account menu count, but only when the admin has actually chosen a colour
 		// other than the HivePress default. Left alone, the count inherits core's own styling and
 		// therefore matches every other count in the menu, including under a theme that restyles
@@ -2923,7 +3299,7 @@ final class Notification extends Component {
 		// would otherwise build a backlog that a single capped run could never catch up on. The
 		// batch count is still bounded, so one cron run can't stall on an enormous backlog.
 		$user_ids = [];
-		$model    = new Models\Notification();
+		$model    = new Models\Hpnf_Notification();
 
 		for ( $batch = 0; $batch < 20; $batch++ ) {
 

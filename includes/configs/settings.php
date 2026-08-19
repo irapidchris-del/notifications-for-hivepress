@@ -368,6 +368,19 @@ return [
 						'_order'      => 40,
 					],
 
+					'notification_button_radius'         => [
+						'label'       => esc_html__( 'Button Radius (px)', 'notifications-for-hivepress' ),
+						// Deliberately no default. Left empty the buttons keep whatever shape the
+						// theme gives every other button on the site, which is right far more often
+						// than any number we could pick; a value is only written once somebody has
+						// decided the theme is wrong.
+						'description' => esc_html__( 'How rounded the buttons added by this extension are, such as Mark all as read, Clear read and Settings. Set 0 for square corners; an empty box leaves them shaped like the other buttons in your theme.', 'notifications-for-hivepress' ),
+						'type'        => 'number',
+						'min_value'   => 0,
+						'max_value'   => 40,
+						'_order'      => 45,
+					],
+
 					'notification_toast_text_size'        => [
 						'label'       => esc_html__( 'Text Size (px)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'The size of notification text wherever it appears.', 'notifications-for-hivepress' ),
@@ -420,6 +433,7 @@ return [
 
 			'types'      => [
 				'title'       => esc_html__( 'Types', 'notifications-for-hivepress' ),
+
 				/*
 				 * The old wording, "anything left unticked keeps working exactly as HivePress sends
 				 * it", was true of most of these and flatly wrong about the extras, which have no

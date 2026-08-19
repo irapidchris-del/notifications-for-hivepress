@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
  * There's one field per group rather than per type, because forty rows is a wall nobody reads.
  * The options are the delivery channels, so a future SMS channel needs no change here.
  */
-class Notification_Update extends Form {
+class Hpnf_Notification_Update extends Form {
 
 	/**
 	 * Class initializer.
@@ -45,29 +45,36 @@ class Notification_Update extends Form {
 	public function __construct( $args = [] ) {
 
 		// Get channels.
-		$labels = hivepress()->notification->get_channels();
+		$labels = hivepress()->hpnf_notification->get_channels();
 
 		// Get fields.
 		$fields = [];
 		$order  = 10;
 		$note   = esc_html__( 'On-site means your notifications list, the bell menu and pop-ups while you browse. Not every notification has an email or a push behind it, so those two only apply where one exists.', 'notifications-for-hivepress' );
 
-		foreach ( hivepress()->notification->get_groups() as $group => $group_label ) {
+		// The SMS channel only exists when another plugin registers it, so its caveat only renders
+		// when the boxes it explains are on the screen. It matters because texting is gated twice:
+		// by the member's tick here, and by the event having an SMS message saved by the admin.
+		if ( isset( $labels['sms'] ) ) {
+			$note .= ' ' . esc_html__( 'Texts apply only where an event has an SMS message set up.', 'notifications-for-hivepress' );
+		}
+
+		foreach ( hivepress()->hpnf_notification->get_groups() as $group => $group_label ) {
 			$channels = [];
 
-			foreach ( hivepress()->notification->get_enabled_types() as $type ) {
-				if ( hivepress()->notification->get_type_group( $type ) !== $group ) {
+			foreach ( hivepress()->hpnf_notification->get_enabled_types() as $type ) {
+				if ( hivepress()->hpnf_notification->get_type_group( $type ) !== $group ) {
 					continue;
 				}
 
 				// System types can't be switched off, so they don't appear here at all.
-				if ( hp\get_array_value( hivepress()->notification->get_type_args( $type ), '_system' ) ) {
+				if ( hp\get_array_value( hivepress()->hpnf_notification->get_type_args( $type ), '_system' ) ) {
 					continue;
 				}
 
 				// Only offer the channels this group can actually be delivered through, so a
 				// group with no email behind it doesn't offer an email that never arrives.
-				$channels += array_intersect_key( $labels, array_flip( hivepress()->notification->get_type_channels( $type ) ) );
+				$channels += array_intersect_key( $labels, array_flip( hivepress()->hpnf_notification->get_type_channels( $type ) ) );
 			}
 
 			if ( ! $channels ) {
@@ -114,11 +121,11 @@ class Notification_Update extends Form {
 			$hours[ $hour ] = sprintf( '%02d:00', $hour );
 		}
 
-		$quiet = hivepress()->notification->get_quiet_hours( get_current_user_id() );
+		$quiet = hivepress()->hpnf_notification->get_quiet_hours( get_current_user_id() );
 
 		$fields['quiet_start'] = [
 			'label'       => esc_html__( 'Quiet Hours', 'notifications-for-hivepress' ),
-			'description' => esc_html__( 'No pop-ups or push notifications between these times. Anything that arrives still waits in your list. Set both the same to switch this off.', 'notifications-for-hivepress' ),
+			'description' => esc_html__( 'No pop-ups, push notifications or text messages between these times. Anything with an on-site notification still waits in your list. Set both the same to switch this off.', 'notifications-for-hivepress' ),
 			'type'        => 'select',
 			'options'     => $hours,
 			'default'     => absint( hp\get_array_value( $quiet, 'start' ) ),
@@ -137,7 +144,7 @@ class Notification_Update extends Form {
 
 		$args = hp\merge_arrays(
 			[
-				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear every box in a row to stop that kind of notification altogether.', 'notifications-for-hivepress' ),
+				'description' => esc_html__( 'Choose how you want to hear about each of these. Clear every box in a group to disable that kind of notification altogether.', 'notifications-for-hivepress' ),
 				'message'     => esc_html__( 'Your notification settings have been saved.', 'notifications-for-hivepress' ),
 				'action'      => hivepress()->router->get_url( 'notification_update_action' ),
 				'fields'      => $fields,

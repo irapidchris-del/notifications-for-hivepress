@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,7 +38,11 @@ Under HivePress > Settings > Notifications:
 * **Pop-ups** - turn pop-ups on or off, set the position, cap how many show at once, choose whether
   they hide themselves, and set how many seconds they stay on screen.
 * **Appearance** - background, text and accent colours, the shape of the icon on each notification
-  (circle, rounded square or square), corner radius, text size and weight.
+  (circle, rounded square or square), corner radius, text size and weight, and the radius of the
+  buttons this extension adds.
+* **Live preview** - a sample pop-up beside the settings that redraws as you change them, so you can
+  see the result before saving. It is drawn by the same stylesheet the site uses, so what you see is
+  what your visitors get.
 * **Types** - choose which notifications users can manage. Anything left unticked is sent by
   HivePress as usual and users cannot turn it off.
 * **Defaults** - the channels each user role starts with before anyone changes their own settings,
@@ -102,7 +106,9 @@ the email body, because that's how HivePress disables an email site-wide and it 
 whether there was anything to send in the first place. Instead the email is stopped at `pre_wp_mail`,
 matched on both address and subject so an unrelated email sent in between is never caught. A type
 with nothing ticked is stored as an empty array rather than dropped, which is what tells "off" apart
-from "never set". Adding a channel means adding it to one array, so SMS in v2 needs no rework here.
+from "never set". Adding a channel means adding it to one array; a channel members must opt into
+themselves (such as SMS via Twilio for HivePress) is also named on the
+`hivepress/v1/notification_optin_channels` filter, so role defaults never switch it on for anyone.
 
 **Speed.** The pop-up payload is not printed into the page, because a full-page cache would serve
 one user's notifications to another. Instead the browser asks for it once after the page has
@@ -144,7 +150,8 @@ role, to your vendors, or to specific users picked by username or email, in sche
 settings are saved and announcements are sent.
 
 **Quiet hours.** Each user can set a nightly window, including one that runs past midnight, during
-which no pop-ups or pushes arrive. Notifications still land in their list, so nothing is lost.
+which no pop-ups, pushes or text messages arrive. Notifications still land in their list, so nothing
+is lost.
 
 **Privacy.** Notifications are personal data, so they're included in the WordPress personal data
 export and erasure tools, along with the person's notification settings.
@@ -167,6 +174,51 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.1.0 =
+A live preview on the settings screen, internal naming, opt-in channel support, and a couple of
+Plugins-screen fixes.
+
+* **New - a Live preview panel on the Notifications settings tab.** A sample pop-up sits beside the
+  settings and redraws the moment you change a colour, a size, the corner radius, the icon shape,
+  the position or the countdown, so you can see the result before you press Save Changes. It uses
+  the same stylesheet your site uses rather than an imitation of it, so nothing can look right here
+  and wrong on your pages. There is a Play again button to watch a pop-up arrive, and on a wide
+  screen the panel follows you down the page as you scroll. Nothing in the panel is a setting, so it
+  cannot change anything by accident.
+* **All of the plugin's PHP classes and files now carry a unique Hpnf prefix**, so they can never
+  clash with HivePress core or another extension. Notifications, settings and preferences are
+  unaffected, and no action is needed after updating unless you have custom code naming the old
+  classes or hooks.
+* **New - opt-in channel support.** A delivery channel can now be registered as strictly opt-in
+  through the `hivepress/v1/notification_optin_channels` filter: role defaults never grant an
+  opt-in channel, its boxes never appear under Defaults, and it reaches a member only once they
+  tick it themselves on their Notification Settings page. Built for the SMS channel provided by
+  Twilio for HivePress 1.7.0, where "on by default" would mean unsolicited texts.
+* The Quiet Hours wording now covers text messages, and the note on the first notification group
+  gains a sentence about texts where the SMS channel is available.
+* The author name on the Plugins screen now reads "ChrisB @ HivePress Community", and a Donate
+  link has been added to the plugin row and the "View details" popup.
+* **New - a Button Radius setting.** One box under Appearance rounds every button this extension
+  adds, such as Mark all as read, Clear read and Settings. Leave it empty and they keep the shape
+  of the other buttons in your theme, which is what most sites want; set 0 for square corners.
+* Fixed: characters such as a pound sign no longer appear as their HTML code in a pop-up, in the
+  header bell or in a notification shown by the phone itself. An order total that read
+  "Total &amp;pound;10.00" now reads "Total £10.00" everywhere. The wording is decoded as it is shown,
+  so notifications saved before this update are corrected too.
+* For developers: the prefix rename changes these public hook names, each gaining an hpnf_ prefix
+  on its last part - `hivepress/v1/forms/notification_update` (and `/meta`) is now
+  `hivepress/v1/forms/hpnf_notification_update`, `hivepress/v1/templates/notifications_view_page`
+  (and `/blocks`) is now `hivepress/v1/templates/hpnf_notifications_view_page`,
+  `hivepress/v1/templates/notification_settings_page` (and `/blocks`) is now
+  `hivepress/v1/templates/hpnf_notification_settings_page`, `hivepress/v1/models/notification`
+  (and `/meta`) is now `hivepress/v1/models/hpnf_notification`, and
+  `hivepress/v1/blocks/notifications` is now `hivepress/v1/blocks/hpnf_notifications`. The
+  component keys (`hivepress()->hpnf_notification` and friends) and the settings form's
+  `hp-form--hpnf-notification-update` class carry the same prefix, and a ticked protected-forms
+  entry (reCAPTCHA, or Turnstile for HivePress) is migrated automatically. Routes, REST paths, the stored comment type,
+  option and meta names, WP-CLI commands and the `hivepress/v1/notification_*` hooks are all
+  unchanged.
 
 = 1.0.1 =
 Deleting the plugin now keeps your data, and the tick boxes do what they say.

@@ -33,7 +33,37 @@ defined( 'ABSPATH' ) || exit;
  * @method string get_icon()
  * @method string get_color()
  */
-class Notification extends Comment {
+class Hpnf_Notification extends Comment {
+
+	/**
+	 * Class initializer.
+	 *
+	 * The model name and alias are pinned to their pre-prefix values. The alias IS the stored
+	 * comment_type of every existing notification (Comment::init derives it from the class name,
+	 * models/class-comment.php:29, and Comment::get refuses rows whose type differs, :56), so
+	 * deriving it from the new prefixed class name would strand every stored notification.
+	 *
+	 * The model-update event now fires under two names, and the pin is why. The Hook component
+	 * resolves the model name from the CLASS short name (components/class-model.php:27-33), so
+	 * comment-row updates such as read toggles via wp_update_comment fire
+	 * "hivepress/v1/models/hpnf_notification/update". Meta-only Comment::save() paths instead
+	 * read the pinned meta name (models/class-comment.php:159) and keep firing
+	 * "hivepress/v1/models/notification/update". No consumer of either exists in any searched
+	 * tree; this records the split rather than resolving it.
+	 *
+	 * @param array $meta Class meta values.
+	 */
+	public static function init( $meta = [] ) {
+		$meta = hp\merge_arrays(
+			[
+				'name'  => 'notification',
+				'alias' => 'hp_notification',
+			],
+			$meta
+		);
+
+		parent::init( $meta );
+	}
 
 	/**
 	 * Class constructor.
@@ -123,6 +153,6 @@ class Notification extends Comment {
 	 * @return string
 	 */
 	public function get_type_label() {
-		return hivepress()->notification->get_type_label( $this->get_type() );
+		return hivepress()->hpnf_notification->get_type_label( $this->get_type() );
 	}
 }

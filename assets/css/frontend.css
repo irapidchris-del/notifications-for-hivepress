@@ -14,45 +14,52 @@
 
 /* Pop-ups. */
 
+/* Spacing here is core's rem scale (0.5 / 1 / 2 / 3 / 4rem), not px. One pop-up is a whole
+ * component, so the gap between two of them is 1rem - the same step core puts below a heading -
+ * and the same 1rem is the gutter each pop-up keeps from the edge of the screen, which is why the
+ * max-width subtracts two of them. */
 .hp-notification-toasts {
 	position: fixed;
 	z-index: 9999;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 1rem;
 	width: 360px;
-	max-width: calc(100vw - 32px);
+	max-width: calc(100vw - 2rem);
 	pointer-events: none;
 }
 
 .hp-notification-toasts--top-right {
-	top: 16px;
-	right: 16px;
+	top: 1rem;
+	right: 1rem;
 }
 
 .hp-notification-toasts--top-left {
-	top: 16px;
-	left: 16px;
+	top: 1rem;
+	left: 1rem;
 }
 
 .hp-notification-toasts--bottom-right {
-	bottom: 16px;
-	right: 16px;
+	bottom: 1rem;
+	right: 1rem;
 	flex-direction: column-reverse;
 }
 
 .hp-notification-toasts--bottom-left {
-	bottom: 16px;
-	left: 16px;
+	bottom: 1rem;
+	left: 1rem;
 	flex-direction: column-reverse;
 }
 
+/* The left padding is the golden-ratio partner of the other three (1rem beside 1.6rem, not
+ * double), which is also what leaves the accent stripe its own margin instead of the text sitting
+ * on top of it. */
 .hp-notification-toast {
 	position: relative;
 	display: flex;
 	align-items: flex-start;
-	gap: 12px;
-	padding: 14px 14px 14px 18px;
+	gap: 0.8rem;
+	padding: 1rem 1rem 1rem 1.6rem;
 	overflow: hidden;
 	color: var(--hp-notification-text);
 	background-color: var(--hp-notification-background);
@@ -94,9 +101,12 @@
 	min-width: 0;
 }
 
+/* 80% is core's own secondary-text size (hp-meta, hp-status), deliberately matched rather than
+ * put on our golden-ratio scale. The 0.25rem is below core's coarse scale on purpose: an eyebrow
+ * hugs the line it labels, it is not a layout gap. */
 .hp-notification-toast__type {
 	display: block;
-	margin-bottom: 2px;
+	margin-bottom: 0.25rem;
 	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
@@ -121,10 +131,24 @@ a.hp-notification-toast__text:focus {
 	text-decoration: underline;
 }
 
+/* The glyph inside is an <i class="hp-icon">, and core sizes that at 16px, so this size only ever
+ * applies if the button is given a text character instead - 80% keeps it on core's secondary step
+ * either way. The padding is what gives the button its hit area; it is grown, never shrunk. */
+/* The 24px floor is WCAG 2.5.8 minimum target size, which is defined in CSS pixels, so it stays in
+   px while the padding around it is rem: a rem floor would shrink below the minimum on any theme
+   that lowers the root font size, which is exactly the case it exists to prevent. Measured at
+   19x20 before the floor was added (2026-08-18), i.e. under the minimum. Same construction as
+   .hp-notification-bell__dismiss below, with min- rather than fixed sizes because the padding
+   here also has to clear a glyph. */
 .hp-notification-toast__close {
 	flex-shrink: 0;
-	padding: 2px 4px;
-	font-size: 13px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+	padding: 0.25rem 0.5rem;
+	font-size: 80%;
 	line-height: 1;
 	color: inherit;
 	background: none;
@@ -178,13 +202,15 @@ a.hp-notification-toast__text:focus {
 
 /* Notification list. */
 
+/* Superseded by the fuller rule in "List header, actions and filters" below; kept in step with it
+ * so neither reads as the intended one on its own. */
 .hp-notifications__header {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
-	margin-bottom: 20px;
+	gap: 1rem;
+	margin-bottom: 1rem;
 }
 
 .hp-notifications__count {
@@ -200,12 +226,12 @@ a.hp-notification-toast__text:focus {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
+	gap: 0.5rem;
 }
 
 .hp-notifications__filter {
 	display: flex;
-	gap: 8px;
+	gap: 0.5rem;
 	margin: 0;
 }
 
@@ -213,12 +239,16 @@ a.hp-notification-toast__text:focus {
 	max-width: 220px;
 }
 
+/* A day's worth of rows is a block, so the gap after it is the golden-ratio partner of the 1rem
+ * the rows inside it use (1rem beside 1.6rem), which keeps the days visibly separate without the
+ * doubling that would read as a page break. */
 .hp-notifications__group {
-	margin-bottom: 24px;
+	margin-bottom: 1.6rem;
 }
 
+/* 80% is core's hp-meta size, matched rather than invented. */
 .hp-notifications__date {
-	margin: 0 0 8px;
+	margin: 0 0 0.5rem;
 	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
@@ -232,12 +262,14 @@ a.hp-notification-toast__text:focus {
 	list-style: none;
 }
 
+/* The row's own two gaps are a golden-ratio pair: 0.5rem between the two control buttons at the
+ * end of the row, 0.8rem between the leading visual and the text. */
 .hp-notification {
 	position: relative;
 	display: flex;
 	align-items: flex-start;
-	gap: 12px;
-	padding: 14px 0;
+	gap: 0.8rem;
+	padding: 1rem 0;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 	transition: opacity 0.2s ease;
 }
@@ -251,9 +283,11 @@ a.hp-notification-toast__text:focus {
 	min-width: 0;
 }
 
+/* 80% mirrors core's hp-meta; the sub-scale 0.25rem hugs the eyebrow to its line, as on the
+ * pop-up above. */
 .hp-notification__type {
 	display: block;
-	margin-bottom: 2px;
+	margin-bottom: 0.25rem;
 	font-size: 80%;
 	font-weight: 600;
 	letter-spacing: 0.06em;
@@ -287,9 +321,11 @@ a.hp-notification-toast__text:focus {
 	border-radius: 50%;
 }
 
+/* Every secondary line under the notification text - details, link, time - is 80%, core's own
+ * hp-meta size, and sits 0.5rem below the line before it. */
 .hp-notification__details {
-	margin: 4px 0 0;
-	font-size: 85%;
+	margin: 0.5rem 0 0;
+	font-size: 80%;
 	line-height: 1.5;
 	opacity: 0.65;
 	overflow-wrap: break-word;
@@ -299,17 +335,19 @@ a.hp-notification-toast__text:focus {
 .hp-notification-toast__link {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	margin-top: 6px;
-	font-size: 85%;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+	font-size: 80%;
 	font-weight: 600;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
 }
 
+/* The chevron sits at roughly the cap height of the label beside it: 62% of it, the inverse of
+ * the golden ratio, which is the same relationship core's own 0.5rem icon gap assumes. */
 .hp-notification__link i,
 .hp-notification-toast__link i {
-	font-size: 9px;
+	font-size: 62%;
 }
 
 .hp-notification__link:hover,
@@ -319,21 +357,30 @@ a.hp-notification-toast__text:focus {
 	text-decoration: underline;
 }
 
+/* A pop-up is a denser context than a list row, so its link keeps the tighter sub-scale gap. */
 .hp-notification-toast__link {
-	margin-top: 4px;
+	margin-top: 0.25rem;
 }
 
 .hp-notification__time {
 	display: block;
-	margin-top: 4px;
+	margin-top: 0.5rem;
 	font-size: 80%;
 	opacity: 0.5;
 }
 
+/* As with the pop-up's close button, core's hp-icon governs the glyph at 16px; the padding is the
+ * hit area and is grown, never shrunk. */
+/* Same WCAG 2.5.8 floor as .hp-notification-toast__close above; this one measured 19x20 too. */
 .hp-notification__delete {
 	flex-shrink: 0;
-	padding: 2px 4px;
-	font-size: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+	padding: 0.25rem 0.5rem;
+	font-size: 80%;
 	line-height: 1;
 	color: inherit;
 	background: none;
@@ -372,8 +419,8 @@ a.hp-notification-toast__text:focus {
 @media (max-width: 480px) {
 	.hp-notification-toasts {
 		width: auto;
-		left: 16px;
-		right: 16px;
+		left: 1rem;
+		right: 1rem;
 	}
 }
 
@@ -492,7 +539,11 @@ a.hp-notification-toast__text:focus {
 /* The bell's own badge. Core styles menu counts but knows nothing about the bell,
  * so this is ours - built to match core's badge: the same red, and min-width plus
  * min-height with a pill radius so 1, 2 or 3 digits all stay a circle or a
- * capsule rather than squashing. */
+ * capsule rather than squashing.
+ *
+ * Core's own menu count is 1.5rem square at 80% (frontend.less, hp-menu__item small). This is the
+ * same construction one step down the golden-ratio scale - 1rem square at 62% - because it is a
+ * superscript on an icon rather than a badge at the end of a menu row. */
 .hp-notification-bell__toggle small {
 	position: absolute;
 	top: 1px;
@@ -500,13 +551,13 @@ a.hp-notification-toast__text:focus {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	min-width: 16px;
-	min-height: 16px;
-	padding: 0 4px;
+	min-width: 1rem;
+	min-height: 1rem;
+	padding: 0 0.25rem;
 	border-radius: 9999px;
 	background-color: var(--hp-notification-badge, #ff5a5f);
 	color: #ffffff;
-	font-size: 10px;
+	font-size: 62%;
 	font-weight: 700;
 	line-height: 1;
 	text-align: center;
@@ -515,14 +566,17 @@ a.hp-notification-toast__text:focus {
 
 .hp-notification-bell__panel {
 	position: absolute;
-	top: calc(100% + 8px);
+
+	/* 0.5rem clear of the bell, core's inline-gap step; the 2rem below is the same 1rem gutter
+	   each side that the pop-ups keep. */
+	top: calc(100% + 0.5rem);
 	right: 0;
 	z-index: 1010;
 
 	/* A literal "width: 320px" used to follow this line and overrode it, so the Dropdown Width
 	   setting had no effect either. Same slip as the bell colour above. */
 	width: var(--hp-notification-panel-width, 320px);
-	max-width: calc(100vw - 24px);
+	max-width: calc(100vw - 2rem);
 	background-color: var(--hp-notification-background);
 	color: var(--hp-notification-text);
 	border-radius: var(--hp-notification-radius);
@@ -552,8 +606,8 @@ a.hp-notification-toast__text:focus {
 
 		/* The script sets "top" from the bell's own position when the panel opens, because a fixed
 		 * box has no vertical anchor of its own. */
-		right: 12px;
-		left: 12px;
+		right: 1rem;
+		left: 1rem;
 		width: auto;
 		max-width: none;
 	}
@@ -564,17 +618,19 @@ a.hp-notification-toast__text:focus {
 	}
 }
 
+/* Every row of dropdown chrome shares one padding: 0.8rem down the page beside 1rem across it,
+ * the golden-ratio partner of the 0.5rem gaps inside the rows. */
 .hp-notification-bell__header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 14px;
+	padding: 0.8rem 1rem;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 	font-weight: 600;
 }
 
 .hp-notification-bell__header a {
-	font-size: 85%;
+	font-size: 80%;
 	font-weight: 600;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
@@ -590,19 +646,21 @@ a.hp-notification-toast__text:focus {
 	overflow-y: auto;
 }
 
+/* A message with nothing around it gets the taller half of the pair - 1.6rem down, 1rem across -
+ * so it sits in the middle of the panel rather than clinging to the header. */
 .hp-notification-bell__loading,
 .hp-notification-bell__empty {
-	padding: 22px 14px;
+	padding: 1.6rem 1rem;
 	text-align: center;
-	font-size: 85%;
+	font-size: 80%;
 	opacity: 0.7;
 }
 
 .hp-notification-bell__item {
 	display: flex;
 	align-items: flex-start;
-	gap: 10px;
-	padding: 10px 14px;
+	gap: 0.8rem;
+	padding: 0.8rem 1rem;
 	color: inherit;
 	text-decoration: none;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
@@ -639,16 +697,18 @@ a.hp-notification-bell__item:focus-visible {
 }
 
 .hp-notification-bell__meta {
-	margin-top: 2px;
+	margin-top: 0.25rem;
 	font-size: 80%;
 	opacity: 0.55;
 }
 
+/* Chevron at the golden-ratio inverse of the surrounding text, roughly its cap height, 0.5rem
+ * clear of it - core's own icon gap. */
 .hp-notification-bell__go {
 	flex-shrink: 0;
 	align-self: center;
-	margin-left: 4px;
-	font-size: 10px;
+	margin-left: 0.5rem;
+	font-size: 62%;
 	opacity: 0.35;
 }
 
@@ -680,13 +740,16 @@ a.hp-notification-bell__item:focus-visible {
 	height: 32px;
 }
 
+/* The glyph is sized against the theme's own text rather than in pixels: 100% in the 38px tile the
+ * list and pop-up use, and core's 80% secondary step in the smaller tile the dropdown uses. Both
+ * leave the tile more than twice the glyph, so no theme's base size can crowd it. */
 .hp-notification__icon i,
 .hp-notification-toast__icon i {
-	font-size: 15px;
+	font-size: 100%;
 }
 
 .hp-notification-bell__visual i {
-	font-size: 13px;
+	font-size: 80%;
 }
 
 .hp-notification__icon img,
@@ -700,24 +763,26 @@ a.hp-notification-bell__item:focus-visible {
 .hp-notification-toast {
 	display: flex;
 	align-items: flex-start;
-	gap: 10px;
+	gap: 0.8rem;
 }
 
 .hp-notification-toast__icon {
-	margin-top: 2px;
+	margin-top: 0.25rem;
 }
 
 /* --------------------------------------------------------------------------
  * List header, actions and filters
  * ----------------------------------------------------------------------- */
 
+/* The two gaps stacked above the list are a golden-ratio pair: 1rem below the header, 1.6rem
+ * below the filters, so the list reads as starting after the controls rather than in them. */
 .hp-notifications__header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: 10px;
-	margin-bottom: 14px;
+	gap: 1rem;
+	margin-bottom: 1rem;
 }
 
 .hp-notifications__count {
@@ -770,8 +835,8 @@ a.hp-notifications__action.button--secondary:focus {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 8px;
-	margin-bottom: 18px;
+	gap: 0.5rem;
+	margin-bottom: 1.6rem;
 }
 
 .hp-notifications__filters input[type="search"] {
@@ -780,7 +845,7 @@ a.hp-notifications__action.button--secondary:focus {
 }
 
 .hp-notifications__reset {
-	font-size: 85%;
+	font-size: 80%;
 	color: var(--hp-notification-accent);
 	text-decoration: none;
 }
@@ -794,10 +859,11 @@ a.hp-notifications__action.button--secondary:focus {
  * Row controls and empty state
  * ----------------------------------------------------------------------- */
 
+/* 0.5rem is core's inline gap, and the smaller half of the pair the row uses (0.5 beside 0.8). */
 .hp-notification__controls {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: 0.5rem;
 }
 
 .hp-notification__toggle {
@@ -828,30 +894,34 @@ a.hp-notifications__action.button--secondary:focus {
 	cursor: default;
 }
 
+/* 3rem beside 2rem: both on core's coarse scale, and their ratio is close enough to the golden
+ * one that the empty state reads as a deliberately roomy panel rather than a gap. */
 .hp-notifications__empty {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	width: 100%;
-	padding: 44px 20px;
+	padding: 3rem 2rem;
 	text-align: center;
 }
 
 /* The icon centres itself rather than relying on the flex parent, because some themes restyle
  * icons or containers inside account pages and used to leave it sitting on the left. */
+/* 262% is the top step of the golden-ratio type scale - the one place in this plugin with type
+ * genuinely of our own to size, so it takes the display step rather than a picked pixel value. */
 .hp-notifications__empty i {
 	display: block;
 	width: 100%;
-	margin: 0 auto 12px;
-	font-size: 34px;
+	margin: 0 auto 1rem;
+	font-size: 262%;
 	line-height: 1;
 	text-align: center;
 	opacity: 0.3;
 }
 
 .hp-notifications__empty p {
-	margin: 0 0 8px;
+	margin: 0 0 0.5rem;
 	opacity: 0.75;
 }
 
@@ -874,6 +944,8 @@ a.hp-notifications__action.button--secondary:focus {
 	cursor: pointer;
 }
 
+/* 24x24 is the WCAG 2.5.8 minimum target size and is a floor, not a proportion - it stays whatever
+ * the surrounding maths says. */
 .hp-notification-bell__dismiss {
 	flex-shrink: 0;
 	display: inline-flex;
@@ -881,7 +953,7 @@ a.hp-notifications__action.button--secondary:focus {
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	margin-left: 4px;
+	margin-left: 0.5rem;
 	padding: 0;
 	border: 0;
 	border-radius: 50%;
@@ -898,7 +970,7 @@ a.hp-notifications__action.button--secondary:focus {
 }
 
 .hp-notification-bell__dismiss i {
-	font-size: 11px;
+	font-size: 62%;
 }
 
 /* --------------------------------------------------------------------------
@@ -906,7 +978,7 @@ a.hp-notifications__action.button--secondary:focus {
  * ----------------------------------------------------------------------- */
 
 .hp-notification-push {
-	margin-top: 24px;
+	margin-top: 2rem;
 }
 
 /* Once push is on, the script hides the button with the hidden attribute. That alone is not
@@ -918,8 +990,8 @@ a.hp-notifications__action.button--secondary:focus {
 }
 
 .hp-notification-push__status {
-	margin-left: 10px;
-	font-size: 85%;
+	margin-left: 0.5rem;
+	font-size: 80%;
 	opacity: 0.75;
 }
 
@@ -934,14 +1006,14 @@ a.hp-notifications__action.button--secondary:focus {
 
 @media (max-width: 480px) {
 	.hp-notification-toasts--m-top {
-		top: 16px;
+		top: 1rem;
 		bottom: auto;
 		transform: none;
 	}
 
 	.hp-notification-toasts--m-bottom {
 		top: auto;
-		bottom: 16px;
+		bottom: 1rem;
 		transform: none;
 	}
 
@@ -975,12 +1047,13 @@ a.hp-notifications__action.button--secondary:focus {
  * Delete undo
  * ----------------------------------------------------------------------- */
 
+/* Same chrome padding as the dropdown rows: 0.8rem down, 1rem across. */
 .hp-notification-undo {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
-	padding: 12px 16px;
+	gap: 0.8rem;
+	padding: 0.8rem 1rem;
 	border: 1px dashed rgba(0, 0, 0, 0.2);
 	border-radius: var(--hp-notification-radius);
 	font-size: calc(var(--hp-notification-font-size, 14px) - 1px);

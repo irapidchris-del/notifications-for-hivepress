@@ -198,6 +198,11 @@ function get_plugin_information( $result, $action, $args ) {
 		'version'       => $release['version'],
 		'author'        => '<a href="' . esc_url( $plugin_data['AuthorURI'] ) . '">' . esc_html( $plugin_data['Author'] ) . '</a>',
 		'homepage'      => 'https://github.com/' . UPDATE_REPO,
+
+		// The "View details" popup is the second of the exactly two Donate placements the house
+		// spec allows (releasing.md); WordPress renders this as its own "Donate to this plugin"
+		// link, so the wording is core's, not ours.
+		'donate_link'   => 'https://ko-fi.com/chrisbathivepresscommunity',
 		'requires'      => $plugin_data['RequiresWP'],
 		'requires_php'  => $plugin_data['RequiresPHP'],
 		'last_updated'  => $release['published'],

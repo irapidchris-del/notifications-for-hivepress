@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  * them, and is kept against their user ID. It therefore has to come out on a subject access request
  * and go on an erasure request, along with the counters and preferences stored alongside it.
  */
-final class Notification_Privacy extends Component {
+final class Hpnf_Notification_Privacy extends Component {
 
 	/**
 	 * Number of notifications handled per batch.
@@ -121,12 +121,16 @@ final class Notification_Privacy extends Component {
 
 				[
 					'name'  => esc_html__( 'Type', 'notifications-for-hivepress' ),
-					'value' => hivepress()->notification->get_type_label( (string) get_comment_meta( (int) $notification->comment_ID, 'hp_type', true ) ),
+					'value' => hivepress()->hpnf_notification->get_type_label( (string) get_comment_meta( (int) $notification->comment_ID, 'hp_type', true ) ),
 				],
 
 				[
 					'name'  => esc_html__( 'Text', 'notifications-for-hivepress' ),
-					'value' => (string) $notification->comment_content,
+
+					// The export is the notification as the person read it, so it decodes the
+					// stored entities like every other surface. Core escapes each value with
+					// esc_html() when it writes the report, so nothing is loosened here.
+					'value' => hivepress()->hpnf_notification->decode_text( (string) $notification->comment_content ),
 				],
 
 				[
@@ -154,21 +158,21 @@ final class Notification_Privacy extends Component {
 		if ( 1 === $page ) {
 			$settings = [];
 
-			foreach ( hivepress()->notification->get_enabled_types() as $type ) {
+			foreach ( hivepress()->hpnf_notification->get_enabled_types() as $type ) {
 
 				// System types carry no user choice worth exporting.
-				if ( hp\get_array_value( hivepress()->notification->get_type_args( $type ), '_system' ) ) {
+				if ( hp\get_array_value( hivepress()->hpnf_notification->get_type_args( $type ), '_system' ) ) {
 					continue;
 				}
 
 				$channels = [];
 
-				foreach ( hivepress()->notification->get_user_channels( $user->ID, $type ) as $channel ) {
-					$channels[] = hp\get_array_value( hivepress()->notification->get_channels(), $channel, $channel );
+				foreach ( hivepress()->hpnf_notification->get_user_channels( $user->ID, $type ) as $channel ) {
+					$channels[] = hp\get_array_value( hivepress()->hpnf_notification->get_channels(), $channel, $channel );
 				}
 
 				$settings[] = [
-					'name'  => hivepress()->notification->get_type_label( $type ),
+					'name'  => hivepress()->hpnf_notification->get_type_label( $type ),
 					'value' => $channels ? implode( ', ', $channels ) : esc_html__( 'Off', 'notifications-for-hivepress' ),
 				];
 			}
@@ -213,7 +217,7 @@ final class Notification_Privacy extends Component {
 
 		// Get notifications. The offset stays at zero because each batch is deleted, so the next
 		// batch is always at the start.
-		$notifications = Models\Notification::query()->filter( [ 'user' => $user->ID ] )
+		$notifications = Models\Hpnf_Notification::query()->filter( [ 'user' => $user->ID ] )
 			->limit( $this->number )
 			->get();
 

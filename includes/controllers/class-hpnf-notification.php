@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Manages notifications.
  */
-final class Notification extends Controller {
+final class Hpnf_Notification extends Controller {
 
 	/**
 	 * Class constructor.
@@ -148,17 +148,31 @@ final class Notification extends Controller {
 		$user_id = get_current_user_id();
 
 		// Get queue.
-		$queue = hivepress()->notification->get_queue( $user_id );
+		$queue = hivepress()->hpnf_notification->get_queue( $user_id );
 
 		if ( $queue ) {
-			hivepress()->notification->clear_queue( $user_id );
+			hivepress()->hpnf_notification->clear_queue( $user_id );
 		}
+
+		// The script assigns this to textContent, where an entity is just characters, so it is
+		// decoded here rather than in add_to_queue(). Decoding on the way in would leave every
+		// pop-up already waiting in the queue showing "&pound;" - and add_to_queue() reads the
+		// queue back to append to it, so a decoding get_queue() would decode the same entry again
+		// on every later arrival.
+		$queue = array_map(
+			function( $notification ) {
+				$notification['text'] = hivepress()->hpnf_notification->decode_text( hp\get_array_value( $notification, 'text' ) );
+
+				return $notification;
+			},
+			$queue
+		);
 
 		return hp\rest_response(
 			200,
 			[
 				'notifications' => array_values( $queue ),
-				'unread'        => hivepress()->notification->get_unread_count( $user_id ),
+				'unread'        => hivepress()->hpnf_notification->get_unread_count( $user_id ),
 			]
 		);
 	}
@@ -179,7 +193,7 @@ final class Notification extends Controller {
 		return hp\rest_response(
 			200,
 			[
-				'unread' => hivepress()->notification->get_unread_count( get_current_user_id() ),
+				'unread' => hivepress()->hpnf_notification->get_unread_count( get_current_user_id() ),
 			]
 		);
 	}
@@ -219,7 +233,7 @@ final class Notification extends Controller {
 		}
 
 		// Get notifications.
-		$notifications = Models\Notification::query()->filter( $filter )->limit( 500 )->get();
+		$notifications = Models\Hpnf_Notification::query()->filter( $filter )->limit( 500 )->get();
 
 		$clicked = (bool) $request->get_param( 'clicked' );
 
@@ -238,14 +252,14 @@ final class Notification extends Controller {
 			 * takes it.
 			 */
 			if ( $clicked && add_comment_meta( $notification->get_id(), 'hp_notification_clicked', 1, true ) ) {
-				hivepress()->notification->add_stat( $notification->get_type(), 'clicked' );
+				hivepress()->hpnf_notification->add_stat( $notification->get_type(), 'clicked' );
 			}
 		}
 
 		return hp\rest_response(
 			200,
 			[
-				'unread' => hivepress()->notification->update_unread_count( $user_id ),
+				'unread' => hivepress()->hpnf_notification->update_unread_count( $user_id ),
 			]
 		);
 	}
@@ -259,14 +273,14 @@ final class Notification extends Controller {
 	public function get_latest_notification( $request ) {
 
 		// Check the token. The worker has no cookie to offer.
-		$user_id = hivepress()->notification_push ? hivepress()->notification_push->get_token_user( (string) $request->get_param( 'token' ) ) : 0;
+		$user_id = hivepress()->hpnf_notification_push ? hivepress()->hpnf_notification_push->get_token_user( (string) $request->get_param( 'token' ) ) : 0;
 
 		if ( ! $user_id ) {
 			return hp\rest_error( 401 );
 		}
 
 		// Get notification.
-		$notification = Models\Notification::query()->filter(
+		$notification = Models\Hpnf_Notification::query()->filter(
 			[
 				'user' => $user_id,
 				'read' => 0,
@@ -281,7 +295,10 @@ final class Notification extends Controller {
 			200,
 			[
 				'id'    => $notification->get_id(),
-				'text'  => $notification->get_text(),
+
+				// The worker passes this straight to showNotification() as the body, which the
+				// operating system renders as plain text. See decode_text().
+				'text'  => hivepress()->hpnf_notification->decode_text( $notification->get_text() ),
 				'url'   => (string) $notification->get_url(),
 
 				// The notification's own picture, where it has one: a badge's image, or the avatar
@@ -354,7 +371,7 @@ final class Notification extends Controller {
 		$user_id = get_current_user_id();
 
 		// Get notifications.
-		$notifications = Models\Notification::query()->filter( [ 'user' => $user_id ] )
+		$notifications = Models\Hpnf_Notification::query()->filter( [ 'user' => $user_id ] )
 			->order( [ 'created_date' => 'desc' ] )
 			->limit( 8 )
 			->get();
@@ -364,9 +381,12 @@ final class Notification extends Controller {
 		foreach ( $notifications as $notification ) {
 			$results[] = [
 				'id'         => $notification->get_id(),
-				'text'       => $notification->get_text(),
-				'type'       => hivepress()->notification->get_type_label( $notification->get_type() ),
-				'icon'       => hivepress()->notification->get_notification_icon( $notification ),
+
+				// Read into textContent by the bell dropdown, so the stored entities are decoded
+				// here. See decode_text() for why this is a serve-time decode.
+				'text'       => hivepress()->hpnf_notification->decode_text( $notification->get_text() ),
+				'type'       => hivepress()->hpnf_notification->get_type_label( $notification->get_type() ),
+				'icon'       => hivepress()->hpnf_notification->get_notification_icon( $notification ),
 				'color'      => (string) $notification->get_color(),
 				'image'      => (string) $notification->get_image(),
 				'url'        => (string) $notification->get_url(),
@@ -374,7 +394,7 @@ final class Notification extends Controller {
 				'time'       => (string) $notification->get_created_date(),
 				'time_text'  => $this->get_time_text( (string) $notification->get_created_date() ),
 				'time_short' => $this->get_time_short( (string) $notification->get_created_date() ),
-				'link_label' => hivepress()->notification->get_type_link_text( $notification->get_type() ),
+				'link_label' => hivepress()->hpnf_notification->get_type_link_text( $notification->get_type() ),
 			];
 		}
 
@@ -382,7 +402,7 @@ final class Notification extends Controller {
 			200,
 			[
 				'notifications' => $results,
-				'unread'        => hivepress()->notification->get_unread_count( $user_id ),
+				'unread'        => hivepress()->hpnf_notification->get_unread_count( $user_id ),
 			]
 		);
 	}
@@ -400,7 +420,7 @@ final class Notification extends Controller {
 			return hp\rest_error( 401 );
 		}
 
-		if ( ! hivepress()->notification_push || ! hivepress()->notification_push->is_enabled() ) {
+		if ( ! hivepress()->hpnf_notification_push || ! hivepress()->hpnf_notification_push->is_enabled() ) {
 			return hp\rest_error( 400 );
 		}
 
@@ -409,13 +429,13 @@ final class Notification extends Controller {
 
 		// Remove subscription.
 		if ( $request->get_param( 'remove' ) ) {
-			hivepress()->notification_push->delete_subscription( $user_id, $endpoint );
+			hivepress()->hpnf_notification_push->delete_subscription( $user_id, $endpoint );
 
 			return hp\rest_response( 200, [ 'id' => $user_id ] );
 		}
 
 		// Add subscription.
-		$token = hivepress()->notification_push->add_subscription( $user_id, [ 'endpoint' => $endpoint ] );
+		$token = hivepress()->hpnf_notification_push->add_subscription( $user_id, [ 'endpoint' => $endpoint ] );
 
 		if ( ! $token ) {
 			return hp\rest_error( 400 );
@@ -462,7 +482,7 @@ final class Notification extends Controller {
 		}
 
 		// Get notifications.
-		$notifications = Models\Notification::query()->filter( $filter )->limit( 500 )->get();
+		$notifications = Models\Hpnf_Notification::query()->filter( $filter )->limit( 500 )->get();
 
 		foreach ( $notifications as $notification ) {
 
@@ -473,12 +493,12 @@ final class Notification extends Controller {
 		}
 
 		// Update type list.
-		hivepress()->notification->rebuild_used_types( $user_id );
+		hivepress()->hpnf_notification->rebuild_used_types( $user_id );
 
 		return hp\rest_response(
 			200,
 			[
-				'unread' => hivepress()->notification->update_unread_count( $user_id ),
+				'unread' => hivepress()->hpnf_notification->update_unread_count( $user_id ),
 			]
 		);
 	}
@@ -512,12 +532,12 @@ final class Notification extends Controller {
 		}
 
 		// Update type list.
-		hivepress()->notification->rebuild_used_types( $user_id );
+		hivepress()->hpnf_notification->rebuild_used_types( $user_id );
 
 		return hp\rest_response(
 			200,
 			[
-				'unread' => hivepress()->notification->update_unread_count( $user_id ),
+				'unread' => hivepress()->hpnf_notification->update_unread_count( $user_id ),
 			]
 		);
 	}
@@ -552,7 +572,7 @@ final class Notification extends Controller {
 
 		// Validate form. Passing the request parameters without overriding sets every field, so a
 		// type with nothing ticked arrives as null rather than keeping its default.
-		$form = ( new Forms\Notification_Update() )->set_values( $request->get_params() );
+		$form = ( new Forms\Hpnf_Notification_Update() )->set_values( $request->get_params() );
 
 		if ( ! $form->validate() ) {
 			return hp\rest_error( 400, $form->get_errors() );
@@ -570,10 +590,10 @@ final class Notification extends Controller {
 		}
 
 		// Update preferences.
-		hivepress()->notification->update_user_preferences( get_current_user_id(), $preferences );
+		hivepress()->hpnf_notification->update_user_preferences( get_current_user_id(), $preferences );
 
 		// Update quiet hours.
-		hivepress()->notification->update_quiet_hours( get_current_user_id(), absint( $form->get_value( 'quiet_start' ) ), absint( $form->get_value( 'quiet_end' ) ) );
+		hivepress()->hpnf_notification->update_quiet_hours( get_current_user_id(), absint( $form->get_value( 'quiet_start' ) ), absint( $form->get_value( 'quiet_end' ) ) );
 
 		return hp\rest_response( 200, [ 'id' => get_current_user_id() ] );
 	}
@@ -584,7 +604,7 @@ final class Notification extends Controller {
 	 * @return string
 	 */
 	public function render_notification_settings_page() {
-		return ( new Blocks\Template( [ 'template' => 'notification_settings_page' ] ) )->render();
+		return ( new Blocks\Template( [ 'template' => 'hpnf_notification_settings_page' ] ) )->render();
 	}
 
 	/**
@@ -595,7 +615,7 @@ final class Notification extends Controller {
 	public function render_notifications_view_page() {
 		return ( new Blocks\Template(
 			[
-				'template' => 'notifications_view_page',
+				'template' => 'hpnf_notifications_view_page',
 
 				'context'  => [
 					'notifications' => [],

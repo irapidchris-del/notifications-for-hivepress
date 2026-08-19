@@ -1,0 +1,193 @@
+/**
+ * Notifications for HivePress - settings screen live preview.
+ *
+ * The pop-up inside the preview is the REAL front-end markup styled by the REAL front-end
+ * stylesheet, which is enqueued alongside this file. Nothing here restyles the pop-up itself: its
+ * padding, corners, colours, icon and countdown bar all come from frontend.css, so the preview
+ * cannot drift away from what the site actually shows, and a spacing bug on the front end shows up
+ * here first.
+ *
+ * Every rule below is therefore either the panel's own chrome, or a scoped counteraction of one
+ * other rule that only makes sense outside this stage - either a frontend.css rule written for a
+ * real page, or a wp-admin rule written for real admin chrome. Each counteraction names the rule
+ * it undoes, so the two stay in step when either stylesheet changes.
+ */
+
+/* --------------------------------------------------------------------------
+ * Panel chrome
+ *
+ * The numbers below are px, and stay px. The front-end stylesheet works on core's rem scale and
+ * on percentage type because it sits inside a HivePress theme; this file sits inside wp-admin,
+ * which is a px UI on a 13px base, and the panel is meant to read as one more admin box. Matching
+ * the host beats being internally consistent with our own maths - the same rule that makes the
+ * front end follow core. 14px is wp-admin's own box-title size, 12/16/20px its own spacing.
+ *
+ * The one thing in here that IS ours - the pop-up on the stage - takes its proportions from
+ * frontend.css and needs nothing from this file.
+ * ----------------------------------------------------------------------- */
+
+/* The top margin stands in for the one the panel displaced. The panel is the first thing in the
+   form, where a section's "h2" would otherwise sit with its own margin above it, so without this
+   the box butts straight up against the tab strip. It is dropped again in the sidebar layout
+   below, where the panel is positioned against the top of the form on purpose. */
+.hpnf-preview {
+	box-sizing: border-box;
+	margin: 20px 0;
+	padding: 12px 16px 16px;
+	background-color: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.hpnf-preview__title {
+	margin: 0 0 10px;
+	padding: 0;
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+/*
+ * The backdrop is a checkerboard rather than a flat colour because a white pop-up on a white panel
+ * has no visible edge, and the Background Colour setting accepts light and near-transparent looking
+ * shades that would otherwise appear to have deleted the pop-up. The greys are the wp-admin ones.
+ */
+.hpnf-preview__stage {
+	position: relative;
+	height: 220px;
+	margin-bottom: 10px;
+	overflow: hidden;
+	background-color: #f0f0f1;
+	background-image: repeating-conic-gradient(#dcdcde 0% 25%, #f0f0f1 0% 50%);
+	background-size: 24px 24px;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+}
+
+.hpnf-preview__description {
+	margin: 0 0 10px;
+}
+
+/* --------------------------------------------------------------------------
+ * Counteractions, scoped to the stage
+ * ----------------------------------------------------------------------- */
+
+/*
+ * Counteracts "position: fixed" and "max-width: calc(100vw - 32px)" on .hp-notification-toasts
+ * (frontend.css, "Pop-ups" section).
+ *
+ * Fixed pins the stack to the browser window, which on a settings screen means a pop-up floating
+ * over wp-admin. Absolute inside the stage keeps every corner offset frontend.css sets for the four
+ * position classes working exactly as written, so the Position setting really does move the pop-up
+ * between the four corners - of the stage instead of the screen.
+ *
+ * The viewport-relative max-width is measured against the wrong box here: the stage is a 300-odd
+ * pixel panel, not the window, so the 360px width would overflow and be clipped. Swapping vw for %
+ * keeps the same intent (fill the space, leave a 16px gutter each side) against the right box.
+ *
+ * The entry transition is deliberately NOT touched: it is the thing the Play Again button replays,
+ * and it behaves the same in a 220px stage as it does on a page.
+ */
+.hpnf-preview__stage .hp-notification-toasts {
+	position: absolute;
+	max-width: calc(100% - 32px);
+}
+
+/*
+ * frontend.js omits the countdown bar entirely when auto-hiding is off. The preview keeps one
+ * element and hides it instead, so the pop-up need not be rebuilt on every change. The bar sets no
+ * "display" of its own (frontend.css, .hp-notification-toast__progress), so the browser default for
+ * [hidden] would already win; it is spelled out because a future "display: block" on that rule
+ * would silently override the default and leave a bar showing with auto-hiding switched off.
+ */
+.hpnf-preview__stage .hp-notification-toast__progress[hidden] {
+	display: none;
+}
+
+/*
+ * Counteracts "a { transition-property: border, background, color; transition-duration: .05s }"
+ * (wp-admin/css/common.css), which lands on the sample pop-up's "View message" - the only <a> the
+ * stage contains.
+ *
+ * On a settings screen that 50ms fade is right. On a picture of a pop-up it is not: the stripe, the
+ * icon tile and the unread dot are all divs, so they take a new Accent Colour on the frame it is
+ * chosen, while the link alone trails half a dozen frames behind. Dragging across the colour map
+ * makes the pop-up move in two pieces.
+ *
+ * THE TRAP, because it cost a long investigation and will cost another one otherwise: a transition
+ * that is running - or merely pending - sits in the CSS Transitions origin, which outranks every
+ * author declaration including the style attribute. So while it runs, this element's painted colour
+ * is NOT its computed colour, an inline colour written onto it appears to be ignored, and no
+ * !important anywhere explains why. Worse, a headless screenshot taken under Chrome's
+ * --virtual-time-budget advances the timers but barely advances the animation clock, so the
+ * transition is captured at progress 0 and the link looks permanently stuck on the old accent while
+ * everything around it updates. Nothing was ever wrong with the markup or with frontend.css.
+ *
+ * Written against "a" rather than the link's own class so it answers wp-admin's rule in the same
+ * terms, and so a second <a> added to the sample later is covered by construction. It is scoped to
+ * the stage and kept out of frontend.css on purpose: out there the link is a real link on a real
+ * page, and it should keep whatever transition the site's own stylesheet gives it.
+ *
+ * The pop-up's entry transition is untouched, as above: that one belongs to a div.
+ */
+.hpnf-preview__stage a {
+	transition-property: none;
+}
+
+/* --------------------------------------------------------------------------
+ * Layout
+ * ----------------------------------------------------------------------- */
+
+/*
+ * Above 1400px the panel becomes a column beside the settings, and follows the reader down the page.
+ *
+ * Both rules hang off the same :has() test so they can only ever apply together. That matters: the
+ * panel's absolute positioning without the form's padding would drop it on top of the fields. On a
+ * browser with no :has() support neither applies, and the panel simply keeps the in-flow layout
+ * every narrower screen gets, which is a complete design in its own right rather than a fallback.
+ *
+ * The test is also what scopes this to the Notifications tab. This stylesheet loads on the whole
+ * HivePress settings screen, and .hp-form--table is every tab's form, so an unscoped rule would
+ * indent the fields on tabs that have no panel to fill the gap.
+ *
+ * top/bottom pin the panel to the full height of the form. That stretch is not decoration: a sticky
+ * child can only travel inside its own parent, so a panel sized to its contents would stick for a
+ * few pixels and then scroll away. 46px clears the admin bar, which is fixed at that height on
+ * screens this wide.
+ */
+@media screen and (min-width: 1400px) {
+	form.hp-form--table:has(> .hpnf-preview) {
+		position: relative;
+		padding-right: 372px;
+	}
+
+	form.hp-form--table:has(> .hpnf-preview) > .hpnf-preview {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 340px;
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	form.hp-form--table:has(> .hpnf-preview) > .hpnf-preview > .hpnf-preview__inner {
+		position: sticky;
+		top: 46px;
+	}
+}
+
+/*
+ * Below 1400px the panel is a plain block at the top of the form, full width and in the flow, and
+ * it is never sticky: the only sticky rule is inside the query above, so there is nothing to undo.
+ * Below 782px wp-admin stacks each form-table row into its own block and the whole screen turns
+ * touch-sized, so the stage loses a little height to keep the Save button within reach.
+ */
+@media screen and (max-width: 782px) {
+	.hpnf-preview {
+		padding: 12px;
+	}
+
+	.hpnf-preview__stage {
+		height: 190px;
+	}
+}

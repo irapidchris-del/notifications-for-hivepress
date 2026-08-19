@@ -3,8 +3,8 @@
  * Plugin Name: Notifications for HivePress
  * Plugin URI: https://github.com/irapidchris-del/notifications-for-hivepress
  * Description: Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions.
- * Version: 1.0.1
- * Author: ChrisB
+ * Version: 1.1.0
+ * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: notifications-for-hivepress
  * Domain Path: /languages
@@ -21,7 +21,7 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
-define( 'HP_NOTIFICATIONS_VERSION', '1.0.1' );
+define( 'HP_NOTIFICATIONS_VERSION', '1.1.0' );
 define( 'HP_NOTIFICATIONS_FILE', __FILE__ );
 
 /**
@@ -104,6 +104,32 @@ add_filter(
 
 		return $links;
 	}
+);
+
+/**
+ * Adds the Donate link to the plugin row on the Plugins screen.
+ *
+ * The house spec in releasing.md is copied exactly, changing only the text domain: every plugin's
+ * row must look identical, and sessions that composed their own wording or icon have made the rows
+ * drift before. The icon is a Dashicon because this renders in wp-admin, where HivePress's Font
+ * Awesome is not guaranteed to be enqueued.
+ */
+add_filter(
+	'plugin_row_meta',
+	function ( $links, $file ) {
+		if ( plugin_basename( __FILE__ ) !== $file ) {
+			return $links;
+		}
+
+		$links[] = '<a href="https://ko-fi.com/chrisbathivepresscommunity" target="_blank" rel="noopener noreferrer">'
+			. '<span class="dashicons dashicons-star-filled" style="font-size:14px;line-height:1.3;"></span> '
+			. esc_html__( 'Donate', 'notifications-for-hivepress' )
+			. '</a>';
+
+		return $links;
+	},
+	10,
+	2
 );
 
 /**

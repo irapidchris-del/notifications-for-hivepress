@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Adds WP-CLI commands.
  */
-final class Notification_CLI extends Component {
+final class Hpnf_Notification_CLI extends Component {
 
 	/**
 	 * Class constructor.
@@ -54,8 +54,8 @@ final class Notification_CLI extends Component {
 		$count = 0;
 
 		foreach ( $user_ids as $user_id ) {
-			hivepress()->notification->update_unread_count( $user_id );
-			hivepress()->notification->rebuild_used_types( $user_id );
+			hivepress()->hpnf_notification->update_unread_count( $user_id );
+			hivepress()->hpnf_notification->rebuild_used_types( $user_id );
 
 			++$count;
 		}
@@ -79,7 +79,7 @@ final class Notification_CLI extends Component {
 			return;
 		}
 
-		hivepress()->notification->delete_notifications();
+		hivepress()->hpnf_notification->delete_notifications();
 
 		\WP_CLI::success( 'Cleanup complete.' );
 	}
@@ -92,15 +92,15 @@ final class Notification_CLI extends Component {
 	 *     wp hivepress notifications types
 	 */
 	public function types() {
-		$enabled = hivepress()->notification->get_enabled_types();
+		$enabled = hivepress()->hpnf_notification->get_enabled_types();
 		$rows    = [];
 
-		foreach ( hivepress()->notification->get_types() as $name => $args ) {
+		foreach ( hivepress()->hpnf_notification->get_types() as $name => $args ) {
 			$rows[] = [
 				'name'     => $name,
 				'label'    => $args['label'],
 				'enabled'  => in_array( $name, $enabled, true ) ? 'yes' : 'no',
-				'channels' => implode( ', ', hivepress()->notification->get_type_channels( $name ) ),
+				'channels' => implode( ', ', hivepress()->hpnf_notification->get_type_channels( $name ) ),
 			];
 		}
 

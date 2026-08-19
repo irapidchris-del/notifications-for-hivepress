@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * broadcast is sent. Putting a button that messages every user behind a "Save Changes" is the kind
  * of thing that gets pressed by accident.
  */
-final class Notification_Broadcast extends Component {
+final class Hpnf_Notification_Broadcast extends Component {
 
 	/**
 	 * Option holding the sent announcements.
@@ -507,7 +507,7 @@ final class Notification_Broadcast extends Component {
 	 * Renders the delivery statistics.
 	 */
 	protected function render_stats() {
-		$stats = hivepress()->notification->get_stats();
+		$stats = hivepress()->hpnf_notification->get_stats();
 
 		if ( ! $stats ) {
 			return;
@@ -536,7 +536,7 @@ final class Notification_Broadcast extends Component {
 					$opened = absint( hp\get_array_value( $counts, 'clicked' ) );
 					?>
 					<tr>
-						<td><?php echo esc_html( hivepress()->notification->get_type_label( $type ) ); ?></td>
+						<td><?php echo esc_html( hivepress()->hpnf_notification->get_type_label( $type ) ); ?></td>
 						<td><?php echo esc_html( number_format_i18n( $sent ) ); ?></td>
 						<td><?php echo esc_html( number_format_i18n( $opened ) ); ?></td>
 						<?php // Capped at 100%. Each open is counted once now, but a site that ran an earlier build may already hold figures that were counted twice. ?>
@@ -573,7 +573,7 @@ final class Notification_Broadcast extends Component {
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Notification Settings', 'notifications-for-hivepress' ); ?></a>
 			<hr class="wp-header-end">
 
-			<?php if ( hivepress()->notification->get_stats() ) : ?>
+			<?php if ( hivepress()->hpnf_notification->get_stats() ) : ?>
 				<?php $this->render_stats(); ?>
 			<?php else : ?>
 				<p><?php esc_html_e( 'Nothing counted yet. Sent and opened totals appear here once notifications start flowing.', 'notifications-for-hivepress' ); ?></p>
@@ -1035,11 +1035,11 @@ final class Notification_Broadcast extends Component {
 				continue;
 			}
 
-			hivepress()->notification->add_notification(
+			hivepress()->hpnf_notification->add_notification(
 				[
 					'user' => $user_id,
 					'type' => 'broadcast',
-					'text' => hivepress()->notification->render_text( $text, [ 'user' => $user ] ),
+					'text' => hivepress()->hpnf_notification->render_text( $text, [ 'user' => $user ] ),
 					'url'  => $url,
 				]
 			);
@@ -1085,11 +1085,11 @@ final class Notification_Broadcast extends Component {
 				continue;
 			}
 
-			hivepress()->notification->add_notification(
+			hivepress()->hpnf_notification->add_notification(
 				[
 					'user' => $user_id,
 					'type' => 'broadcast',
-					'text' => hivepress()->notification->render_text( $text, [ 'user' => $user ] ),
+					'text' => hivepress()->hpnf_notification->render_text( $text, [ 'user' => $user ] ),
 					'url'  => $url,
 				]
 			);

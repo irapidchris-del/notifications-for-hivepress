@@ -109,13 +109,19 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 						$hp_time  = strtotime( (string) $hp_notification->get_created_date() );
 						$hp_url   = (string) $hp_notification->get_url();
 						$hp_read  = (bool) $hp_notification->get_read();
-						$hp_icon  = hivepress()->notification->get_notification_icon( $hp_notification );
+						$hp_icon  = hivepress()->hpnf_notification->get_notification_icon( $hp_notification );
 						$hp_image = (string) $hp_notification->get_image();
 
 						// A notification may carry its own colour, which is how a badge award shows
 						// the badge's own colour rather than the shared accent.
 						$hp_color = sanitize_hex_color( (string) $hp_notification->get_color() );
 						$hp_style = $hp_color ? 'background-color:' . $hp_color . ';color:#ffffff;' : '';
+
+						// The stored text carries HTML entities from escaped token values, and the
+						// same string is served to the pop-up and the bell as plain text. Both
+						// renderers read it through decode_text() so they agree; esc_html() below
+						// escapes the decoded text for this one, exactly as before.
+						$hp_text = hivepress()->hpnf_notification->decode_text( $hp_notification->get_text() );
 						?>
 						<li class="hp-notification <?php echo $hp_read ? '' : 'hp-notification--unread'; ?>" data-id="<?php echo absint( $hp_notification->get_id() ); ?>">
 							<div class="hp-notification__icon"<?php echo $hp_style ? ' style="' . esc_attr( $hp_style ) . '"' : ''; ?>>
@@ -127,17 +133,17 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 							</div>
 
 							<div class="hp-notification__body">
-								<span class="hp-notification__type"><?php echo esc_html( hivepress()->notification->get_type_label( $hp_notification->get_type() ) ); ?></span>
+								<span class="hp-notification__type"><?php echo esc_html( hivepress()->hpnf_notification->get_type_label( $hp_notification->get_type() ) ); ?></span>
 
 								<?php if ( $hp_url ) : ?>
-									<a class="hp-notification__text" href="<?php echo esc_url( $hp_url ); ?>"><?php echo esc_html( $hp_notification->get_text() ); ?></a>
+									<a class="hp-notification__text" href="<?php echo esc_url( $hp_url ); ?>"><?php echo esc_html( $hp_text ); ?></a>
 								<?php else : ?>
-									<span class="hp-notification__text"><?php echo esc_html( $hp_notification->get_text() ); ?></span>
+									<span class="hp-notification__text"><?php echo esc_html( $hp_text ); ?></span>
 								<?php endif; ?>
 
 								<?php if ( $hp_url ) : ?>
 									<a class="hp-notification__link" href="<?php echo esc_url( $hp_url ); ?>">
-										<span><?php echo esc_html( hivepress()->notification->get_type_link_text( $hp_notification->get_type() ) ); ?></span>
+										<span><?php echo esc_html( hivepress()->hpnf_notification->get_type_link_text( $hp_notification->get_type() ) ); ?></span>
 										<i class="hp-icon fas fa-chevron-right"></i>
 									</a>
 								<?php endif; ?>

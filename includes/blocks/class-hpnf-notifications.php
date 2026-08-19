@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Renders the notification list of the current user.
  */
-class Notifications extends Block {
+class Hpnf_Notifications extends Block {
 
 	/**
 	 * Number of notifications per page.
@@ -81,10 +81,10 @@ class Notifications extends Block {
 
 		// Get total count. This uses its own query object, because get_count() reuses whatever
 		// arguments the query already has and the paged query has a limit applied.
-		$total = Models\Notification::query()->filter( $filter )->get_count();
+		$total = Models\Hpnf_Notification::query()->filter( $filter )->get_count();
 
 		// Get notifications.
-		$notifications = Models\Notification::query()->filter( $filter )
+		$notifications = Models\Hpnf_Notification::query()->filter( $filter )
 			->order( [ 'created_date' => 'desc' ] )
 			->limit( $this->number )
 			->offset( ( max( 1, $page_number ) - 1 ) * $this->number )
@@ -93,7 +93,7 @@ class Notifications extends Block {
 		// Render part.
 		return $this->render_part(
 			$this->group_notifications( $notifications ),
-			hivepress()->notification->get_used_types( $user_id ),
+			hivepress()->hpnf_notification->get_used_types( $user_id ),
 			$type,
 			$search,
 			$total,
@@ -125,10 +125,10 @@ class Notifications extends Block {
 					$this->context,
 					[
 						'notification_groups' => $groups,
-						'notification_types'  => $types ? $types : hivepress()->notification->get_used_types( $user_id ),
+						'notification_types'  => $types ? $types : hivepress()->hpnf_notification->get_used_types( $user_id ),
 						'notification_type'   => $type,
 						'notification_search' => $search,
-						'notification_unread' => hivepress()->notification->get_unread_count( $user_id ),
+						'notification_unread' => hivepress()->hpnf_notification->get_unread_count( $user_id ),
 						'notification_pages'  => $pages,
 						'notification_page'   => $page,
 						'notification_total'  => $total,
@@ -149,7 +149,7 @@ class Notifications extends Block {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$type = sanitize_key( (string) hp\get_array_value( $_GET, 'notification_type' ) );
 
-		if ( ! array_key_exists( $type, hivepress()->notification->get_types() ) ) {
+		if ( ! array_key_exists( $type, hivepress()->hpnf_notification->get_types() ) ) {
 			return '';
 		}
 

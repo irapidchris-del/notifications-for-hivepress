@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  * (ECDH, HKDF and AES-GCM), which is a lot of cryptography to get wrong for no gain here, since the
  * service worker can fetch the notification over the session it already has.
  */
-final class Notification_Push extends Component {
+final class Hpnf_Notification_Push extends Component {
 
 	/**
 	 * Class constructor.
@@ -367,11 +367,11 @@ final class Notification_Push extends Component {
 		// Get user ID.
 		$user_id = $notification->get_user__id();
 
-		if ( ! in_array( 'push', hivepress()->notification->get_user_channels( $user_id, $notification->get_type() ), true ) ) {
+		if ( ! in_array( 'push', hivepress()->hpnf_notification->get_user_channels( $user_id, $notification->get_type() ), true ) ) {
 			return;
 		}
 
-		if ( hivepress()->notification->is_quiet( $user_id ) ) {
+		if ( hivepress()->hpnf_notification->is_quiet( $user_id ) ) {
 			return;
 		}
 

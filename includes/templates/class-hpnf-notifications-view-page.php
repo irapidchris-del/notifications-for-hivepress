@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Notifications page.
  */
-class Notifications_View_Page extends User_Account_Page {
+class Hpnf_Notifications_View_Page extends User_Account_Page {
 
 	/**
 	 * Class constructor.
@@ -29,7 +29,7 @@ class Notifications_View_Page extends User_Account_Page {
 					'page_content' => [
 						'blocks' => [
 							'notification_list' => [
-								'type'   => 'notifications',
+								'type'   => 'hpnf_notifications',
 								'_label' => esc_html__( 'Notifications', 'notifications-for-hivepress' ),
 								'_order' => 10,
 							],
