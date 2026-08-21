@@ -32,8 +32,11 @@ final class Hpnf_Notification_Push extends Component {
 		// Serve the service worker.
 		add_action( 'init', [ $this, 'serve_worker' ], 1 );
 
-		// Send pushes.
+		// Queue pushes.
 		add_action( 'hivepress/v1/notification_add', [ $this, 'send_push' ], 10, 1 );
+
+		// Send the queued pushes.
+		add_action( 'hivepress/v1/notifications/push', [ $this, 'send_pushes' ], 10, 1 );
 
 		parent::__construct( $args );
 	}
@@ -355,7 +358,13 @@ final class Hpnf_Notification_Push extends Component {
 	}
 
 	/**
-	 * Sends a push when a notification is added.
+	 * Queues the pushes when a notification is added.
+	 *
+	 * Nothing is sent from here. A notification is added on paths a visitor causes - a message
+	 * sent, a listing reviewed, a booking made - and a push service is a third party, so the round
+	 * trip would be held inside that request, once per subscription and up to ten of them. Every
+	 * decision below is made from local data; the outbound calls happen moments later in a
+	 * background request.
 	 *
 	 * @param object $notification Notification object.
 	 */
@@ -367,6 +376,9 @@ final class Hpnf_Notification_Push extends Component {
 		// Get user ID.
 		$user_id = $notification->get_user__id();
 
+		// The type is known only here, so whether this notification is a push at all is settled
+		// now. The queued job carries the user alone and re-checks everything that can still
+		// change in the gap.
 		if ( ! in_array( 'push', hivepress()->hpnf_notification->get_user_channels( $user_id, $notification->get_type() ), true ) ) {
 			return;
 		}
@@ -376,19 +388,61 @@ final class Hpnf_Notification_Push extends Component {
 		}
 
 		// Get subscriptions.
-		$subscriptions = $this->get_subscriptions( $user_id );
-
-		if ( ! $subscriptions ) {
+		if ( ! $this->get_subscriptions( $user_id ) ) {
 			return;
 		}
 
-		foreach ( $subscriptions as $subscription ) {
-			$this->send_request( $user_id, $subscription['endpoint'] );
+		// Assign before testing. Core defines __get() but no __isset(), so isset() on a component
+		// is always false and a guard written that way would disable push everywhere.
+		$scheduler = hivepress()->scheduler;
+
+		if ( ! $scheduler ) {
+			return;
+		}
+
+		// No time and no interval is an async action: a background request moments later. The user
+		// ID is the only argument, so a burst for one user coalesces into a single wake - the
+		// scheduler drops an action whose hook and arguments are already queued, and that is the
+		// behaviour wanted here, since the push carries no payload and the worker fetches the
+		// latest notification when it wakes. A notification arriving in the narrow window while
+		// that job is already running gets no wake of its own; it is carried by the next push, and
+		// it is in the list and the badge either way.
+		$scheduler->add_action( 'hivepress/v1/notifications/push', [ $user_id ] );
+	}
+
+	/**
+	 * Sends the queued pushes of a user.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	public function send_pushes( $user_id ) {
+		$user_id = absint( $user_id );
+
+		if ( ! $user_id ) {
+			return;
+		}
+
+		// Re-read the inputs and re-check the settings here rather than trusting what was true when
+		// this was queued: push may have been switched off, the quiet hours may have started, the
+		// browser may have unsubscribed, and the queue may retry.
+		if ( ! $this->is_enabled() || hivepress()->hpnf_notification->is_quiet( $user_id ) ) {
+			return;
+		}
+
+		foreach ( $this->get_subscriptions( $user_id ) as $subscription ) {
+			$endpoint = hp\get_array_value( $subscription, 'endpoint' );
+
+			if ( $endpoint ) {
+				$this->send_request( $user_id, $endpoint );
+			}
 		}
 	}
 
 	/**
 	 * Sends a push request to a push service.
+	 *
+	 * Only ever called from the scheduler, never from a visitor's request, which is what makes it
+	 * safe for this to block and read the result.
 	 *
 	 * @param int    $user_id User ID.
 	 * @param string $endpoint Subscription endpoint.
@@ -415,14 +469,15 @@ final class Hpnf_Notification_Push extends Component {
 			return;
 		}
 
-		// Send request. The endpoint is user-supplied, so unsafe URLs are rejected: a real push
-		// service is always a public host, and this stops a crafted subscription from making the
-		// server call something internal.
+		// Send request. This blocks: the response is the only thing that ever says a subscription is
+		// dead, and 'blocking' => false discards it without buying an early return, because the
+		// cURL transport runs curl_exec() either way. The endpoint is user-supplied, so unsafe URLs
+		// are rejected: a real push service is always a public host, and this stops a crafted
+		// subscription from making the server call something internal.
 		$response = wp_remote_post(
 			$endpoint,
 			[
 				'timeout'            => 5,
-				'blocking'           => false,
 				'reject_unsafe_urls' => true,
 
 				// Same reason as the updater, and it matters more here. WordPress's default
@@ -442,13 +497,16 @@ final class Hpnf_Notification_Push extends Component {
 			]
 		);
 
-		// A gone or not found response means the browser dropped the subscription. Non-blocking
-		// requests return no status, so this only catches transport errors, and the stale ones are
-		// cleared when the browser next subscribes instead.
+		// A push service having a bad minute is not a dead subscription, so a transport error is
+		// left alone and the endpoint is tried again next time.
 		if ( is_wp_error( $response ) ) {
 			return;
 		}
 
+		// A gone or not found response means the browser dropped the subscription (RFC 8030), and it
+		// is the only notice ever given, so the endpoint is removed rather than retried on every
+		// notification for the life of the account. Every other status is left in place. The HTTP
+		// API casts the code to an integer, so the strict comparison is safe.
 		if ( in_array( wp_remote_retrieve_response_code( $response ), [ 404, 410 ], true ) ) {
 			$this->delete_subscription( $user_id, $endpoint );
 		}

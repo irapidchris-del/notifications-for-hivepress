@@ -368,7 +368,7 @@ return [
 						'_order'      => 40,
 					],
 
-					'notification_button_radius'         => [
+					'notification_button_radius'          => [
 						'label'       => esc_html__( 'Button Radius (px)', 'notifications-for-hivepress' ),
 						// Deliberately no default. Left empty the buttons keep whatever shape the
 						// theme gives every other button on the site, which is right far more often

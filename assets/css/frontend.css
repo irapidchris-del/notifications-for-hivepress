@@ -51,6 +51,17 @@
 	flex-direction: column-reverse;
 }
 
+/* Where the Action Bar is on screen, a pop-up pinned to the bottom lands underneath it: the bar is
+ * fixed at bottom:0 with a higher stacking context than the page, and on a phone it is exactly
+ * where the bottom-centre and bottom-right pop-ups go. The bar puts a class on the body and its own
+ * height on :root, so the stack simply starts above it, with the same 1rem gutter it keeps
+ * everywhere else. The fallback height matches the bar's own default, so this still clears it if an
+ * older Action Bar is installed that does not publish the variable. */
+body.hp-action-bar-visible .hp-notification-toasts--bottom-right,
+body.hp-action-bar-visible .hp-notification-toasts--bottom-left {
+	bottom: calc(1rem + var(--hp-action-bar-height, 56px) + env(safe-area-inset-bottom, 0px));
+}
+
 /* The left padding is the golden-ratio partner of the other three (1rem beside 1.6rem, not
  * double), which is also what leaves the accent stripe its own margin instead of the text sitting
  * on top of it. */

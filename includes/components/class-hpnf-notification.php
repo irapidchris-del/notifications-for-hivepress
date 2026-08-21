@@ -435,7 +435,15 @@ final class Hpnf_Notification extends Component {
 			'orders'      => esc_html__( 'Orders & Payouts', 'notifications-for-hivepress' ),
 			'requests'    => esc_html__( 'Requests & Offers', 'notifications-for-hivepress' ),
 			'memberships' => esc_html__( 'Memberships', 'notifications-for-hivepress' ),
+			'gallery'     => esc_html__( 'Gallery', 'notifications-for-hivepress' ),
+			'performance' => esc_html__( 'Performance', 'notifications-for-hivepress' ),
 			'account'     => esc_html__( 'Account', 'notifications-for-hivepress' ),
+
+			// Everything here reaches the site owner rather than a member, which is a different
+			// question from which feature it belongs to: an owner switching off "someone hit the
+			// submission limit" must not also switch off the vendor's own held-listing notice.
+			// Kept last but one so the groups people manage for their members read as one block.
+			'admin'       => esc_html__( 'For Site Owners', 'notifications-for-hivepress' ),
 			'other'       => esc_html__( 'Other', 'notifications-for-hivepress' ),
 		];
 	}
@@ -447,8 +455,21 @@ final class Hpnf_Notification extends Component {
 	 * @return string
 	 */
 	public function get_type_group( $type ) {
+
+		// A type may name its own group. The prefix map below is the rule for everything HivePress
+		// and its extensions send, because those names are all built from a model name - but it
+		// cannot express "this one goes to the site owner", which cuts across the features
+		// entirely. Two moderation types differ only in who reads them, and no prefix can say so.
+		$declared = hp\get_array_value( $this->get_type_args( $type ), 'group' );
+
+		if ( $declared && isset( $this->get_groups()[ $declared ] ) ) {
+			return $declared;
+		}
+
 		$groups = [
 			'listing'    => 'listings',
+			'holiday'    => 'listings',
+			'moderation' => 'listings',
 			'message'    => 'messages',
 			'booking'    => 'bookings',
 			'order'      => 'orders',
@@ -456,6 +477,9 @@ final class Hpnf_Notification extends Component {
 			'request'    => 'requests',
 			'offer'      => 'requests',
 			'membership' => 'memberships',
+			'gallery'    => 'gallery',
+			'analytics'  => 'performance',
+			'trust'      => 'performance',
 			'user'       => 'account',
 			'vendor'     => 'account',
 			'badge'      => 'account',
@@ -547,6 +571,160 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Gets the wording a notification type uses once it has rolled others up.
+	 *
+	 * Only types that declare it are ever rolled up. Everything else keeps one notification per
+	 * event, which is what almost all of them want.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public function get_type_grouped_text( $type ) {
+		$text = get_option( 'hp_notification_text_grouped_' . $type );
+
+		if ( ! is_string( $text ) || '' === trim( $text ) ) {
+			$text = hp\get_array_value( $this->get_type_args( $type ), 'text_grouped', '' );
+		}
+
+		return (string) $text;
+	}
+
+	/**
+	 * Adds a notification, rolling it into a recent one about the same thing.
+	 *
+	 * Some events arrive in bursts. A popular photo can take fifty likes in an evening, and fifty
+	 * separate notifications - each one a pop-up, each one a push to somebody's phone - is not a
+	 * feature, it is the reason people switch notifications off altogether.
+	 *
+	 * So a second event about the same thing rewrites the first notification instead of adding
+	 * another: "Alice liked your photo" becomes "Alice and 12 others liked your photo". The roll-up
+	 * only ever absorbs a notification the reader has not opened yet, because rewriting something
+	 * they have already read would change history under them, and only within a window, so a like
+	 * next week is properly its own news.
+	 *
+	 * @param array  $args Notification arguments, as add_notification() takes them, plus
+	 *                     `grouped_text` for the wording used from the second event onwards.
+	 * @param string $group_key Identifies the thing being rolled up, such as a photo ID.
+	 * @return object|null
+	 */
+	public function add_grouped_notification( $args, $group_key ) {
+		$group_key = (string) $group_key;
+
+		$grouped_text = (string) hp\get_array_value( $args, 'grouped_text' );
+
+		unset( $args['grouped_text'] );
+
+		if ( ! $group_key || ! $grouped_text ) {
+			return $this->add_notification( $args );
+		}
+
+		$user_id = (int) hp\get_array_value( $args, 'user' );
+		$type    = (string) hp\get_array_value( $args, 'type' );
+
+		if ( ! $user_id || ! $type ) {
+			return null;
+		}
+
+		/**
+		 * Filters how long a burst of related events keeps rolling into one notification.
+		 *
+		 * @hook hivepress/v1/notification_group_window
+		 * @param {int} $seconds Window length in seconds. Default one day.
+		 * @param {string} $type Notification type.
+		 * @return {int} Window length in seconds.
+		 */
+		$window = (int) apply_filters( 'hivepress/v1/notification_group_window', DAY_IN_SECONDS, $type );
+
+		$existing = $window > 0 ? get_comments(
+			[
+				'type'       => 'hp_notification',
+				'user_id'    => $user_id,
+
+				// Unread only. comment_karma is where this plugin keeps the read flag, and
+				// WP_Comment_Query supports it directly (class-wp-comment-query.php:764).
+				'karma'      => 0,
+				'status'     => 'any',
+				'number'     => 1,
+				'orderby'    => 'comment_date_gmt',
+				'order'      => 'DESC',
+				'date_query' => [
+					[
+						'after'     => gmdate( 'Y-m-d H:i:s', time() - $window ),
+						'column'    => 'comment_date_gmt',
+						'inclusive' => true,
+					],
+				],
+				'meta_query' => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- two indexed meta keys on a table that only ever holds this plugin's own rows for one user; the alternative is a notification storm.
+					'relation' => 'AND',
+					[
+						'key'   => 'hp_type',
+						'value' => $type,
+					],
+					[
+						'key'   => 'hp_notification_group',
+						'value' => $group_key,
+					],
+				],
+			]
+		) : [];
+
+		$existing = is_array( $existing ) ? reset( $existing ) : false;
+
+		// Nothing recent to roll into, so this is the first of its burst.
+		if ( ! $existing ) {
+			$notification = $this->add_notification( $args );
+
+			if ( $notification ) {
+				add_comment_meta( $notification->get_id(), 'hp_notification_group', $group_key, true );
+				add_comment_meta( $notification->get_id(), 'hp_notification_group_count', 1, true );
+			}
+
+			return $notification;
+		}
+
+		$comment_id = (int) $existing->comment_ID;
+		$others     = max( 1, (int) get_comment_meta( $comment_id, 'hp_notification_group_count', true ) );
+
+		update_comment_meta( $comment_id, 'hp_notification_group_count', $others + 1 );
+
+		$notification = Models\Hpnf_Notification::query()->get_by_id( $comment_id );
+
+		if ( ! $notification ) {
+			return null;
+		}
+
+		// The count in the wording is everyone except the person named, so it lags the stored
+		// total by one: two likes reads "Alice and 1 other".
+		$notification->fill(
+			[
+				'text'         => $this->truncate( $grouped_text, 256 ),
+				'created_date' => current_time( 'mysql' ),
+				'url'          => (string) hp\get_array_value( $args, 'url' ),
+				'image'        => (string) hp\get_array_value( $args, 'image' ),
+			]
+		);
+
+		if ( ! $notification->save() ) {
+			return null;
+		}
+
+		// Not counted as a second notification in the statistics: it is the same one, said again.
+		// The unread count is untouched for the same reason - it never went up.
+		$this->add_to_queue( $user_id, $notification );
+
+		/**
+		 * Fires when an on-site notification has absorbed another event.
+		 *
+		 * @hook hivepress/v1/notification_group
+		 * @param {object} $notification Notification object.
+		 * @param {int} $count How many events it now covers.
+		 */
+		do_action( 'hivepress/v1/notification_group', $notification, $others + 1 );
+
+		return $notification;
+	}
+
+	/**
 	 * Renders a text template against a set of tokens.
 	 *
 	 * @param string $text Text template.
@@ -632,6 +810,31 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Gets the notification types that start switched off.
+	 *
+	 * Three of these were hardcoded in three separate places, which is exactly the arrangement that
+	 * lets the settings screen and the actual behaviour drift apart. A type can now say so itself,
+	 * and every place that needs to know reads it from here.
+	 *
+	 * Password Reset and Email Verification are off because ticking one puts it under that person's
+	 * Email box, and anybody who has cleared Email then cannot sign in to put it right. The rest are
+	 * off because they are either high volume or aimed at a site owner who may not want them.
+	 *
+	 * @return array
+	 */
+	public function get_default_off_types() {
+		$types = [ 'user_password_request', 'user_email_verify' ];
+
+		foreach ( $this->get_types() as $type => $args ) {
+			if ( hp\get_array_value( $args, '_default_off' ) ) {
+				$types[] = $type;
+			}
+		}
+
+		return array_values( array_unique( $types ) );
+	}
+
+	/**
 	 * Gets the notification types the site administrator has switched on.
 	 *
 	 * The choices are saved per group, so each group can be managed on its own. The single
@@ -675,7 +878,7 @@ final class Hpnf_Notification extends Component {
 				 */
 				$saved = true;
 			} else {
-				$enabled = array_merge( $enabled, array_diff( $group_types, [ 'user_password_request', 'user_email_verify' ] ) );
+				$enabled = array_merge( $enabled, array_diff( $group_types, $this->get_default_off_types() ) );
 			}
 		}
 
@@ -722,7 +925,7 @@ final class Hpnf_Notification extends Component {
 		}
 
 		// These two are off unless the admin asks for them, so a new install must not turn them on.
-		$new = array_diff( $optional, $known, [ 'user_password_request', 'user_email_verify' ] );
+		$new = array_diff( $optional, $known, $this->get_default_off_types() );
 
 		if ( ! $new ) {
 			return;
@@ -1132,7 +1335,7 @@ final class Hpnf_Notification extends Component {
 	 * @param object $user User object.
 	 * @return string
 	 */
-	protected function get_user_image( $user ) {
+	public function get_user_image( $user ) {
 		$image = $user->get_image__url( 'thumbnail' );
 
 		if ( $image ) {
@@ -2554,7 +2757,7 @@ final class Hpnf_Notification extends Component {
 				'description' => $group_hint,
 				'type'        => 'checkboxes',
 				'options'     => $options,
-				'default'     => array_diff( array_keys( $options ), [ 'user_password_request', 'user_email_verify' ] ),
+				'default'     => array_diff( array_keys( $options ), $this->get_default_off_types() ),
 				'_order'      => $order,
 			];
 
@@ -2682,6 +2885,27 @@ final class Hpnf_Notification extends Component {
 			];
 
 			$order += 10;
+
+			// A type that rolls bursts up needs a second wording, because the first one is written
+			// about one person and cannot be reused once there are twelve. Only the handful of
+			// types that actually roll up get this field, so the screen does not double in length.
+			$grouped = hp\get_array_value( $args, 'text_grouped' );
+
+			if ( $grouped ) {
+				$settings['notifications']['sections']['text']['fields'][ 'notification_text_grouped_' . $type ] = array_merge(
+					$settings['notifications']['sections']['text']['fields'][ 'notification_text_' . $type ],
+					[
+						/* translators: %s: notification name. */
+						'label'       => sprintf( esc_html__( '%s (more than one)', 'notifications-for-hivepress' ), $this->get_type_label( $type ) ),
+						/* translators: %other_count% is a HivePress token, not a printf placeholder: it is replaced by name, so it must keep its spelling exactly and must not be numbered. */
+						'description' => esc_html__( 'Used from the second one onwards, when several arrive close together and are shown as one notification rather than a stream of them. Keep %other_count% exactly as written; it is replaced with the number of other people and the word for them, such as "12 others" or "1 other", so do not add that word yourself.', 'notifications-for-hivepress' ) . ' ' . $this->get_token_hint( $type ),
+						'placeholder' => $grouped,
+						'_order'      => $order,
+					]
+				);
+
+				$order += 10;
+			}
 		}
 
 		return $settings;

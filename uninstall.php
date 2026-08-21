@@ -59,17 +59,19 @@ foreach ( (array) $hp_transients as $hp_transient_name ) {
 	delete_option( $hp_transient_name );
 }
 
-// Clear any announcement batches still queued, whatever their arguments. They are queued through
-// the HivePress scheduler, which runs on Action Scheduler rather than WP-Cron, so they have to be
-// removed there; the wp_unschedule_hook() calls only cover an install where Action Scheduler was
-// unavailable and scheduling fell through to core.
+// Clear any announcement batches and pushes still queued, whatever their arguments. They are queued
+// through the HivePress scheduler, which runs on Action Scheduler rather than WP-Cron, so they have
+// to be removed there; the wp_unschedule_hook() calls only cover an install where Action Scheduler
+// was unavailable and scheduling fell through to core.
 if ( function_exists( 'as_unschedule_all_actions' ) ) {
 	as_unschedule_all_actions( 'hivepress/v1/notifications/broadcast' );
 	as_unschedule_all_actions( 'hivepress/v1/notifications/broadcast_users' );
+	as_unschedule_all_actions( 'hivepress/v1/notifications/push' );
 }
 
 wp_unschedule_hook( 'hivepress/v1/notifications/broadcast' );
 wp_unschedule_hook( 'hivepress/v1/notifications/broadcast_users' );
+wp_unschedule_hook( 'hivepress/v1/notifications/push' );
 
 /*
  * ---------------------------------------------------------------------------------------------

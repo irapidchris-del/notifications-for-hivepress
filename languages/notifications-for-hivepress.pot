@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Notifications for HivePress 1.1.0\n"
+"Project-Id-Version: Notifications for HivePress 1.2.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/notifications-for-hivepress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-19T10:23:16+00:00\n"
+"POT-Creation-Date: 2026-08-20T17:09:11+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: notifications-for-hivepress\n"
@@ -40,7 +40,7 @@ msgid "https://community.hivepress.io/u/chrisb/summary"
 msgstr ""
 
 #: includes/blocks/class-hpnf-notifications.php:194
-#: includes/components/class-hpnf-notification.php:2984
+#: includes/components/class-hpnf-notification.php:3208
 msgid "Today"
 msgstr ""
 
@@ -302,11 +302,269 @@ msgstr ""
 msgid "Everyone"
 msgstr ""
 
+#: includes/components/class-hpnf-notification-extensions.php:162
+msgid "Gallery Photo Liked"
+msgstr ""
+
+#. translators: keep %user.display_name% and %folder_title% exactly as written; they are replaced with the name of the person who liked it and the gallery name.
+#: includes/components/class-hpnf-notification-extensions.php:164
+#, php-format
+msgid "%user.display_name% liked your photo in %folder_title%."
+msgstr ""
+
+#. translators: keep %user.display_name%, %other_count% and %folder_title% exactly as written; %other_count% becomes the number of other people and the word for them, such as "12 others".
+#: includes/components/class-hpnf-notification-extensions.php:166
+#, php-format
+msgid "%user.display_name% and %other_count% liked your photo in %folder_title%."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:167
+msgid "View the photo"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:174
+msgid "Gallery Photo Commented On"
+msgstr ""
+
+#. translators: keep %author.display_name% and %folder_title% exactly as written; they are replaced with the name of the person who commented and the gallery name.
+#: includes/components/class-hpnf-notification-extensions.php:176
+#, php-format
+msgid "%author.display_name% commented on your photo in %folder_title%."
+msgstr ""
+
+#. translators: keep %author.display_name%, %other_count% and %folder_title% exactly as written; %other_count% becomes the number of other people and the word for them, such as "12 others".
+#: includes/components/class-hpnf-notification-extensions.php:178
+#, php-format
+msgid "%author.display_name% and %other_count% commented on your photo in %folder_title%."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:179
+msgid "Read the comment"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:186
+msgid "Gallery Comment Replied To"
+msgstr ""
+
+#. translators: keep %author.display_name% exactly as written; it is replaced with the name of the person who replied.
+#: includes/components/class-hpnf-notification-extensions.php:188
+msgid "%author.display_name% replied to your comment."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:189
+msgid "Read the reply"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:196
+msgid "Gallery Comment Liked"
+msgstr ""
+
+#. translators: keep %user.display_name% exactly as written; it is replaced with the name of the person who liked it.
+#: includes/components/class-hpnf-notification-extensions.php:198
+#, php-format
+msgid "%user.display_name% liked your comment."
+msgstr ""
+
+#. translators: keep %user.display_name% and %other_count% exactly as written; %other_count% becomes the number of other people and the word for them, such as "12 others".
+#: includes/components/class-hpnf-notification-extensions.php:200
+#, php-format
+msgid "%user.display_name% and %other_count% liked your comment."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:217
+msgid "Gallery Hidden For Review"
+msgstr ""
+
+#. translators: keep %folder_title% exactly as written; it is replaced with the gallery name.
+#: includes/components/class-hpnf-notification-extensions.php:219
+#, php-format
+msgid "Your gallery %folder_title% has been hidden while its photos are reviewed."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:231
+msgid "Gallery Access Bought"
+msgstr ""
+
+#. translators: keep %user.display_name% exactly as written; it is replaced with the buyer's name.
+#: includes/components/class-hpnf-notification-extensions.php:233
+#, php-format
+msgid "%user.display_name% bought access to your gallery."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:234
+msgid "View your gallery"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:244
+msgid "Gallery Access Ending Soon"
+msgstr ""
+
+#. translators: keep %vendor_name% and %days_left% exactly as written; %days_left% becomes a length of time such as "7 days".
+#: includes/components/class-hpnf-notification-extensions.php:246
+#, php-format
+msgid "Your access to %vendor_name%'s gallery ends in %days_left%. Renew it to keep it."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:247
+#: includes/components/class-hpnf-notification-extensions.php:258
+msgid "View the gallery"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:255
+msgid "Gallery Access Ended"
+msgstr ""
+
+#. translators: keep %vendor_name% exactly as written; it is replaced with the vendor's name.
+#: includes/components/class-hpnf-notification-extensions.php:257
+msgid "Your access to %vendor_name%'s gallery has ended."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:294
+msgid "Holiday Mode On"
+msgstr ""
+
+#. translators: keep %listing_count% exactly as written; it becomes a number and the word for it, such as "4 listings".
+#: includes/components/class-hpnf-notification-extensions.php:296
+msgid "Holiday mode is on. We have hidden %listing_count% until you switch it off."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:303
+msgid "Holiday Mode Off"
+msgstr ""
+
+#. translators: keep %listing_count% exactly as written; it becomes a number and the word for it, such as "4 listings".
+#: includes/components/class-hpnf-notification-extensions.php:305
+msgid "Welcome back. We have restored %listing_count%."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:312
+msgid "Listings Expired While Away"
+msgstr ""
+
+#. translators: keep %listing_count% exactly as written; it becomes a number and the word for it, such as "4 listings".
+#: includes/components/class-hpnf-notification-extensions.php:314
+msgid "%listing_count% stayed hidden while you were away, because the listing period had run out. Renew to restore."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:315
+msgid "Renew them"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:322
+msgid "Listing Kept Hidden"
+msgstr ""
+
+#. translators: keep %listing_title% exactly as written; it is replaced with the listing name.
+#: includes/components/class-hpnf-notification-extensions.php:324
+msgid "%listing_title% was kept hidden because holiday mode is still on."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:332
+msgid "Cannot Leave Holiday Mode"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:333
+msgid "Your membership is not active, so your listings stay hidden. Renew it to restore them."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:334
+msgid "Renew"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:343
+msgid "Listing Held For Review"
+msgstr ""
+
+#. translators: keep %listing_title% exactly as written; it is replaced with the listing name.
+#: includes/components/class-hpnf-notification-extensions.php:351
+msgid "%listing_title% is waiting to be checked before it goes live. We will let you know as soon as it has been reviewed."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:358
+msgid "Listing Back Under Review"
+msgstr ""
+
+#. translators: keep %listing_title% exactly as written; it is replaced with the listing name.
+#: includes/components/class-hpnf-notification-extensions.php:364
+msgid "%listing_title% has gone back under review while its photos are checked."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:371
+msgid "Listing Held, With Reasons"
+msgstr ""
+
+#. translators: keep %listing_title%, %risk_score% and %risk_reasons% exactly as written; they are replaced with the listing name, its score and what was found.
+#: includes/components/class-hpnf-notification-extensions.php:373
+msgid "%listing_title% was held for review with a risk score of %risk_score%. %risk_reasons%"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:381
+msgid "Submission Limit Reached"
+msgstr ""
+
+#. translators: keep %user.display_name% exactly as written; it is replaced with the person's name.
+#: includes/components/class-hpnf-notification-extensions.php:383
+#, php-format
+msgid "%user.display_name% has reached the daily limit for adding listings."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:395
+msgid "Repeated Refused Listings"
+msgstr ""
+
+#. translators: keep %user.display_name% and %block_count% exactly as written; they are replaced with the person's name and how many were refused.
+#: includes/components/class-hpnf-notification-extensions.php:397
+#, php-format
+msgid "%user.display_name% has had %block_count% listings refused today."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:423
+msgid "Verified"
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:424
+msgid "You are now verified. A verified badge shows on your profile and on every listing you have."
+msgstr ""
+
+#: includes/components/class-hpnf-notification-extensions.php:425
+msgid "View your profile"
+msgstr ""
+
+#. translators: keep every %token% exactly as written; they are replaced with the period and the figures for it.
+#: includes/components/class-hpnf-notification-extensions.php:449
+#, php-format
+msgid "%period%: %listing_views% views, %messages% messages and %bookings% bookings across your listings."
+msgstr ""
+
+#. translators: %s: number of days.
+#: includes/components/class-hpnf-notification-extensions.php:688
+#, php-format
+msgid "%s day"
+msgid_plural "%s days"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of people.
+#: includes/components/class-hpnf-notification-extensions.php:1205
+#, php-format
+msgid "%s other"
+msgid_plural "%s others"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of listings.
+#: includes/components/class-hpnf-notification-extensions.php:1222
+#, php-format
+msgid "%s listing"
+msgid_plural "%s listings"
+msgstr[0] ""
+msgstr[1] ""
+
 #: includes/components/class-hpnf-notification-privacy.php:54
 #: includes/components/class-hpnf-notification-privacy.php:69
 #: includes/components/class-hpnf-notification-privacy.php:151
-#: includes/components/class-hpnf-notification.php:3052
-#: includes/components/class-hpnf-notification.php:3063
+#: includes/components/class-hpnf-notification.php:3276
+#: includes/components/class-hpnf-notification.php:3287
 #: includes/configs/settings.php:23
 #: includes/controllers/class-hpnf-notification.php:108
 #: includes/templates/class-hpnf-notifications-view-page.php:33
@@ -344,7 +602,7 @@ msgstr ""
 msgid "Off"
 msgstr ""
 
-#: includes/components/class-hpnf-notification-push.php:494
+#: includes/components/class-hpnf-notification-push.php:552
 msgid "You have a new notification."
 msgstr ""
 
@@ -606,188 +864,212 @@ msgid "Memberships"
 msgstr ""
 
 #: includes/components/class-hpnf-notification.php:438
-msgid "Account"
+msgid "Gallery"
 msgstr ""
 
 #: includes/components/class-hpnf-notification.php:439
+msgid "Performance"
+msgstr ""
+
+#: includes/components/class-hpnf-notification.php:440
+msgid "Account"
+msgstr ""
+
+#: includes/components/class-hpnf-notification.php:446
+msgid "For Site Owners"
+msgstr ""
+
+#: includes/components/class-hpnf-notification.php:447
 msgid "Other"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:513
-#: includes/components/class-hpnf-notification.php:2960
+#: includes/components/class-hpnf-notification.php:537
+#: includes/components/class-hpnf-notification.php:3184
 msgid "View"
 msgstr ""
 
 #. translators: %s: sender name.
-#: includes/components/class-hpnf-notification.php:841
+#: includes/components/class-hpnf-notification.php:1044
 #, php-format
 msgid "%s sent you a message."
 msgstr ""
 
 #. translators: %s: badge name.
-#: includes/components/class-hpnf-notification.php:1313
+#: includes/components/class-hpnf-notification.php:1516
 #, php-format
 msgid "You have earned the %s badge."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:1857
+#: includes/components/class-hpnf-notification.php:2060
 msgid "On-site"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:1858
+#: includes/components/class-hpnf-notification.php:2061
 msgid "Email"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:1864
+#: includes/components/class-hpnf-notification.php:2067
 msgid "Push"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2114
+#: includes/components/class-hpnf-notification.php:2317
 msgctxt "stand-in name in the settings preview"
 msgid "Sam"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2119
+#: includes/components/class-hpnf-notification.php:2322
 msgid "Live preview"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2140
+#: includes/components/class-hpnf-notification.php:2343
 msgid "New message"
 msgstr ""
 
 #. translators: %s: name of the person signed in.
-#: includes/components/class-hpnf-notification.php:2145
+#: includes/components/class-hpnf-notification.php:2348
 #, php-format
 msgid "%s sent you a message about Riverside Studio."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2152
+#: includes/components/class-hpnf-notification.php:2355
 msgid "View message"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2167
+#: includes/components/class-hpnf-notification.php:2370
 msgid "How a pop-up will look with the settings on this page. It follows every change as you make it, and nothing is stored until you press Save Changes. The wording is a sample rather than a real notification."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2169
+#: includes/components/class-hpnf-notification.php:2372
 msgid "Play again"
 msgstr ""
 
 #. translators: %s: comma-separated list of notification names.
-#: includes/components/class-hpnf-notification.php:2491
+#: includes/components/class-hpnf-notification.php:2694
 #, php-format
 msgid "One of these has no email behind it, so unticking %s switches that notification off altogether."
 msgid_plural "These have no email behind them, so unticking one of them switches that notification off altogether: %s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/components/class-hpnf-notification.php:2525
+#: includes/components/class-hpnf-notification.php:2728
 msgid "Tick what this plugin should turn into an on-site notification, with a pop-up and a push notification where someone has allowed them, and let each person choose how they receive it. Leave one unticked and nothing here changes for it: any email HivePress already sends still goes out, and nobody can switch that off. Untick every box in this group and none of the group is handled."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2535
+#: includes/components/class-hpnf-notification.php:2738
 msgid "Password Reset and Email Verification start unticked on purpose, because ticking one puts it under the Email box for Account, and anyone whose Email box is clear then stops receiving it and cannot sign in to put that right."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2542
+#: includes/components/class-hpnf-notification.php:2745
 msgid "Review Received is here because it is about your own listing. The other review notifications are under Other."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2549
+#: includes/components/class-hpnf-notification.php:2752
 msgid "Review Received, for a review left on your own listing, is under Listings."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2575
+#: includes/components/class-hpnf-notification.php:2778
 msgid "What people with this role receive until they choose for themselves. Unticking Email stops the email HivePress already sends from reaching them. Untick every box and this role gets nothing until someone turns something on."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2579
+#: includes/components/class-hpnf-notification.php:2782
 msgid "These are WordPress roles. HivePress makes someone a Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings."
 msgstr ""
 
 #. translators: %s: role name.
-#: includes/components/class-hpnf-notification.php:2584
+#: includes/components/class-hpnf-notification.php:2787
 #, php-format
 msgid "%s Defaults"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2607
+#: includes/components/class-hpnf-notification.php:2810
 msgid "Push reaches their phone or computer while your site is closed, and it goes out with the on-site notification, so a role with Push ticked but On-site unticked gets neither."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2668
+#: includes/components/class-hpnf-notification.php:2871
 msgid "The email subject is used"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2759
+#. translators: %s: notification name.
+#: includes/components/class-hpnf-notification.php:2899
+#, php-format
+msgid "%s (more than one)"
+msgstr ""
+
+#. translators: %other_count% is a HivePress token, not a printf placeholder: it is replaced by name, so it must keep its spelling exactly and must not be numbered.
+#: includes/components/class-hpnf-notification.php:2901
+#, php-format
+msgid "Used from the second one onwards, when several arrive close together and are shown as one notification rather than a stream of them. Keep %other_count% exactly as written; it is replaced with the number of other people and the word for them, such as \"12 others\" or \"1 other\", so do not add that word yourself."
+msgstr ""
+
+#: includes/components/class-hpnf-notification.php:2983
 msgid "Tokens are placeholders such as %listing.title% that are swapped for the real wording when a notification is sent. The ones this notification offers are listed here once it has been sent for the first time. Until then ordinary words work, and leaving the box empty uses the subject line of the email HivePress sends."
 msgstr ""
 
 #. translators: %s: comma-separated list of tokens. Keep the doubled percent signs as they are; they print as single ones.
-#: includes/components/class-hpnf-notification.php:2778
+#: includes/components/class-hpnf-notification.php:3002
 #, php-format
 msgid "Tokens: %s. A token is a placeholder, swapped for the real wording when the notification is sent, so %%listing.title%% becomes the name of the listing. Copy them exactly, because anything else you put between percent signs is sent to people exactly as you typed it. Where one ends in \".field\", change that word to the detail you want, and to choose your own wording for when a detail is missing, add a vertical bar (|) inside the token, as in %%listing.title|your listing%%."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2959
+#: includes/components/class-hpnf-notification.php:3183
 msgid "Close"
 msgstr ""
 
 #. translators: %s: number of unread notifications.
-#: includes/components/class-hpnf-notification.php:2972
+#: includes/components/class-hpnf-notification.php:3196
 #, php-format
 msgctxt "plural"
 msgid "%s unread"
 msgstr ""
 
 #. translators: %s: number of unread notifications, always one here.
-#: includes/components/class-hpnf-notification.php:2974
+#: includes/components/class-hpnf-notification.php:3198
 #, php-format
 msgctxt "singular"
 msgid "%s unread"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2975
+#: includes/components/class-hpnf-notification.php:3199
 #: templates/notification/view/page/notifications.php:44
 msgid "All caught up"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2976
+#: includes/components/class-hpnf-notification.php:3200
 #: templates/notification/view/page/notifications.php:169
 msgid "Mark as read"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2979
+#: includes/components/class-hpnf-notification.php:3203
 #: templates/notification/view/page/notifications.php:169
 msgid "Mark as unread"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2980
+#: includes/components/class-hpnf-notification.php:3204
 #: templates/notification/view/page/notifications.php:175
 msgid "Delete notification"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2985
+#: includes/components/class-hpnf-notification.php:3209
 msgid "Notification deleted."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2986
+#: includes/components/class-hpnf-notification.php:3210
 msgid "Undo"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2988
+#: includes/components/class-hpnf-notification.php:3212
 msgid "Nothing new."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:2989
+#: includes/components/class-hpnf-notification.php:3213
 msgid "These could not be loaded. Please try again in a moment."
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:3064
+#: includes/components/class-hpnf-notification.php:3288
 msgid "See all"
 msgstr ""
 
-#: includes/components/class-hpnf-notification.php:3065
+#: includes/components/class-hpnf-notification.php:3289
 msgid "Loading…"
 msgstr ""
 
@@ -1371,30 +1653,22 @@ msgstr ""
 msgid "Choose what you get notified about"
 msgstr ""
 
-#: updater.php:212
+#: updater.php:540
 msgid "See the GitHub releases page for the changelog."
 msgstr ""
 
-#: updater.php:227
+#: updater.php:555
 msgid "Check for updates"
 msgstr ""
 
 #. translators: %s: new version number.
-#: updater.php:292
+#: updater.php:629
 #, php-format
 msgid "A new version of Notifications for HivePress (%s) is available."
 msgstr ""
 
-#: updater.php:295
+#: updater.php:632
 msgid "Notifications for HivePress is up to date."
-msgstr ""
-
-#: updater.php:298
-msgid "Could not reach GitHub to check for updates. Please try again later."
-msgstr ""
-
-#: updater.php:343
-msgid "Could not rename the update directory."
 msgstr ""
 
 #: updater.php:635
@@ -1403,4 +1677,12 @@ msgstr ""
 
 #: updater.php:638
 msgid "GitHub limits how many update checks one server may make each hour, and this server has reached that limit. Nothing is wrong with the plugin or your site, and checking will work again within the hour."
+msgstr ""
+
+#: updater.php:641
+msgid "Could not reach GitHub to check for updates. Please try again later."
+msgstr ""
+
+#: updater.php:686
+msgid "Could not rename the update directory."
 msgstr ""

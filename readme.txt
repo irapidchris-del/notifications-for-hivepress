@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,68 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.2.0 =
+Nineteen new notifications, covering six companion extensions that had no way of telling anybody
+anything, and a badge for the Action Bar.
+
+* **New - Additional Gallery notifications.** Somebody liking or commenting on one of your photos,
+  replying to your comment, liking your comment, buying access to your gallery, and their access
+  ending. Bursts of likes and comments about the same photo roll into one notification that reads
+  "Alice and 12 others liked your photo" rather than arriving as twelve separate pop-ups.
+* **New - the gallery that vanishes.** When the photo review hides one of your galleries you are now
+  told, instead of finding out by noticing it has gone.
+* **New - Listing Moderation notifications.** A vendor whose listing is held for review is now told
+  it is waiting to be checked, which nothing anywhere said before. The site owner gets their own
+  copy carrying the risk score and what was actually found, linked to the listing in the dashboard,
+  so the pending queue can be triaged rather than read. A listing pulled back by the photo check
+  gets its own wording, because it happens after the vendor has already seen it live.
+* **New - Holiday Mode notifications.** Confirmation when holiday mode goes on and off, with how
+  many listings went with it, and, separately, a warning about any that stayed hidden because their
+  listing period ran out while you were away. That last one was completely invisible: the behaviour
+  is right, but vendors came back from holiday quietly short of listings. A listing kept hidden
+  because holiday mode is still on now says so, which answers "why will my listing not publish?"
+  before it is asked. And a vendor whose membership lapses while they are away is told their
+  listings are stuck, rather than only finding out if they happen to try switching it off.
+* **New - Verified.** Vendors are told when you verify them. Nothing said so before.
+* **New - the monthly analytics summary** now has wording written for a notification list rather
+  than falling back to the email subject.
+* **New - "Unread notifications" as an Action Bar badge.** Requires Action Bar 1.4.0. The bar's
+  existing "All notifications" counter has never counted these notifications: it is HivePress's own
+  combined counter, and it is now labelled "Account activity" so the two are told apart. The
+  Notifications page has always been available as an Action Bar link, so with the badge you can put
+  the bell on the bar.
+* **New - the badge stays live**, updating as notifications arrive rather than waiting for the next
+  page load, and pop-ups pinned to the bottom of the screen now sit above the Action Bar instead of
+  landing underneath it on a phone.
+* **New - For Site Owners, Gallery and Performance groups** on the settings screen, so notifications
+  meant for you are not mixed in with the ones meant for your members. Two of the owner ones start
+  switched off, because they are useful on some sites and noise on others.
+* Every one of these can be reworded and switched off exactly like the existing notifications, and
+  each person still chooses how they receive it.
+* Fixed: sending a web push no longer holds up the page that caused it. A notification that also
+  goes out as a push - a new message, a review, a booking - had that push handed to Google, Mozilla
+  or Microsoft during the visitor's own request, once for every browser signed up, and how long they
+  take to answer is not something your server can hurry. One slow reply holds one visitor; enough of
+  them at once holds up the whole site, which looks like the site going down for no reason rather
+  than like anything to do with notifications. Pushes now go out a moment later in the background.
+  Nothing changes for the person receiving one.
+* Fixed: a browser that has dropped its subscription is now forgotten. When somebody clears their
+  site data, uninstalls their browser or turns notifications off at the phone, the push service says
+  so plainly - but the answer was never read, so the dead subscription stayed on the account and was
+  tried again on every notification from then on. Those are now cleared the first time the push
+  service reports one.
+* Requires Additional Gallery 1.8.2, Automated Listing Moderation 1.6.9, Holiday Mode 1.7.4 or
+  Action Bar 1.4.0 for the parts that concern them. Older versions are ignored rather than broken.
+* Fixed - checking for updates no longer holds up an admin page. The check ran while WordPress was
+  building the Plugins screen, so on a site with several of these extensions one page load made one
+  request to GitHub after another and could sit there for many seconds, once, before behaving
+  normally again for hours. The check now runs in the background moments later. Pressing Check for
+  updates still asks GitHub straight away, because you are waiting for that answer.
+* Fixed - "View details" is back on the Plugins screen. WordPress only offers that link for a
+  plugin that has told it about itself, and this one stayed quiet whenever there was nothing to
+  update to, which is almost always. The details popup, its changelog and the donate link inside
+  it were all unreachable from the Plugins screen as a result.
 
 = 1.1.1 =
 * Checking for updates no longer reports "Could not reach GitHub" when nothing is wrong. GitHub allows a server only a limited number of anonymous update checks each hour, shared by every plugin on the site and, on shared hosting, by every other site on the same server. Running out is ordinary, but it was reported as though the site could not reach GitHub at all. Update checks now read the release from github.com, which sets no such limit, so the message no longer appears. If the limit is ever reached by some other route, the notice now says so plainly instead of blaming your connection.

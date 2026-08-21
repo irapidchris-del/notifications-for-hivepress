@@ -201,7 +201,39 @@
 			badge.textContent = String( count );
 		} );
 
+		setActionBarBadge( count );
+
 		syncListHeader( count );
+	}
+
+	/**
+	 * Keeps the Action Bar's notification badge in step with the count.
+	 *
+	 * The bar renders its badge once, server-side, so without this the number sits stale until the
+	 * next page load - which on a phone, where the bar is the main way people move around, can be a
+	 * long time. The bar hides the badge with the "hidden" attribute at zero rather than removing
+	 * it, and this does the same, so the two agree on what an empty badge looks like.
+	 *
+	 * Only items whose badge counts notifications are touched. An item set to unread messages or to
+	 * HivePress's own activity counter is counting something else, and quietly overwriting it with
+	 * this number would be worse than leaving it a page out of date.
+	 *
+	 * @param {number} count Unread count.
+	 */
+	function setActionBarBadge( count ) {
+		Array.prototype.forEach.call(
+			document.querySelectorAll( '.hp-action-bar__item[data-badge="notifications"] .hp-action-bar__badge' ),
+			function( badge ) {
+				if ( ! count ) {
+					badge.setAttribute( 'hidden', 'hidden' );
+
+					return;
+				}
+
+				badge.textContent = count > 99 ? '99+' : String( count );
+				badge.removeAttribute( 'hidden' );
+			}
+		);
 	}
 
 	/**
