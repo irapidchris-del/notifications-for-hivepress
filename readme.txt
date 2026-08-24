@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,28 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.3.4 =
+* Fixed: the plugin no longer writes a PHP warning on every page load. It registered itself with
+  HivePress in a way that made HivePress's own code raise "Array to string conversion" on every
+  request of every site without a paid HivePress extension. It now registers the same way the
+  official extensions do, and still works from a renamed folder.
+* Fixed: a burst of related notifications is no longer written into a notification you have
+  already deleted. Dismissing an unopened "Alice liked your photo" meant every further like or
+  comment on that photo for the next day was added to the deleted one, so it never appeared in the
+  list, the bell, the unread count or a push message, while the pop-up still said "and 3 others".
+* Fixed: an announcement sent to one role can no longer go to everyone. If your site uses a role
+  whose internal name is not all lower case, the audience was quietly widened to every user; the
+  announcement is now stopped with an explanation instead, because it cannot be recalled.
+* Fixed: the sticky header is now properly solid for anyone who has asked their device to reduce
+  transparency. The blur was switched off but the see through background was left in place, so
+  those visitors were the only ones reading the navigation over the page scrolling behind it.
+* Fixed: pop-ups now clear the Action Bar at the screen widths where the bar is actually shown,
+  instead of at every width, and they clear it when the mobile position is used as well.
+* Fixed: "Delete all data" and a personal data erasure request now both remove the record of
+  having told somebody their gallery access had lapsed.
+* Fixed: deleting the plugin now also clears the update check's own leftovers and cancels its
+  background update check.
 
 = 1.3.3 =
 * Fixed: a message sent while the Messages extension has storage switched off is no longer stopped

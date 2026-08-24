@@ -643,7 +643,21 @@ final class Hpnf_Notification extends Component {
 				// Unread only. comment_karma is where this plugin keeps the read flag, and
 				// WP_Comment_Query supports it directly (class-wp-comment-query.php:764).
 				'karma'      => 0,
-				'status'     => 'any',
+
+				/*
+				 * NOT 'status' => 'any'. In WP_Comment_Query, 'any' overrides every other status
+				 * and drops the status clause altogether (class-wp-comment-query.php:568-591), so
+				 * trashed rows come back too. Notifications are always stored with
+				 * comment_approved = 1 (the read flag lives in comment_karma precisely so that
+				 * column can stay at 1), so 'any' bought nothing and only let the trash through -
+				 * and rolling a burst INTO a trashed row is how it disappears. A vendor who
+				 * dismissed one "Alice liked your photo" without opening it had every further like
+				 * on that photo for the next 24 hours written into the deleted row: gone from the
+				 * list, the bell, the unread badge and push, while the toast still popped up
+				 * saying "and 3 others", and gone for good when WordPress emptied the trash about
+				 * thirty days later. The default, 'all', is comment_approved IN (0,1), which is
+				 * every live notification and no trashed one.
+				 */
 				'number'     => 1,
 				'orderby'    => 'comment_date_gmt',
 				'order'      => 'DESC',

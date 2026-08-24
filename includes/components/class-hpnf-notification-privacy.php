@@ -265,6 +265,12 @@ final class Hpnf_Notification_Privacy extends Component {
 			delete_user_meta( $user->ID, 'hp_notification_quiet' );
 			delete_user_meta( $user->ID, 'hp_notification_badges_sent' );
 
+			// An erasure request has to reach every row, and this one was missed. It records that
+			// the person was told their gallery entitlement had lapsed, so leaving it behind
+			// keeps a fact about them after they asked for their data to be removed. This list
+			// and the one in uninstall.php must always name the same keys.
+			delete_user_meta( $user->ID, 'hp_notification_holiday_lapsed' );
+
 			$response['items_removed'] = true;
 		}
 

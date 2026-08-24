@@ -18,6 +18,23 @@
  * component, so the gap between two of them is 1rem - the same step core puts below a heading -
  * and the same 1rem is the gutter each pop-up keeps from the edge of the screen, which is why the
  * max-width subtracts two of them. */
+/*
+ * THIS STACK NEVER YIELDS TO ANOTHER POP-UP STACK, AND MUST NOT LEARN TO.
+ *
+ * Social Proof for HivePress can put its own pop-ups in the same corner. The coexistence is
+ * deliberately one-way: Social Proof measures THIS container and shifts itself clear of it
+ * (its watchNotificationsToasts(), which sets its own --hpsp-yield), and this container stays
+ * where the site owner put it. That asymmetry is the design, not an oversight. If both stacks
+ * yielded, each would measure the other's height and add it to its own offset, so the pair would
+ * either drift apart by the sum of both heights or oscillate as each move re-triggered the
+ * other's observer. One stack moves; the other is the fixed point.
+ *
+ * So: do not add a yield here, and do not "make it symmetric". If the two overlap, the bug is in
+ * Social Proof's measurement, which is where it has been twice before.
+ *
+ * Yielding to the Action Bar, further down, is a different thing entirely: the bar is a fixed
+ * piece of site furniture that never moves for anybody, so everything else moves for it.
+ */
 .hp-notification-toasts {
 	position: fixed;
 	z-index: 9999;
@@ -54,12 +71,17 @@
 /* Where the Action Bar is on screen, a pop-up pinned to the bottom lands underneath it: the bar is
  * fixed at bottom:0 with a higher stacking context than the page, and on a phone it is exactly
  * where the bottom-centre and bottom-right pop-ups go. The bar puts a class on the body and its own
- * height on :root, so the stack simply starts above it, with the same 1rem gutter it keeps
- * everywhere else. The fallback height matches the bar's own default, so this still clears it if an
- * older Action Bar is installed that does not publish the variable. */
+ * measurements on :root, so the stack simply starts above it, with the same 1rem gutter it keeps
+ * everywhere else.
+ *
+ * Read --hp-action-bar-offset, not --hp-action-bar-height. The height is published at every width;
+ * the offset is the height only at the breakpoints where the bar is actually displayed, and 0
+ * elsewhere. The bar is mobile-only by default, so reading the height pushed these pop-ups up by
+ * 56px on desktops that have no bar at all. The nested fallback keeps the old behaviour for an
+ * Action Bar older than the version that publishes the offset. */
 body.hp-action-bar-visible .hp-notification-toasts--bottom-right,
 body.hp-action-bar-visible .hp-notification-toasts--bottom-left {
-	bottom: calc(1rem + var(--hp-action-bar-height, 56px) + env(safe-area-inset-bottom, 0px));
+	bottom: calc(1rem + var(--hp-action-bar-offset, calc(var(--hp-action-bar-height, 56px) + env(safe-area-inset-bottom, 0px))));
 }
 
 /* The left padding is the golden-ratio partner of the other three (1rem beside 1.6rem, not
@@ -1033,6 +1055,14 @@ a.hp-notifications__action.button--secondary:focus {
 		bottom: auto;
 		transform: translateY(-50%);
 	}
+
+	/* The bar has to be cleared from the MOBILE position class too. The rule near the top of this
+	 * file only names the desktop bottom classes, so a site set to a top position on desktop and a
+	 * bottom one on the phone landed its pop-ups back on top of the bar at exactly the width the
+	 * bar exists for. */
+	body.hp-action-bar-visible .hp-notification-toasts--m-bottom {
+		bottom: calc(1rem + var(--hp-action-bar-offset, calc(var(--hp-action-bar-height, 56px) + env(safe-area-inset-bottom, 0px))));
+	}
 }
 
 /* --------------------------------------------------------------------------
@@ -1090,11 +1120,29 @@ a.hp-notifications__action.button--secondary:focus {
 	}
 }
 
-/* Somebody who has asked their device for less transparency gets the solid header back. */
+/*
+ * Somebody who has asked their device for less transparency gets the solid header back.
+ *
+ * This block alone could not deliver that, and for a long time it did the opposite. It switches
+ * the BLUR off, but the 72%-opaque tint is applied above with !important, so it survived - and
+ * the blur is the only thing that was making text over it legible. The people who asked for less
+ * transparency ended up as the only ones with raw page content scrolling behind their navigation
+ * text. The decision now lives where it can be made properly, in initSticky()'s glass(), which
+ * declines to add the glass class at all under this preference and leaves the opaque colour
+ * standing. What is left here is belt and braces for a bar that was already glassed when the
+ * preference changed.
+ */
 @media ( prefers-reduced-transparency: reduce ) {
+	.hp-nfh-sticky.hp-nfh-sticky--glass {
+		background-color: var(--hp-nfh-opaque-background, var(--hp-nfh-glass-background)) !important;
+	}
+
 	.hp-nfh-sticky.hp-nfh-sticky--glass::before {
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;
+
+		/* With no blur behind it, the overlay is just a pane over the page. Take it away. */
+		display: none;
 	}
 }
 

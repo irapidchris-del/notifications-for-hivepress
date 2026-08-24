@@ -1217,7 +1217,10 @@ final class Hpnf_Notification_Extensions extends Component {
 				'type'       => 'hp_notification',
 				'user_id'    => $user_id,
 				'karma'      => 0,
-				'status'     => 'any',
+
+				// No 'status' => 'any' here either: it would count a trashed row, so the toast
+				// would say "and 3 others" about a notification nobody can open. See the long note
+				// on the matching query in add_grouped_notification().
 				'number'     => 1,
 				'orderby'    => 'comment_date_gmt',
 				'order'      => 'DESC',

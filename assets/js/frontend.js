@@ -1403,6 +1403,20 @@
 				return '';
 			}
 
+			/*
+			 * Somebody who has asked their device for less transparency gets no glass at all, and
+			 * the check has to be here rather than in the stylesheet. The CSS media query could
+			 * only switch the BLUR off; the 72%-opaque tint is applied by a rule carrying
+			 * !important, so it survived, and the visitors who asked for less transparency were
+			 * left as the only ones reading navigation text over raw page content scrolling
+			 * behind it, while everybody else got the blur that makes it legible. Returning ''
+			 * here means the glass class is never added, the opaque colour set just above stands,
+			 * and the header is simply solid - which is what the setting promises.
+			 */
+			if ( window.matchMedia && window.matchMedia( '(prefers-reduced-transparency: reduce)' ).matches ) {
+				return '';
+			}
+
 			var source = barBackground || window.getComputedStyle( bar ).backgroundColor;
 			var parts  = ( source || '' ).match( /^rgba?\(([^)]+)\)$/ );
 			var alpha  = Math.max( 10, Math.min( 100, parseInt( settings.glassOpacity, 10 ) || 72 ) ) / 100;
@@ -1475,6 +1489,11 @@
 
 				if ( barBackground ) {
 					bar.style.backgroundColor = barBackground;
+
+					// Published as a variable as well, so the reduced-transparency rules in the
+					// stylesheet have an opaque colour to fall back to. The glass rule carries
+					// !important, so the inline colour above cannot outrank it on its own.
+					bar.style.setProperty( '--hp-nfh-opaque-background', barBackground );
 				}
 
 				if ( glassTint ) {
@@ -1489,6 +1508,7 @@
 				bar.classList.remove( 'hp-nfh-sticky--glass' );
 				bar.style.removeProperty( '--hp-nfh-glass-background' );
 				bar.style.removeProperty( '--hp-nfh-glass-blur' );
+				bar.style.removeProperty( '--hp-nfh-opaque-background' );
 				bar.style.top             = '';
 				bar.style.backgroundColor = '';
 				holder.style.display      = 'none';

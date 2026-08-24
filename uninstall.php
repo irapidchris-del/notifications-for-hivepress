@@ -42,6 +42,28 @@ $hp_delete_all = (bool) get_option( 'hp_notification_delete_data' );
 // option sweep below nor a plain delete_option() would ever reach it.
 delete_site_transient( 'hp_notifications_github_release' );
 
+/*
+ * The updater's background release refresh, which used to be left scheduled.
+ *
+ * It is a queued job whose callback stops existing the moment the plugin does, so it is worse
+ * than debris: cron keeps firing a hook nothing answers. Unscheduled from both places it can
+ * live, because the refresh is queued through HivePress's scheduler (Action Scheduler) when
+ * HivePress is present and through WP-Cron when it is not.
+ *
+ * The updater's other site transients go the same way. Core's daily sweep clears expired site
+ * transients within about a day on single-site, which is why leaving them read as harmless; on
+ * multisite they live in wp_sitemeta and are only purged when something asks for them.
+ */
+delete_site_transient( 'hp_notifications_github_release_reason' );
+delete_site_transient( 'hp_notifications_github_release_rate_limit' );
+
+if ( function_exists( 'as_unschedule_all_actions' ) ) {
+	as_unschedule_all_actions( 'hp_notifications_github_release_refresh', [], 'hivepress' );
+	as_unschedule_all_actions( 'hp_notifications_github_release_refresh' );
+}
+
+wp_clear_scheduled_hook( 'hp_notifications_github_release_refresh' );
+
 // Any other transient the plugin has ever set. Nothing writes one today, but a transient is stored
 // as "_transient_{name}" plus a separate "_transient_timeout_{name}" row, so the prefix sweep used
 // for options further down cannot match them - it anchors on "hp_notification" at the start of the
@@ -124,8 +146,17 @@ if ( $hp_delete_all ) {
 		delete_option( $hp_option_name );
 	}
 
-	// Delete the user meta: the pop-up queue, the cached unread count and type list, the channel
-	// preferences, the push subscriptions and the quiet hours.
+	/*
+	 * Delete the user meta: the pop-up queue, the cached unread count and type list, the channel
+	 * preferences, the push subscriptions, the quiet hours, and the two "already told them" markers.
+	 *
+	 * hp_notification_holiday_lapsed was written by the extensions component and missing from this
+	 * list, so it survived "delete all data" as one permanent row per member whose gallery
+	 * entitlement had ever lapsed. Every key any part of this plugin writes belongs here; the check
+	 * is mechanical, so run it when adding one:
+	 *
+	 *   grep -rn "update_user_meta\|add_user_meta" includes/
+	 */
 	foreach ( [
 		'hp_notification_queue',
 		'hp_notification_unread',
@@ -134,6 +165,7 @@ if ( $hp_delete_all ) {
 		'hp_notification_push',
 		'hp_notification_quiet',
 		'hp_notification_badges_sent',
+		'hp_notification_holiday_lapsed',
 	] as $hp_meta_key ) {
 		delete_metadata( 'user', 0, $hp_meta_key, '', true );
 	}

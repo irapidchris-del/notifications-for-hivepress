@@ -130,6 +130,9 @@ final class Hpnf_Notification_Broadcast extends Component {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$empty = (bool) hp\get_array_value( $_GET, 'empty' );
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$badrole = (bool) hp\get_array_value( $_GET, 'badrole' );
+
 		if ( $sent ) :
 			?>
 			<div class="notice notice-success is-dismissible">
@@ -171,6 +174,16 @@ final class Hpnf_Notification_Broadcast extends Component {
 			<div class="notice notice-error is-dismissible">
 				<p>
 					<?php esc_html_e( 'Nothing was sent. Add at least one username or email address to send to.', 'notifications-for-hivepress' ); ?>
+				</p>
+			</div>
+			<?php
+		endif;
+
+		if ( $badrole ) :
+			?>
+			<div class="notice notice-error is-dismissible">
+				<p>
+					<?php esc_html_e( 'Nothing was sent. That group could not be found, so the announcement was stopped rather than sent to everyone. Choose the group again and resend.', 'notifications-for-hivepress' ); ?>
 				</p>
 			</div>
 			<?php
@@ -679,6 +692,44 @@ final class Hpnf_Notification_Broadcast extends Component {
 	}
 
 	/**
+	 * Resolves a submitted audience to one of the exact values the form offers.
+	 *
+	 * NEVER sanitize_key() a role. It lowercases, so a role registered as `shopManager` or
+	 * `Shop.Manager` - several role plugins produce keys like these - came out as something
+	 * wp_roles()->is_role() had never heard of, and the code then quietly reset it to '', which is
+	 * this form's value for EVERYONE. The admin picked "Shop Manager (12 users)", the live count
+	 * beside it was right, and the announcement went to the whole user base. Announcements cannot
+	 * be opted out of and cannot be recalled, so widening the audience is the one failure this must
+	 * never choose: an unrecognised value is refused instead, and the admin is told.
+	 *
+	 * Compared against the raw posted string and answered with the key from the allow-list itself,
+	 * so nothing unvalidated ever reaches the query.
+	 *
+	 * @param string $raw Submitted value, unslashed and otherwise untouched.
+	 * @return string|false Audience value, or false when it resolves to nothing.
+	 */
+	protected function resolve_role( $raw ) {
+		$raw = (string) $raw;
+
+		// Everyone, chosen deliberately.
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		if ( in_array( $raw, [ '_vendors', '_users' ], true ) ) {
+			return $raw;
+		}
+
+		foreach ( array_keys( (array) wp_roles()->get_names() ) as $role ) {
+			if ( (string) $role === $raw ) {
+				return (string) $role;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Handles the form.
 	 */
 	public function send_broadcast() {
@@ -691,7 +742,14 @@ final class Hpnf_Notification_Broadcast extends Component {
 		// Get arguments.
 		$text = sanitize_text_field( wp_unslash( (string) hp\get_array_value( $_POST, 'text' ) ) );
 		$url  = esc_url_raw( wp_unslash( (string) hp\get_array_value( $_POST, 'url' ) ) );
-		$role = sanitize_key( (string) hp\get_array_value( $_POST, 'role' ) );
+		$role = $this->resolve_role( wp_unslash( (string) hp\get_array_value( $_POST, 'role' ) ) );
+
+		// Refuse rather than widen. See resolve_role().
+		if ( false === $role ) {
+			wp_safe_redirect( $this->get_redirect_url( [ 'badrole' => 1 ] ) );
+
+			exit;
+		}
 
 		if ( ! $text || ! hp\get_array_value( $_POST, 'confirm' ) ) {
 			wp_safe_redirect( $this->get_redirect_url() );
@@ -760,9 +818,8 @@ final class Hpnf_Notification_Broadcast extends Component {
 			exit;
 		}
 
-		if ( $role && ! wp_roles()->is_role( $role ) ) {
-			$role = '';
-		}
+		// Already resolved against the offered list by resolve_role(), which refuses anything it
+		// does not recognise instead of falling back to everyone.
 
 		// Get the audience size.
 		$count = ( new \WP_User_Query(
@@ -941,8 +998,13 @@ final class Hpnf_Notification_Broadcast extends Component {
 
 			$this->log_broadcast( $text, $url, $role, $count );
 		} else {
-			if ( $role && ! wp_roles()->is_role( $role ) ) {
-				$role = '';
+
+			// Resending has the same rule as sending: a role that no longer resolves - deleted
+			// since, or a plugin deactivated - must stop the send, not silently become everyone.
+			if ( false === $this->resolve_role( $role ) ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=hp_notification_broadcast&view=history&badrole=1' ) );
+
+				exit;
 			}
 
 			$count = ( new \WP_User_Query(

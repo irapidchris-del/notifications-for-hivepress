@@ -3,7 +3,7 @@
  * Plugin Name: Notifications for HivePress
  * Plugin URI: https://github.com/irapidchris-del/notifications-for-hivepress
  * Description: Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions.
- * Version: 1.3.3
+ * Version: 1.3.4
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: notifications-for-hivepress
@@ -21,17 +21,43 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
-define( 'HP_NOTIFICATIONS_VERSION', '1.3.3' );
+define( 'HP_NOTIFICATIONS_VERSION', '1.3.4' );
 define( 'HP_NOTIFICATIONS_FILE', __FILE__ );
 
 /**
  * Registers the extension with HivePress.
  *
  * HivePress collects extension paths via this filter, then autoloads classes and merges
- * configs from the "includes" directory of every registered path. The array form is used
- * rather than a bare directory string: given a string, core requires the main file to be
- * named after the folder ({dirname}/{dirname}.php), so a renamed install folder - which is
- * exactly what a GitHub "Download ZIP" produces - would silently disable the whole plugin.
+ * configs from the "includes" directory of every registered path. Two registration forms
+ * exist and each has a catch, so the right one is chosen at runtime:
+ *
+ * - A bare directory STRING is what every official extension passes, but core then derives
+ *   the main file as `{dirname}/{dirname}.php` (`class-core.php:267`) and silently registers
+ *   nothing when the folder name and the file name disagree. A zip that unpacks to a suffixed
+ *   folder, which is exactly what a GitHub "Download ZIP" produces, would leave the plugin
+ *   active but completely inert with no error anywhere.
+ * - An ARRAY is used as-is (`:262`) and so is immune to the folder name, but core's updater
+ *   probe just above it concatenates EVERY entry into `file_exists()` (`:249-250`), which
+ *   raises "Array to string conversion" for an array entry.
+ *
+ * This used to pass the array unconditionally, which meant that warning fired on every single
+ * request of every normal install. It went unnoticed on the development site only because a
+ * SIBLING plugin happened to set `$extensions['updates']` first and shielded it: measured on
+ * 2026-08-24 by replaying core's probe against a hand-built list of HivePress plus the free
+ * extensions, which is the ordinary setup for somebody installing this, one warning per
+ * request. Core itself does not bundle the updates package; only the paid extensions do, so
+ * there is nothing to stop the probe reaching us on a site that has none.
+ *
+ * So: use the string form whenever it actually resolves, which is the normal install and
+ * behaves exactly like an official extension. It registers under the identical name, because
+ * core derives `notifications_for_hivepress` from this folder name. Fall back to the array
+ * form only when the folder has been renamed, and in that fallback run core's own probe first
+ * so the `updates` key is already set and the loop that emits the warning never runs. When
+ * nothing bundles the package, a never-existing path stands in, which core's string branch
+ * silently skips via its own `file_exists()` guard (`:277`) - the same outcome as the probe
+ * finding nothing, minus the warning.
+ *
+ * Priority 100, so the string-form extensions are all in the array before that probe runs.
  * The filter must be added at file scope; core reads it before plugins_loaded callbacks run.
  *
  * @param array $extensions Extension paths.
@@ -40,6 +66,29 @@ define( 'HP_NOTIFICATIONS_FILE', __FILE__ );
 add_filter(
 	'hivepress/v1/extensions',
 	function( $extensions ) {
+		$dirname = basename( __DIR__ );
+
+		if ( file_exists( __DIR__ . '/' . $dirname . '.php' ) ) {
+			$extensions[] = __DIR__;
+
+			return $extensions;
+		}
+
+		if ( ! isset( $extensions['updates'] ) ) {
+			$package = '/vendor/hivepress/hivepress-updates';
+			$updates = __DIR__ . '/updates-not-bundled';
+
+			foreach ( $extensions as $dir ) {
+				if ( is_string( $dir ) && file_exists( $dir . $package . '/hivepress-updates.php' ) ) {
+					$updates = $dir . $package;
+
+					break;
+				}
+			}
+
+			$extensions['updates'] = $updates;
+		}
+
 		$extensions['notifications_for_hivepress'] = [
 			'name'    => 'Notifications for HivePress',
 			'version' => HP_NOTIFICATIONS_VERSION,
@@ -48,7 +97,8 @@ add_filter(
 		];
 
 		return $extensions;
-	}
+	},
+	100
 );
 
 /**
