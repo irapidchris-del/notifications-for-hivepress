@@ -138,6 +138,11 @@ if ( $hp_delete_all ) {
 		delete_metadata( 'user', 0, $hp_meta_key, '', true );
 	}
 
+	// Post meta. The nightly performance pass leaves a small snapshot on every vendor it has
+	// looked at - the figures it compared and the dates it last said something - and it is the
+	// only post meta this plugin writes, so nothing above would have caught it.
+	delete_metadata( 'post', 0, 'hp_notification_insights', '', true );
+
 	// The known-types record matches the prefix sweep above only by coincidence of naming, so it is
 	// removed explicitly in case that prefix ever changes.
 	delete_option( 'hp_notification_known_types' );

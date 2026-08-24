@@ -1387,6 +1387,46 @@
 
 		var barBackground = background();
 
+		/**
+		 * Works out the translucent colour the glass effect tints the header with.
+		 *
+		 * Built from the colour the header is actually showing, not from a value of our own, so a
+		 * dark theme gets a dark pane and a light one a light pane. The solid colour is still set
+		 * alongside it: the stylesheet only reaches for this behind an @supports test, so a browser
+		 * without backdrop-filter keeps the opaque header rather than a see-through one it cannot
+		 * blur.
+		 *
+		 * @return {string} An rgba() colour, or an empty string to leave the header solid.
+		 */
+		function glass() {
+			if ( ! settings.stickyGlass ) {
+				return '';
+			}
+
+			var source = barBackground || window.getComputedStyle( bar ).backgroundColor;
+			var parts  = ( source || '' ).match( /^rgba?\(([^)]+)\)$/ );
+			var alpha  = Math.max( 10, Math.min( 100, parseInt( settings.glassOpacity, 10 ) || 72 ) ) / 100;
+
+			if ( parts ) {
+				var values = parts[1].split( ',' );
+
+				return 'rgba(' + parseInt( values[0], 10 ) + ',' + parseInt( values[1], 10 ) + ',' + parseInt( values[2], 10 ) + ',' + alpha + ')';
+			}
+
+			var hex = ( source || '' ).match( /^#([0-9a-f]{6})$/i );
+
+			if ( hex ) {
+				var n = parseInt( hex[1], 16 );
+
+				return 'rgba(' + ( ( n >> 16 ) & 255 ) + ',' + ( ( n >> 8 ) & 255 ) + ',' + ( n & 255 ) + ',' + alpha + ')';
+			}
+
+			// A colour we cannot read is left alone rather than guessed at.
+			return '';
+		}
+
+		var glassTint = glass();
+
 		function offset() {
 			var admin = document.getElementById( 'wpadminbar' );
 
@@ -1437,9 +1477,18 @@
 					bar.style.backgroundColor = barBackground;
 				}
 
+				if ( glassTint ) {
+					bar.style.setProperty( '--hp-nfh-glass-background', glassTint );
+					bar.style.setProperty( '--hp-nfh-glass-blur', settings.glassBlur + 'px' );
+					bar.classList.add( 'hp-nfh-sticky--glass' );
+				}
+
 				bar.classList.add( 'hp-nfh-sticky' );
 			} else {
 				bar.classList.remove( 'hp-nfh-sticky' );
+				bar.classList.remove( 'hp-nfh-sticky--glass' );
+				bar.style.removeProperty( '--hp-nfh-glass-background' );
+				bar.style.removeProperty( '--hp-nfh-glass-blur' );
 				bar.style.top             = '';
 				bar.style.backgroundColor = '';
 				holder.style.display      = 'none';

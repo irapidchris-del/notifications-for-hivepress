@@ -763,7 +763,64 @@ final class Hpnf_Notification extends Component {
 			'site_url'  => home_url( '/' ),
 		];
 
-		return trim( wp_strip_all_tags( hp\replace_tokens( $tokens, $text ) ) );
+		/*
+		 * The settings hint promises "%token|fallback%" wording for when a detail is missing, and
+		 * core only keeps that promise for model tokens: replace_tokens() takes the fallback branch
+		 * when the value is null (hivepress/includes/helpers.php:381), and a model field that is
+		 * absent is null. The plain-string tokens this plugin passes never are - a missing detail
+		 * arrives as an empty string - so the documented syntax silently never fired for them. An
+		 * empty string is therefore handed to core as null, which is the branch the owner wrote
+		 * the fallback for. A bare %token% without a bar still renders as nothing, exactly as
+		 * before, because core's default fallback is the empty string.
+		 */
+		foreach ( $tokens as $name => $value ) {
+			if ( '' === $value ) {
+				$tokens[ $name ] = null;
+			}
+		}
+
+		$text = trim( wp_strip_all_tags( hp\replace_tokens( $tokens, $text ) ) );
+
+		/*
+		 * A token that never made it into the array at all - not passed for this event, or dropped
+		 * by a caller's filter - is still sitting in the text as "%name|fallback%", because core
+		 * only walks the tokens it is given. The owner wrote that fallback for exactly this case,
+		 * so it is honoured here rather than shipped raw. The pattern mirrors core's own: a token
+		 * name, optionally a dot and a field, a bar, then anything up to the closing percent sign.
+		 * A bare %name% with no bar is deliberately left alone - a raw token is the visible clue
+		 * the hint relies on when somebody mistypes one.
+		 */
+		$text = preg_replace_callback(
+			'/%[a-z0-9_.]+\s*\|([^%]+)%/i',
+			function ( $matches ) {
+				return trim( $matches[1] );
+			},
+			$text
+		);
+
+		return trim( $text );
+	}
+
+	/**
+	 * Drops the tokens that have no value at all.
+	 *
+	 * Only genuinely absent values are dropped. array_filter() with no callback also throws away
+	 * an empty string and, worse, the string "0" - and render_text() leaves any token it is not
+	 * given sitting in the wording exactly as typed, so a listing literally titled "0" reached
+	 * its owner reading "added %listing_title% to their favourites". An empty value renders as
+	 * nothing, which is the right answer for an optional token; a raw placeholder in front of a
+	 * real person never is. Same reasoning, same filter, as the extensions component's deliver().
+	 *
+	 * @param array $tokens Token values.
+	 * @return array
+	 */
+	protected function filter_tokens( $tokens ) {
+		return array_filter(
+			(array) $tokens,
+			function ( $value ) {
+				return ! is_null( $value ) && [] !== $value;
+			}
+		);
 	}
 
 	/**
@@ -1037,7 +1094,7 @@ final class Hpnf_Notification extends Component {
 				'message' => \HivePress\Models\Message::query()->get_by_id( absint( $message->comment_ID ) ),
 			];
 
-			$text = $this->render_text( $this->get_type_text( 'message_send' ), array_filter( $tokens ) );
+			$text = $this->render_text( $this->get_type_text( 'message_send' ), $this->filter_tokens( $tokens ) );
 
 			if ( ! $text ) {
 				/* translators: %s: sender name. */
@@ -1156,10 +1213,22 @@ final class Hpnf_Notification extends Component {
 		// Get channels.
 		$channels = $this->get_user_channels( $user_id, $type );
 
-		// Stop the email if the recipient turned it off. The body is deliberately left alone,
-		// because emptying it is how HivePress itself disables an email and that would also hide
-		// whether there was anything to send.
-		if ( ! in_array( 'email', $channels, true ) ) {
+		/*
+		 * Stop the email if the recipient turned it off. The body is deliberately left alone,
+		 * because emptying it is how HivePress itself disables an email and that would also hide
+		 * whether there was anything to send.
+		 *
+		 * One email is exempt: a message sent while the Messages extension's storage setting is
+		 * off. In that mode the extension never saves the message - it puts the text into the
+		 * email body and moves on (messages/controllers/class-message.php:230-242), so the email
+		 * IS the message, and stopping it would destroy the only copy of what one person wrote to
+		 * another while the sender is told it went through. The on-site notification cannot carry
+		 * the text instead: it sits in a list for weeks, is served by REST and pushed to the OS,
+		 * which is exactly why the registration password is kept out of it below. So for this one
+		 * type, in this one configuration, delivery beats the reader's email preference - an email
+		 * they asked not to have is a smaller wrong than losing their words.
+		 */
+		if ( ! in_array( 'email', $channels, true ) && ( 'message_send' !== $type || get_option( 'hp_message_enable_storage' ) ) ) {
 			$this->suppressed = [
 				'recipient' => $this->get_recipient( $email ),
 				'subject'   => (string) $email->get_subject(),
@@ -1430,16 +1499,26 @@ final class Hpnf_Notification extends Component {
 			return;
 		}
 
+		/*
+		 * Only a listing the public can still open gets a link. This event fires twelve hours
+		 * after the booking ends, which is long enough for the listing to have expired overnight -
+		 * core moves expired listings to draft - or been trashed by the vendor, and get_permalink()
+		 * happily builds a "?post_type=hp_listing&p=N" or "__trashed" URL for those. Both pass the
+		 * URL check, so "Leave a review" shipped pointing at a 404. No link rather than a broken
+		 * one, the same trade get_badge_url() makes; the wording still names the listing either way.
+		 */
+		$listing_url = 'publish' === $listing->get_status() ? (string) get_permalink( $listing->get_id() ) : '';
+
 		// Get tokens.
 		$tokens = [
 			'user'          => $booking->get_user(),
 			'listing'       => $listing,
 			'booking'       => $booking,
 			'listing_title' => $listing->get_title(),
-			'listing_url'   => (string) get_permalink( $listing->get_id() ),
+			'listing_url'   => $listing_url,
 		];
 
-		$tokens = array_filter( $tokens );
+		$tokens = $this->filter_tokens( $tokens );
 
 		$this->update_seen_tokens( 'booking_complete', $tokens );
 
@@ -1499,7 +1578,7 @@ final class Hpnf_Notification extends Component {
 		}
 
 		// Get tokens.
-		$tokens = array_filter(
+		$tokens = $this->filter_tokens(
 			[
 				'user'       => $award->get_user(),
 				'badge'      => $badge,
@@ -1619,7 +1698,10 @@ final class Hpnf_Notification extends Component {
 			return;
 		}
 
-		$listing_url = (string) get_permalink( $listing->get_id() );
+		// Only a listing the public can still open gets a link: a moderated review can be approved
+		// after its listing has expired to draft or been trashed, and get_permalink() then builds a
+		// URL that passes the URL check and 404s. No link rather than a broken one.
+		$listing_url = 'publish' === $listing->get_status() ? (string) get_permalink( $listing->get_id() ) : '';
 
 		/*
 		 * A review notification links to the review itself, not the top of the listing page. Reviews
@@ -1654,7 +1736,7 @@ final class Hpnf_Notification extends Component {
 			'review'        => 'listing_review' === $type ? $object : null,
 		];
 
-		$tokens = array_filter( $tokens );
+		$tokens = $this->filter_tokens( $tokens );
 
 		$this->update_seen_tokens( $type, $tokens );
 
@@ -3177,6 +3259,9 @@ final class Hpnf_Notification extends Component {
 					// with a sticky header and then changed their mind kept a header pinned to the top
 					// of every page, with the tick box that would undo it no longer on the screen.
 					'sticky'         => (bool) get_option( 'hp_notification_bell' ) && (bool) get_option( 'hp_notification_sticky_header' ),
+					'stickyGlass'    => (bool) get_option( 'hp_notification_bell' ) && (bool) get_option( 'hp_notification_sticky_header' ) && (bool) get_option( 'hp_notification_sticky_glass' ),
+					'glassOpacity'   => max( 10, min( 100, (int) get_option( 'hp_notification_sticky_glass_opacity', 72 ) ) ),
+					'glassBlur'      => max( 0, min( 60, (int) get_option( 'hp_notification_sticky_glass_blur', 20 ) ) ),
 					'autohide'       => (bool) get_option( 'hp_notification_toast_autohide', true ),
 					'duration'       => max( 1, absint( get_option( 'hp_notification_toast_duration', 6 ) ) ),
 					'limit'          => max( 1, absint( get_option( 'hp_notification_toast_limit', 3 ) ) ),

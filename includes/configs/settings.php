@@ -177,6 +177,37 @@ return [
 						'_order'      => 51,
 					],
 
+					'notification_sticky_glass'            => [
+						'label'       => esc_html__( 'Glass Effect', 'notifications-for-hivepress' ),
+						'caption'     => esc_html__( 'Let the page show through the pinned header', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The pinned header becomes slightly see-through and blurs whatever scrolls behind it. Browsers that cannot do this keep the solid header instead, and so does anyone who has asked their device to reduce transparency, so nothing becomes hard to read.', 'notifications-for-hivepress' ),
+						'type'        => 'checkbox',
+						'_parent'     => 'notification_sticky_header',
+						'_order'      => 52,
+					],
+
+					'notification_sticky_glass_opacity'    => [
+						'label'       => esc_html__( 'Glass Opacity (%)', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'How solid the pinned header stays. Lower lets more of the page through. Below about 50 the text over it starts to get hard to read on a busy page.', 'notifications-for-hivepress' ),
+						'type'        => 'number',
+						'default'     => 72,
+						'min_value'   => 10,
+						'max_value'   => 100,
+						'_parent'     => 'notification_sticky_glass',
+						'_order'      => 53,
+					],
+
+					'notification_sticky_glass_blur'       => [
+						'label'       => esc_html__( 'Glass Blur (px)', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'How much the page behind the header is blurred. More blur hides the detail behind it and keeps the header legible.', 'notifications-for-hivepress' ),
+						'type'        => 'number',
+						'default'     => 20,
+						'min_value'   => 0,
+						'max_value'   => 60,
+						'_parent'     => 'notification_sticky_glass',
+						'_order'      => 54,
+					],
+
 					'notification_stats'                   => [
 						'label'       => esc_html__( 'Statistics', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Count how many notifications are sent and opened, as totals only', 'notifications-for-hivepress' ),
@@ -503,6 +534,46 @@ return [
 						'type'        => 'number',
 						'min_value'   => 1,
 						'_order'      => 10,
+					],
+				],
+			],
+
+			/*
+			 * Its own section, because it is the only thing on this page that costs the site
+			 * anything while nobody is looking. Everything else here reacts to something a person
+			 * has just done; this walks every vendor once a night whether or not the site is busy.
+			 */
+			'insights'   => [
+				'title'       => esc_html__( 'Performance Notifications', 'notifications-for-hivepress' ),
+				'description' => esc_html__( 'Some notifications are not about something that just happened, but about how a vendor is doing: their weekly views, a listing suddenly getting attention, a response rate going up or down. Nothing announces those, so once a night this compares each vendor with how they were and tells them what changed. It needs Vendor Analytics Pro or Trust Signals to have anything to compare. The work is spread over several small background jobs and never runs while somebody is loading a page.', 'notifications-for-hivepress' ),
+				'_order'      => 62,
+				'fields'      => [
+					'notification_enable_insights' => [
+						'label'       => esc_html__( 'Performance Notifications', 'notifications-for-hivepress' ),
+						'caption'     => esc_html__( 'Look for changes worth telling vendors about', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'Untick to stop the nightly comparison entirely. The individual notifications stay listed under Types so you can see what you have turned off, and nothing already sent is removed.', 'notifications-for-hivepress' ),
+						'type'        => 'checkbox',
+						'default'     => true,
+						'_order'      => 10,
+					],
+					'notification_insights_batch'  => [
+						'label'       => esc_html__( 'Vendors Per Job', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'How many vendors each background job looks at before handing over to the next one. Smaller is gentler on a shared host and takes more jobs to get through everyone; larger gets it done sooner. The default suits almost every site, and there is no need to change it unless your host complains about long-running jobs.', 'notifications-for-hivepress' ),
+						'type'        => 'number',
+						'default'     => 50,
+						'min_value'   => 1,
+						'max_value'   => 500,
+						'_parent'     => 'notification_enable_insights',
+						'_order'      => 20,
+					],
+					'notification_insights_cap'    => [
+						'label'       => esc_html__( 'Vendors Per Night', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The most vendors a single night will look at, however many you have. It is a safety valve rather than a target: on a site with fewer vendors than this it never comes into play. If you have more, the pass stops when it reaches this number and starts again from the beginning the following night, so everyone is still reached, just not all on the same day.', 'notifications-for-hivepress' ),
+						'type'        => 'number',
+						'default'     => 2000,
+						'min_value'   => 1,
+						'_parent'     => 'notification_enable_insights',
+						'_order'      => 30,
 					],
 				],
 			],

@@ -527,10 +527,21 @@ final class Hpnf_Notification_Extensions extends Component {
 			return;
 		}
 
+		$photo_url = $this->get_photo_url( $photo_id, $folder );
+
+		/*
+		 * A new COMMENT is a place on the page, so its notification lands on it; a photo LIKE has
+		 * no element of its own and keeps the plain photo link. instanceof, never method_exists():
+		 * model getters are magic, so method_exists() is always false on both.
+		 */
+		if ( $object instanceof Models\Agl_Comment ) {
+			$photo_url = $this->add_comment_fragment( $photo_url, $object->get_id() );
+		}
+
 		$tokens = [
 			$actor_field   => $actor,
 			'folder_title' => (string) $folder->get_title(),
-			'photo_url'    => $this->get_photo_url( $photo_id, $folder ),
+			'photo_url'    => $photo_url,
 		];
 
 		$this->deliver(
@@ -580,7 +591,16 @@ final class Hpnf_Notification_Extensions extends Component {
 			[
 				'author'       => $actor,
 				'folder_title' => $folder ? (string) $folder->get_title() : '',
-				'photo_url'    => $this->get_photo_url( $photo_id, $folder ),
+
+				/*
+				 * Anchored to the REPLY, so the click lands on the words being announced rather
+				 * than the top of the photo page. Every comment carries a matching
+				 * `id="agl-comment-N"` (gallery 1.8.12+; on an older gallery the fragment is
+				 * simply ignored and the link behaves as before). The sticky header is already
+				 * accounted for: the same scroll-padding-top that offsets review deep links
+				 * offsets any fragment jump.
+				 */
+				'photo_url'    => $this->add_comment_fragment( $this->get_photo_url( $photo_id, $folder ), $comment->get_id() ),
 			],
 			[ 'image' => hivepress()->hpnf_notification->get_user_image( $actor ) ]
 		);
@@ -630,7 +650,10 @@ final class Hpnf_Notification_Extensions extends Component {
 			[
 				'user'         => $actor,
 				'folder_title' => $folder ? (string) $folder->get_title() : '',
-				'photo_url'    => $this->get_photo_url( $photo_id, $folder ),
+
+				// Anchored to the LIKED comment - see the reply builder for why and for the
+				// older-gallery fallback.
+				'photo_url'    => $this->add_comment_fragment( $this->get_photo_url( $photo_id, $folder ), $comment_id ),
 			],
 			[
 				'image'     => hivepress()->hpnf_notification->get_user_image( $actor ),
@@ -1089,7 +1112,21 @@ final class Hpnf_Notification_Extensions extends Component {
 			return;
 		}
 
-		$tokens = array_filter( (array) $tokens );
+		/*
+		 * Only genuinely absent values are dropped. array_filter() with no callback also throws
+		 * away an empty string and, worse, the string "0" - and render_text() leaves any token it
+		 * is not given sitting in the wording exactly as typed. A held listing with a score of zero
+		 * therefore reached the site owner reading "with a risk score of %risk_score%".
+		 *
+		 * An empty value renders as nothing, which is the right answer for an optional token; a
+		 * placeholder in front of a real person never is.
+		 */
+		$tokens = array_filter(
+			(array) $tokens,
+			function ( $value ) {
+				return ! is_null( $value ) && [] !== $value;
+			}
+		);
 
 		$text = $component->render_text( $component->get_type_text( $type ), $tokens );
 
@@ -1230,7 +1267,7 @@ final class Hpnf_Notification_Extensions extends Component {
 	 */
 	protected function describe_signals( $signals ) {
 		if ( ! $signals || ! function_exists( 'hpalm_get_signal_labels' ) ) {
-			return '';
+			return esc_html__( 'No specific reasons were recorded.', 'notifications-for-hivepress' );
 		}
 
 		$labels = hpalm_get_signal_labels();
@@ -1243,7 +1280,11 @@ final class Hpnf_Notification_Extensions extends Component {
 		}
 
 		if ( ! $found ) {
-			return '';
+
+			// Block mode records no signals at all, and a newer moderation release can name one
+			// this version has no wording for. Either way the sentence still has to read, so it
+			// says plainly that there is nothing to list rather than trailing off.
+			return esc_html__( 'No specific reasons were recorded.', 'notifications-for-hivepress' );
 		}
 
 		// wp_sprintf_l() builds the "a, b and c" list with the separators of the reader's own
@@ -1268,6 +1309,23 @@ final class Hpnf_Notification_Extensions extends Component {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Appends a comment anchor to a photo URL.
+	 *
+	 * @param string $url Photo page URL, possibly empty.
+	 * @param int    $comment_id Comment ID.
+	 * @return string
+	 */
+	protected function add_comment_fragment( $url, $comment_id ) {
+		$comment_id = (int) $comment_id;
+
+		if ( ! $url || ! $comment_id ) {
+			return (string) $url;
+		}
+
+		return $url . '#agl-comment-' . $comment_id;
 	}
 
 	/**
@@ -1335,7 +1393,21 @@ final class Hpnf_Notification_Extensions extends Component {
 	 * @return string
 	 */
 	protected function get_vendor_gallery_url( $vendor_id ) {
-		return (string) hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => (int) $vendor_id ] );
+		$vendor_id = (int) $vendor_id;
+
+		/*
+		 * The router happily builds this URL for a vendor who no longer exists. Access grants live
+		 * in the buyer's user meta, and the gallery's daily expiry scan never checks the vendor
+		 * post is still there, so the expiring and expired notifications can fire after the vendor
+		 * has been deleted - and then "View the gallery" walked straight into a 404. Only a vendor
+		 * page the public can still open gets a link; no link rather than a broken one, the same
+		 * trade the main component's get_badge_url() makes.
+		 */
+		if ( 'publish' !== get_post_status( $vendor_id ) ) {
+			return '';
+		}
+
+		return (string) hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => $vendor_id ] );
 	}
 
 	/**
@@ -1345,6 +1417,19 @@ final class Hpnf_Notification_Extensions extends Component {
 	 * @return string
 	 */
 	protected function get_vendor_name( $vendor_id ) {
-		return (string) get_the_title( (int) $vendor_id );
+		$name = (string) get_the_title( (int) $vendor_id );
+
+		/*
+		 * A deleted or untitled vendor post has no title, and the default wording drops this value
+		 * straight into a sentence: an empty name reached real people as "Your access to 's
+		 * gallery has ended." A neutral stand-in keeps the sentence whole. The purchase
+		 * notification never needs this because it requires the vendor's post_author to resolve;
+		 * the two expiry notifications can outlive the vendor they are about.
+		 */
+		if ( '' === trim( $name ) ) {
+			return __( 'a vendor', 'notifications-for-hivepress' );
+		}
+
+		return $name;
 	}
 }

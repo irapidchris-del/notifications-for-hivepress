@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,70 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.3.3 =
+* Fixed: a message sent while the Messages extension has storage switched off is no longer stopped
+  by the recipient's email preference. In that mode the email is the only copy of the message, so
+  stopping it destroyed the text entirely; the email now always goes out for that one case.
+* Fixed: the gallery access expiring and expired notifications no longer read "Your access to 's
+  gallery..." with a link to a 404 when the vendor has since been deleted - a neutral name is used
+  and the dead link is dropped.
+* Fixed: the "Leave a review" link on a completed booking, and the link on an approved review, are
+  dropped rather than sent broken when the listing has expired or been trashed in the meantime.
+* Fixed: the %token|fallback% wording the token hint documents now works for plain-text tokens
+  such as %vendor_name% and %listing_title%, not just for the %model.field% ones.
+* Fixed: a listing or badge literally named "0" no longer leaves the raw token in the wording.
+
+= 1.3.2 =
+* Improved: the gallery notifications that announce a comment, a reply to your comment, or a like
+  on your comment now land you ON that comment rather than at the top of the photo page, the same
+  way review notifications land on the review. The pinned header is already accounted for - the
+  same scroll offset that serves review links serves these. A photo LIKE keeps the plain photo
+  link, since a like has no place on the page of its own. Needs Additional Gallery 1.8.12 for the
+  anchors; on an older gallery the links simply behave as before.
+
+= 1.3.1 =
+* Fixed: with the Glass Effect on, the theme's full-screen mobile menu rendered wrongly once the
+  page had been scrolled - squashed into the header's own box instead of covering the screen. The
+  blur is applied by a `backdrop-filter`, which quietly makes the pinned header the positioning
+  ancestor of everything fixed inside it, and the mobile menu is fixed inside it. The blur now
+  lives on an overlay of the header rather than the header itself, which looks identical and
+  changes nobody's positioning.
+
+= 1.3.0 =
+Nine notifications about how a vendor is actually doing, rather than about something that has just
+happened. Needs Vendor Analytics Pro or Trust Signals installed to have anything to compare.
+
+* **New - a weekly summary.** How many times a vendor's listings were viewed last week, and whether
+  that is up or down on the week before, said in plain words rather than as a signed percentage.
+* **New - milestones.** Passing a hundred views, then five hundred, then a thousand, and the same
+  for completed bookings. The gaps widen as the numbers grow, so it stays an occasion rather than a
+  weekly chore.
+* **New - a listing suddenly getting attention**, so a vendor knows to keep an eye on it while it
+  lasts. A listing needs both a real number of views and several times its usual traffic before this
+  counts, so one view against a quiet fortnight never triggers it.
+* **New - a listing nobody is looking at**, with a nudge to refresh its photos or description. This
+  one starts switched off, because it is useful advice on some sites and a monthly reminder of
+  failure on others.
+* **New - the search term that found them most often** last month.
+* **New - response rate and response time.** A vendor is told when their rate moves by ten points
+  either way, and when they are replying quickly enough that their profile now says something better
+  than it did. The test is on the words their profile shows, not on the underlying seconds, so they
+  are never told they have improved while their profile says exactly what it said yesterday.
+* **New - a glass effect for the pinned header**, matching the one the Action Bar offers: the header
+  becomes slightly see-through and blurs the page moving behind it, with its own opacity and blur
+  settings. The tint is taken from the colour your header is already showing, so it suits a dark
+  theme as readily as a light one. A browser that cannot blur keeps the solid header, and so does
+  anyone who has asked their device to reduce transparency.
+* All nine notifications can be reworded and switched off like every other one, and each person
+  still chooses how they receive them.
+* These comparisons have no event to react to, so once a night each vendor is compared with how they
+  were. That pass is spread over small background jobs, never runs while somebody is loading a page,
+  and has its own section in Settings with a single box to turn the whole thing off, plus how many
+  vendors each job takes and how many a night will look at in total.
+* On the first night nothing is announced retrospectively: where each vendor already stands is
+  recorded quietly, so somebody joining with fifty thousand views behind them is not told they have
+  passed a hundred, then five hundred, then a thousand, one a night for a week.
 
 = 1.2.0 =
 Nineteen new notifications, covering six companion extensions that had no way of telling anybody

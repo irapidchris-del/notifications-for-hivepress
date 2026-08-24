@@ -1054,6 +1054,50 @@ a.hp-notifications__action.button--secondary:focus {
 	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+/*
+ * The glass effect, behind an @supports test so a browser that cannot blur keeps the solid header
+ * rather than a see-through one it would render as plain transparency. The tint is set inline from
+ * the colour the header is actually showing, so this only decides how it is used.
+ */
+@supports ( ( -webkit-backdrop-filter: blur( 1px ) ) or ( backdrop-filter: blur( 1px ) ) ) {
+	.hp-nfh-sticky.hp-nfh-sticky--glass {
+		background-color: var(--hp-nfh-glass-background) !important;
+	}
+
+	/*
+	 * The blur lives on a ::before overlay, NOT on the bar itself, and that placement is load-
+	 * bearing. `backdrop-filter` turns the element it is on into the CONTAINING BLOCK for every
+	 * `position: fixed` descendant (CSS Filter Effects 2 - the same trap as `transform`), and
+	 * ListingHive's full-screen mobile menu is exactly such a descendant:
+	 * `.header-navbar__burger > ul { position: fixed; top/right/bottom/left: 0 }` lives INSIDE the
+	 * bar. With the filter on the bar, "full screen" silently became "the bar's own box" the
+	 * moment the header stuck, and the menu came out mangled - but only after scrolling, which is
+	 * what made it look like a random rendering bug. A pseudo-element is not an ancestor of
+	 * anything, so the blur happens without changing anyone's containing block. Visually
+	 * identical: the overlay blurs what is behind the bar, the tint paints over it, the content
+	 * sits on top (children with z-index auto stack above a negative-z pseudo).
+	 */
+	.hp-nfh-sticky.hp-nfh-sticky--glass::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: -1;
+		-webkit-backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
+		backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
+	}
+}
+
+/* Somebody who has asked their device for less transparency gets the solid header back. */
+@media ( prefers-reduced-transparency: reduce ) {
+	.hp-nfh-sticky.hp-nfh-sticky--glass::before {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
+
 /* --------------------------------------------------------------------------
  * Delete undo
  * ----------------------------------------------------------------------- */
