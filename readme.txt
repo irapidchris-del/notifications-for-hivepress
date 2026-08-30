@@ -237,7 +237,8 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
   The title shows on the pop-up, the bell dropdown, the notifications page and as the push
   notification title.
 * Added: quick links at the top of the settings tab, with a divider between sections, and shorter
-  setting descriptions that wrap at a readable width.
+  setting descriptions that wrap at a readable width. The hover tooltips are wider too, so their
+  text no longer breaks into ragged slivers.
 * Added: separate corner radius options for each corner of the pinned (sticky) header.
 * Added: newer Font Awesome solid icons and the brand icons to the bell icon picker, loading the
   official Font Awesome stylesheet only when one of them is chosen, plus a Bell Icon Weight option.
