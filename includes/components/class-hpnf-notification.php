@@ -83,6 +83,9 @@ final class Hpnf_Notification extends Component {
 		// Add settings.
 		add_filter( 'hivepress/v1/settings', [ $this, 'alter_settings' ] );
 
+		// Add the newer Font Awesome and brand icons to every icon picker.
+		add_filter( 'hivepress/v1/icons', [ $this, 'add_icons' ] );
+
 		// Add the colour picker on the settings screen.
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_color_picker' ] );
 
@@ -522,6 +525,73 @@ final class Hpnf_Notification extends Component {
 	 */
 	public function get_type_label( $type ) {
 		return (string) hp\get_array_value( $this->get_type_args( $type ), 'label', ucfirst( str_replace( '_', ' ', (string) $type ) ) );
+	}
+
+	/**
+	 * Gets the label of a notification type as members should see it.
+	 *
+	 * HivePress labels the paired emails "(User)" and "(Vendor)" - "Booking Confirmed (User)" -
+	 * which the admin needs, because both types are on the settings screen at once, and a member
+	 * never does: each member only ever receives their own side of the pair, so the bracket is
+	 * noise on the front end. The suffix is matched through the translator strings the labels are
+	 * built with (reference/extensions/hivepress-bookings/includes/emails/class-booking-confirm-user.php:31),
+	 * so a theme that renames vendors to Hosts is stripped just the same, with the literal words
+	 * kept as a fallback for a site whose translator strings are unavailable.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public function get_type_public_label( $type ) {
+		$label = $this->get_type_label( $type );
+
+		// Assign before testing: core defines __get() but no __isset() on components.
+		$translator = hivepress()->translator;
+
+		$suffixes = [ 'User', 'Vendor' ];
+
+		if ( $translator ) {
+			$suffixes[] = (string) $translator->get_string( 'user' );
+			$suffixes[] = (string) $translator->get_string( 'vendor' );
+		}
+
+		foreach ( array_filter( array_unique( $suffixes ) ) as $suffix ) {
+			$ending = ' (' . $suffix . ')';
+
+			if ( substr( $label, -strlen( $ending ) ) === $ending ) {
+				return substr( $label, 0, -strlen( $ending ) );
+			}
+		}
+
+		return $label;
+	}
+
+	/**
+	 * Gets the title the admin has written for a notification type, or an empty string.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public function get_type_custom_title( $type ) {
+		$title = get_option( 'hp_notification_title_' . $type );
+
+		return is_string( $title ) ? trim( $title ) : '';
+	}
+
+	/**
+	 * Gets the heading a notification type shows to members.
+	 *
+	 * The admin's own title wins where one is saved under Settings > Text; otherwise the type's
+	 * public label is used, which is the label without the "(User)"/"(Vendor)" bracket. Every
+	 * front-end surface reads this one method - the pop-up, the bell dropdown, the notifications
+	 * page and its filter - so a saved title reaches all of them at once.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public function get_type_title( $type ) {
+		$title = $this->get_type_custom_title( $type );
+
+		return '' !== $title ? $title : $this->get_type_public_label( $type );
 	}
 
 	/**
@@ -1971,7 +2041,10 @@ final class Hpnf_Notification extends Component {
 		$queue[] = [
 			'id'         => $notification->get_id(),
 			'text'       => $notification->get_text(),
-			'type'       => $this->get_type_label( $notification->get_type() ),
+
+			// The pop-up's heading: the admin's saved title, or the public label. Never the raw
+			// admin label, which can carry a "(User)"/"(Vendor)" bracket.
+			'type'       => $this->get_type_title( $notification->get_type() ),
 			'icon'       => $this->get_notification_icon( $notification ),
 			'color'      => (string) $notification->get_color(),
 			'image'      => (string) $notification->get_image(),
@@ -2023,11 +2096,12 @@ final class Hpnf_Notification extends Component {
 			$types = $this->rebuild_used_types( $user_id );
 		}
 
-		// Get labels.
+		// Get labels. These feed the filter dropdown on the notifications page, which is a member
+		// surface, so they use the same title the rest of the front end shows.
 		$labels = [];
 
 		foreach ( $types as $type ) {
-			$labels[ $type ] = $this->get_type_label( $type );
+			$labels[ $type ] = $this->get_type_title( $type );
 		}
 
 		asort( $labels );
@@ -2264,6 +2338,356 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Gets the newer Font Awesome solid icons this plugin adds to the picker.
+	 *
+	 * HivePress's own icons config is the Font Awesome 5 solid set, and core only enqueues the
+	 * FA5 solid stylesheet, so these render blank unless the pinned FA7 stylesheet is loaded -
+	 * which is why get_bell_icon_class() and the enqueues below treat these names specially.
+	 * Every name here is a canonical free solid icon present in Font Awesome 6 and 7; nothing is
+	 * guessed, because an unknown name renders as a blank square in front of real users.
+	 *
+	 * @return array
+	 */
+	protected function get_extra_solid_icons() {
+		return [
+			'arrow-trend-down',
+			'arrow-trend-up',
+			'bars-progress',
+			'basket-shopping',
+			'bell-concierge',
+			'bolt-lightning',
+			'building-columns',
+			'burger',
+			'cake-candles',
+			'calendar-days',
+			'cart-shopping',
+			'champagne-glasses',
+			'chart-column',
+			'chart-simple',
+			'circle-check',
+			'circle-dollar-to-slot',
+			'circle-exclamation',
+			'circle-info',
+			'circle-question',
+			'circle-user',
+			'circle-xmark',
+			'clock-rotate-left',
+			'comment-sms',
+			'diagram-project',
+			'earth-americas',
+			'earth-europe',
+			'envelope-circle-check',
+			'envelopes-bulk',
+			'face-grin-stars',
+			'face-laugh',
+			'face-smile',
+			'fire-flame-curved',
+			'gauge',
+			'gauge-high',
+			'gear',
+			'gears',
+			'hand-holding-dollar',
+			'heart-pulse',
+			'house',
+			'house-chimney',
+			'list-check',
+			'location-dot',
+			'magnifying-glass',
+			'martini-glass',
+			'message',
+			'mobile-screen',
+			'mobile-screen-button',
+			'money-bill-trend-up',
+			'mug-saucer',
+			'pen-to-square',
+			'people-group',
+			'person',
+			'person-biking',
+			'person-walking',
+			'phone-flip',
+			'plane-up',
+			'right-from-bracket',
+			'right-to-bracket',
+			'rotate',
+			'rotate-left',
+			'rotate-right',
+			'scale-balanced',
+			'screwdriver-wrench',
+			'shield-halved',
+			'shop',
+			'sliders',
+			'square-check',
+			'star-half-stroke',
+			'table-list',
+			'ticket-simple',
+			'tower-broadcast',
+			'trash-can',
+			'truck-fast',
+			'user-gear',
+			'user-pen',
+			'users-gear',
+			'van-shuttle',
+			'wand-magic-sparkles',
+			'xmark',
+		];
+	}
+
+	/**
+	 * Gets the Font Awesome brand icons this plugin adds to the picker.
+	 *
+	 * Brands live in their own font family, so these need the "fa-brands" class rather than
+	 * "fas" - which is why the name list has to be known here, per icon, and not inferred.
+	 * None of these names collides with a solid icon name.
+	 *
+	 * @return array
+	 */
+	protected function get_brand_icons() {
+		return [
+			'airbnb',
+			'amazon',
+			'android',
+			'app-store',
+			'app-store-ios',
+			'apple',
+			'apple-pay',
+			'behance',
+			'bitcoin',
+			'bluesky',
+			'btc',
+			'cc-amex',
+			'cc-apple-pay',
+			'cc-mastercard',
+			'cc-paypal',
+			'cc-stripe',
+			'cc-visa',
+			'dev',
+			'discord',
+			'dribbble',
+			'dropbox',
+			'drupal',
+			'ebay',
+			'ethereum',
+			'facebook',
+			'facebook-f',
+			'facebook-messenger',
+			'figma',
+			'github',
+			'gitlab',
+			'google',
+			'google-drive',
+			'google-pay',
+			'google-play',
+			'hubspot',
+			'instagram',
+			'joomla',
+			'kickstarter',
+			'line',
+			'linkedin',
+			'linkedin-in',
+			'mailchimp',
+			'medium',
+			'microsoft',
+			'mixcloud',
+			'odnoklassniki',
+			'patreon',
+			'paypal',
+			'pinterest',
+			'pinterest-p',
+			'product-hunt',
+			'reddit',
+			'salesforce',
+			'shopify',
+			'skype',
+			'slack',
+			'snapchat',
+			'soundcloud',
+			'spotify',
+			'squarespace',
+			'stack-overflow',
+			'stripe',
+			'stripe-s',
+			'telegram',
+			'threads',
+			'tiktok',
+			'tripadvisor',
+			'tumblr',
+			'twitch',
+			'twitter',
+			'uber',
+			'viber',
+			'vimeo',
+			'vk',
+			'waze',
+			'weixin',
+			'whatsapp',
+			'windows',
+			'wix',
+			'wordpress',
+			'wordpress-simple',
+			'x-twitter',
+			'xing',
+			'yelp',
+			'youtube',
+		];
+	}
+
+	/**
+	 * Adds the newer Font Awesome and brand icons to the icons config.
+	 *
+	 * The config feeds every "options => icons" picker, so the bell picker and core's attribute
+	 * pickers all gain the same choices. Keys match values, the shape of core's own config, and
+	 * the merged list is re-sorted so the additions interleave alphabetically rather than
+	 * trailing at the end.
+	 *
+	 * @param array $icons Icons config.
+	 * @return array
+	 */
+	public function add_icons( $icons ) {
+		foreach ( array_merge( $this->get_extra_solid_icons(), $this->get_brand_icons() ) as $name ) {
+			if ( ! isset( $icons[ $name ] ) ) {
+				$icons[ $name ] = $name;
+			}
+		}
+
+		ksort( $icons );
+
+		return $icons;
+	}
+
+	/**
+	 * Whether an icon name is one of the brand icons.
+	 *
+	 * @param string $icon Icon name.
+	 * @return bool
+	 */
+	public function is_brand_icon( $icon ) {
+		return in_array( $icon, $this->get_brand_icons(), true );
+	}
+
+	/**
+	 * Whether an icon name needs the Font Awesome stylesheet this plugin loads.
+	 *
+	 * True for the added solid names and every brand: core only enqueues Font Awesome 5 solid,
+	 * so both would otherwise render as a blank space.
+	 *
+	 * @param string $icon Icon name.
+	 * @return bool
+	 */
+	public function is_extended_icon( $icon ) {
+		return $this->is_brand_icon( $icon ) || in_array( $icon, $this->get_extra_solid_icons(), true );
+	}
+
+	/**
+	 * Gets the full Font Awesome class for the header bell icon.
+	 *
+	 * Three cases, because two stylesheets are in play: a brand icon needs "fa-brands" and the
+	 * pinned FA7 stylesheet, an added solid icon needs "fa-solid" and that same stylesheet, and
+	 * everything else keeps the "fas" class drawn by the FA5 solid set HivePress already enqueues.
+	 *
+	 * @return string
+	 */
+	public function get_bell_icon_class() {
+		$icon = $this->get_bell_icon();
+
+		if ( $this->is_brand_icon( $icon ) ) {
+			return 'fa-brands fa-' . $icon;
+		}
+
+		if ( $this->is_extended_icon( $icon ) ) {
+			return 'fa-solid fa-' . $icon;
+		}
+
+		return 'fas fa-' . $icon;
+	}
+
+	/**
+	 * Registers the shared Font Awesome stylesheet.
+	 *
+	 * The handle is shared across this site's custom plugins on purpose, guarded so whichever
+	 * plugin runs first registers it and only one copy ever loads. It is registered here and
+	 * enqueued only where an icon actually needs it, so a site using only the FA5 icons core
+	 * already ships loads nothing extra at all.
+	 */
+	protected function register_fontawesome() {
+		if ( ! wp_style_is( 'freestylr-fontawesome', 'registered' ) ) {
+
+			// After core's FA5 solid sheet wherever both load, so the newer sheet's own ".fas"
+			// rules win and the newer names resolve to the newer font.
+			$deps = wp_style_is( 'fontawesome-solid', 'registered' ) ? [ 'fontawesome-solid' ] : [];
+
+			/*
+			 * Font Awesome 7.1.0 Free is BUNDLED, in assets/vendor/fontawesome/. Never point this
+			 * at cdnjs or any other CDN. A convenience CDN copy of a library is the exact case the
+			 * offloaded-assets rule exists to catch (resources/security-standards.md, "Offloaded
+			 * assets" - a remote asset is only acceptable when it is a service's own required SDK
+			 * from that service's own domain), Plugin Check reported EnqueuedResourceOffloading on
+			 * every plugin that did it, and Chris ruled on 2026-08-30 that the files ship with the
+			 * plugin. It is also faster: cache partitioning (Chrome 86+, Firefox, Safari) means a
+			 * CDN copy is a cold download for every site anyway, plus a DNS lookup and TLS
+			 * handshake to a third origin.
+			 *
+			 * Layout matters. assets/vendor/fontawesome/css/all.min.css sits beside
+			 * assets/vendor/fontawesome/webfonts/, so the stock "../webfonts/" paths inside the
+			 * upstream CSS resolve unchanged. Three faces ship - fa-solid-900.woff2,
+			 * fa-brands-400.woff2 and fa-regular-400.woff2 - and only the v4-compatibility
+			 * @font-face block was removed from the CSS, so nothing can request a file that is not
+			 * there. The regular face is NOT optional, and it costs ~19 KB: with no weight-400
+			 * face declared the browser silently substitutes the weight-900 solid one, so a far /
+			 * fa-regular name draws a FILLED glyph instead of an outline. That shipped between
+			 * 2026-08-29 and 2026-08-30 and read as somebody picking the wrong icon rather than as
+			 * a missing font, which is why it survived a whole day.
+			 *
+			 * Pinned to 7.1.0, and every plugin sharing this handle must pin the identical
+			 * version, because only the first registration of a shared handle wins, so a differing
+			 * pin here would change which version the whole site gets by load order. 7.1.0 keeps
+			 * the FA5 "fas"/"fab" alias classes, so the older icon names keep working.
+			 * Full rule: resources/hivepress-ui.md, "FA6/7 and brand icons: bundle them, never
+			 * load a CDN copy (2026-08-30)".
+			 */
+			wp_register_style(
+				'freestylr-fontawesome',
+				plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/vendor/fontawesome/css/all.min.css',
+				$deps,
+				'7.1.0'
+			);
+		}
+	}
+
+	/**
+	 * Whether the settings tab currently being rendered is this plugin's own.
+	 *
+	 * Answered from the fields HivePress has actually registered for this request, never from
+	 * $_GET['tab']. The address cannot be trusted: get_settings_tab() falls back to the FIRST tab
+	 * whenever "tab" is absent (reference/hivepress/includes/components/class-admin.php:607-622),
+	 * and the bare admin.php?page=hp_settings link in the HivePress menu is exactly that case, so
+	 * reading the address would miss this plugin's own tab on any site where it sorts first.
+	 *
+	 * register_settings() builds the sections and fields for one tab only and calls
+	 * add_settings_field() with the prefixed option name (class-admin.php:287-325), so
+	 * $wp_settings_fields['hp_settings'] holds hp_notification_* keys on this tab and on no other.
+	 * It is the server-side twin of the [name^="hp_notification_"] gate the scripts use, and it is
+	 * populated in time because HivePress registers on admin_init (:66) while this runs on
+	 * admin_enqueue_scripts, which wp-admin fires later, from admin-header.php.
+	 *
+	 * @return bool
+	 */
+	protected function is_settings_tab() {
+		if ( ! isset( $GLOBALS['wp_settings_fields']['hp_settings'] ) || ! is_array( $GLOBALS['wp_settings_fields']['hp_settings'] ) ) {
+			return false;
+		}
+
+		foreach ( $GLOBALS['wp_settings_fields']['hp_settings'] as $hp_section ) {
+			foreach ( array_keys( (array) $hp_section ) as $hp_field ) {
+				if ( 0 === strpos( (string) $hp_field, 'hp_notification_' ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Enqueues the colour picker on the settings screen.
 	 *
 	 * The bell icon field needs nothing from us: "options => icons" hands it to HivePress's own
@@ -2282,10 +2706,35 @@ final class Hpnf_Notification extends Component {
 	 */
 	public function enqueue_color_picker() {
 
-		// Only load on the HivePress settings screen. The tab is not checked because the script is
-		// a no-op unless its fields are present.
+		// Only load on the HivePress settings screen.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( 'hp_settings' !== sanitize_key( (string) hp\get_array_value( $_GET, 'page' ) ) ) {
+			return;
+		}
+
+		/*
+		 * And only on this plugin's own tab.
+		 *
+		 * Until 1.5.4 there was no tab check here at all, deliberately: the tab in the address is
+		 * not necessarily the tab being rendered, and each script was written to do nothing unless
+		 * its own fields were on screen, so enqueuing on every tab looked free. It was not.
+		 *
+		 * A no-op script is still a file the browser fetches, parses and holds, and the two
+		 * stylesheets are not no-ops at all - CSS cannot test anything. This plugin's FRONT-END
+		 * stylesheet was loading onto every other extension's settings tab, where a rule that ever
+		 * stopped being tightly scoped would restyle somebody else's controls and read as a bug in
+		 * their plugin. admin.css already had one such rule (form.hp-form--table tr[hidden]). A QA
+		 * pass on 2026-08-30 also found two different plugins' admin-preview.js loading together on
+		 * the Account Menu tab, and twelve more siblings are due to gain settings-screen chrome of
+		 * their own, so "everyone enqueues everywhere" would have ended with a dozen plugins' admin
+		 * assets on every tab.
+		 *
+		 * is_settings_tab() answers the "which tab is this?" question properly instead of guessing
+		 * from the address, including the no-tab fallback case that made guessing unsafe. The
+		 * scripts keep their own [name^="hp_notification_"] gates: this decides whether they load,
+		 * those decide whether they act, and neither is a substitute for the other.
+		 */
+		if ( ! $this->is_settings_tab() ) {
 			return;
 		}
 
@@ -2299,6 +2748,61 @@ final class Hpnf_Notification extends Component {
 		wp_enqueue_style( 'hp-notification-frontend', $url . 'assets/css/frontend.css', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/frontend.css' ) );
 		wp_enqueue_style( 'hp-notification-admin', $url . 'assets/css/admin.css', [ 'hp-notification-frontend' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/admin.css' ) );
 		wp_enqueue_script( 'hp-notification-admin-preview', $url . 'assets/js/admin-preview.js', [ 'jquery', 'wp-color-picker' ], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-preview.js' ), true );
+
+		/*
+		 * The pinned Font Awesome for the icon picker previews, plus a fix the previews cannot do without.
+		 *
+		 * Core's Select2 template hard-codes "fas fa-{name}" (reference/hivepress/assets/js/
+		 * common.js:233), and a brand glyph does not live in the solid font family, so a brand
+		 * icon previews as a blank square under that class. The generated rules below re-point
+		 * exactly the brand names this plugin adds at the brands family. Brand and solid names
+		 * never overlap in Font Awesome, so nothing legitimate is re-pointed.
+		 */
+		$this->register_fontawesome();
+		wp_enqueue_style( 'freestylr-fontawesome' );
+
+		$hp_brand_css = implode(
+			',',
+			array_map(
+				function( $name ) {
+					return '.fa-' . $name;
+				},
+				$this->get_brand_icons()
+			)
+		) . '{font-family:var(--fa-style-family-brands, "Font Awesome 7 Brands") !important;font-weight:400 !important;}';
+
+		wp_add_inline_style( 'freestylr-fontawesome', $hp_brand_css );
+
+		// The shared settings chrome and the collapsible groups on the Notifications tab. The
+		// script keeps its own hp_notification_* gate as a belt and braces, but the tab check above
+		// means it no longer loads on the other HivePress tabs at all.
+		wp_enqueue_script( 'hp-notification-admin-nav', $url . 'assets/js/admin-nav.js', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/admin-nav.js' ), true );
+
+		wp_localize_script(
+			'hp-notification-admin-nav',
+			'hpnfAdminNav',
+			[
+				'show'   => esc_html__( 'Show options', 'notifications-for-hivepress' ),
+				'hide'   => esc_html__( 'Hide options', 'notifications-for-hivepress' ),
+
+				/*
+				 * The shared chrome's own wording, in the shape the copied block reads it from.
+				 *
+				 * These three strings are the same in every sibling plugin on purpose. The nav
+				 * label read "Jump to:" here until 1.5.5, and the house standard is "Jump to a
+				 * section:" - two extensions labelling the same control differently is exactly the
+				 * inconsistency the shared chrome exists to remove
+				 * (resources/hivepress-settings.md, "The settings anchor nav"). The colon is part
+				 * of the wording: it reads as a lead-in to the links that follow it, not as a
+				 * heading over them.
+				 */
+				'labels' => [
+					'jumpTo'    => esc_html__( 'Jump to a section:', 'notifications-for-hivepress' ),
+					'save'      => esc_html__( 'Save Changes', 'notifications-for-hivepress' ),
+					'backToTop' => esc_html__( 'Back to top', 'notifications-for-hivepress' ),
+				],
+			]
+		);
 	}
 
 	/**
@@ -2329,14 +2833,14 @@ final class Hpnf_Notification extends Component {
 		/*
 		 * Whether the tab being registered is ours.
 		 *
-		 * Tested by the presence of our own Pop-ups section rather than by reading $_GET['tab'],
-		 * because the tab in the address is not the tab that gets registered: get_settings_tab()
-		 * falls back to the FIRST tab whenever "tab" is absent (class-admin.php:607-622), and the
-		 * bare admin.php?page=hp_settings link in the HivePress menu is exactly that case. Testing
-		 * the address would have put this panel on whichever tab happens to sort first, beside
-		 * settings it knows nothing about. Only the sections actually registered tell the truth.
+		 * Asked of the registered fields rather than of $_GET['tab'] - see is_settings_tab(), which
+		 * carries the reasoning and is the same test the asset enqueue uses. This used to look for
+		 * our own "popups" section by name; the field test replaced it in 1.5.4 so there is one
+		 * answer to "is this our tab?" rather than two that could drift apart, and because a
+		 * section name is not prefixed and a sibling extension could register one called popups,
+		 * while an hp_notification_ field can only be ours.
 		 */
-		if ( ! isset( $GLOBALS['wp_settings_sections']['hp_settings']['popups'] ) ) {
+		if ( ! $this->is_settings_tab() ) {
 			return;
 		}
 
@@ -2756,6 +3260,12 @@ final class Hpnf_Notification extends Component {
 
 		// Give each colour field the default the picker's reset control restores to. Without it
 		// the picker has nothing to reset to and its Clear button leaves the field empty.
+		// The filter also fires with arrays that carry no notifications tab at all (observed as
+		// "Undefined array key" warnings in debug.log during WP-CLI runs), so guard before reading.
+		if ( ! isset( $settings['notifications']['sections'] ) ) {
+			return $settings;
+		}
+
 		foreach ( [ 'appearance', 'delivery' ] as $section ) {
 			foreach ( (array) hp\get_array_value( (array) hp\get_array_value( $settings['notifications']['sections'], $section, [] ), 'fields', [] ) as $name => $field ) {
 				if ( 'color' === hp\get_array_value( $field, 'type' ) && hp\get_array_value( $field, 'default' ) ) {
@@ -2821,7 +3331,7 @@ final class Hpnf_Notification extends Component {
 			 * screen: forty-odd tick boxes whose only guidance was a single paragraph the owner had
 			 * to scroll back up to reread. One shared string keeps it to a single line to translate.
 			 */
-			$group_hint = esc_html__( 'Tick what this plugin should turn into an on-site notification, with a pop-up and a push notification where someone has allowed them, and let each person choose how they receive it. Leave one unticked and nothing here changes for it: any email HivePress already sends still goes out, and nobody can switch that off. Untick every box in this group and none of the group is handled.', 'notifications-for-hivepress' );
+			$group_hint = esc_html__( 'Tick what this plugin should handle as an on-site notification, with each person choosing how they receive it. Leave one unticked and any email HivePress already sends carries on unchanged.', 'notifications-for-hivepress' );
 
 			/*
 			 * Two boxes on the Account group arrive unticked on purpose, and nothing said why.
@@ -2831,7 +3341,7 @@ final class Hpnf_Notification extends Component {
 			 * (reference/hivepress/includes/components/class-user.php:154-155).
 			 */
 			if ( 'account' === $group ) {
-				$group_hint .= ' ' . esc_html__( 'Password Reset and Email Verification start unticked on purpose, because ticking one puts it under the Email box for Account, and anyone whose Email box is clear then stops receiving it and cannot sign in to put that right.', 'notifications-for-hivepress' );
+				$group_hint .= ' ' . esc_html__( 'Password Reset and Email Verification start unticked on purpose: ticked, anyone who has cleared Email stops receiving them and cannot sign in to put that right.', 'notifications-for-hivepress' );
 			}
 
 			// Review notifications sit in two places, so each group says where the others are. The
@@ -2854,6 +3364,11 @@ final class Hpnf_Notification extends Component {
 				'type'        => 'checkboxes',
 				'options'     => $options,
 				'default'     => array_diff( array_keys( $options ), $this->get_default_off_types() ),
+
+				// Marks the checkbox list for the collapse admin-nav.js adds. The attribute lands
+				// on the field's own wrapper div (class-checkboxes.php:77 renders attributes on
+				// it), which is exactly the element whose list the script folds away.
+				'attributes'  => [ 'data-hpnf-collapse' => '1' ],
 				'_order'      => $order,
 			];
 
@@ -2871,11 +3386,11 @@ final class Hpnf_Notification extends Component {
 			 * Customer and Shop Manager rows sat there bare, with nothing to say that clearing
 			 * Email stops HivePress's own email reaching those people.
 			 */
-			$role_hint = esc_html__( 'What people with this role receive until they choose for themselves. Unticking Email stops the email HivePress already sends from reaching them. Untick every box and this role gets nothing until someone turns something on.', 'notifications-for-hivepress' );
+			$role_hint = esc_html__( 'What people with this role receive until they choose for themselves. Unticking Email stops the email HivePress already sends from reaching them.', 'notifications-for-hivepress' );
 
 			// The long note about which role is which goes on the first row only. Repeating it on
 			// every role turned the section into a wall of identical paragraphs.
-			$note = esc_html__( 'These are WordPress roles. HivePress makes someone a Contributor when their vendor profile is published, so on most sites your vendors are Contributors and everyone else keeps the default role from Settings.', 'notifications-for-hivepress' );
+			$note = esc_html__( 'These are WordPress roles. HivePress makes someone a Contributor when their vendor profile is published, so on most sites your vendors are Contributors.', 'notifications-for-hivepress' );
 
 			foreach ( wp_roles()->get_names() as $role => $label ) {
 				$field = [
@@ -2903,7 +3418,7 @@ final class Hpnf_Notification extends Component {
 			// on the screen when it is actually on offer, so its sentence is only added then. A
 			// screen that explains a box nobody can see is its own kind of confusing.
 			if ( isset( $this->get_channels()['push'] ) ) {
-				$settings['notifications']['sections']['defaults']['description'] .= ' ' . esc_html__( 'Push reaches their phone or computer while your site is closed, and it goes out with the on-site notification, so a role with Push ticked but On-site unticked gets neither.', 'notifications-for-hivepress' );
+				$settings['notifications']['sections']['defaults']['description'] .= ' ' . esc_html__( 'Push goes out with the on-site notification, so Push without On-site sends neither.', 'notifications-for-hivepress' );
 			}
 		}
 
@@ -2914,93 +3429,145 @@ final class Hpnf_Notification extends Component {
 
 		$order = 10;
 
+		/*
+		 * The fields are laid down group by group rather than in one alphabetical run, so the
+		 * rows for one source - Bookings, Listings, Gallery - sit together and admin-nav.js can
+		 * fold each run behind a single toggle. The group label rides on every field as a data
+		 * attribute (text fields render their attributes onto the <input>,
+		 * reference/hivepress/includes/fields/class-text.php:234), because the script has no
+		 * other way to know where one group ends and the next begins.
+		 */
+		$hpnf_grouped_types = [];
+
 		foreach ( $this->get_enabled_types() as $type ) {
-			$args = $this->get_type_args( $type );
 
 			// System types have no fixed wording to customise.
-			if ( hp\get_array_value( $args, '_system' ) ) {
+			if ( hp\get_array_value( $this->get_type_args( $type ), '_system' ) ) {
 				continue;
 			}
 
-			$settings['notifications']['sections']['text']['fields'][ 'notification_text_' . $type ] = [
-				'label'       => $this->get_type_label( $type ),
-				'description' => $this->get_token_hint( $type ),
-				'type'        => 'text',
-				'max_length'  => 256,
+			$hpnf_grouped_types[ $this->get_type_group( $type ) ][] = $type;
+		}
+
+		foreach ( $this->get_groups() as $group => $group_label ) {
+			foreach ( (array) hp\get_array_value( $hpnf_grouped_types, $group, [] ) as $type ) {
+				$args = $this->get_type_args( $type );
 
 				/*
-				 * Sanitised through wp_kses rather than sanitize_text_field, which eats tokens.
+				 * The title comes first, above the wording, matching the order the two render in on
+				 * every surface: the heading sits above the sentence on the pop-up, the bell
+				 * dropdown and the notifications page alike.
 				 *
-				 * sanitize_text_field() strips percent-encoded octets, and it cannot tell one from
-				 * a HivePress token: in "%badge.name%" it reads the "%ba" as an encoded byte,
-				 * because b and a are both hex digits, and saves "dge.name%". The admin types the
-				 * token this very field's hint told them to use, presses Save, and the notification
-				 * goes out reading "You have earned the dge.name% badge". Measured on WP 7.0.2.
-				 *
-				 * It is a whole class of tokens, not one: any name whose first two characters are
-				 * both hex digits goes the same way, so %category...%, %date...% and anything an
-				 * extension adds starting ba, ca, da, de, fa and so on are all affected. %user...%
-				 * and %listing...% happen to survive, which is what makes this so easy to miss.
-				 *
-				 * Setting "html" to a non-empty array routes the value through wp_kses instead
-				 * (reference/hivepress/includes/fields/class-text.php:194-201), which leaves
-				 * percent sequences alone. The list is HivePress's own minimal set, the one
-				 * hp\sanitize_html() uses. Nothing is loosened by this in practice: render_text()
-				 * puts every stored string through wp_strip_all_tags() before it reaches anyone,
-				 * the notifications page escapes with esc_html(), and the pop-up and bell assign to
-				 * textContent. The control itself is unchanged - class-text.php:234 renders a plain
-				 * input either way.
+				 * Titles are plain words, not token templates: the pop-up heading and the push
+				 * title are rendered long after the send, when the tokens are no longer to hand,
+				 * so a token here would reach people verbatim. The description says so instead of
+				 * leaving it to be discovered. The placeholder is the public label, which is what
+				 * shows when the box is left empty.
 				 */
-				'html'        => [
-					'strong' => [],
-					'i'      => [ 'class' => [] ],
-					'a'      => [
-						'href'   => [],
-						'target' => [],
-						'class'  => [],
+				$settings['notifications']['sections']['text']['fields'][ 'notification_title_' . $type ] = [
+					/* translators: %s: notification name. */
+					'label'       => sprintf( esc_html__( '%s (title)', 'notifications-for-hivepress' ), $this->get_type_label( $type ) ),
+					'description' => esc_html__( 'The short heading shown above the wording: on pop-ups, in the bell dropdown, on the notifications page and as the push notification title. Plain words only, as tokens are not replaced here. Leave it empty to use the name shown in grey.', 'notifications-for-hivepress' ),
+					'type'        => 'text',
+					'max_length'  => 64,
+					'placeholder' => $this->get_type_public_label( $type ),
+
+					'attributes'  => [
+						'style'           => 'width:100%;max-width:52em;',
+						'data-hpnf-group' => $group_label,
 					],
-				],
 
-				// The default wording shows here as grey hint text, so leaving the box empty is a
-				// visible choice rather than a blank. Types HivePress only emails to the site
-				// administrator have no wording of their own and say so.
-				'placeholder' => hp\get_array_value( $args, 'text' ) ? $args['text'] : esc_html__( 'The email subject is used', 'notifications-for-hivepress' ),
-
-				/*
-				 * Full width, because these hold a whole sentence and the box is otherwise about
-				 * 350px - roughly a third of a default, and none of the end of a 256 character one,
-				 * so nobody can read what they are editing.
-				 *
-				 * An inline width rather than a class: HivePress's admin stylesheet sizes these
-				 * with ".hp-field.regular-text{width:25em}" and ships no rule for WordPress's
-				 * "large-text", so adding that class changes nothing. An inline style wins on the
-				 * cascade without an !important arms race, and only for these fields.
-				 */
-				'attributes'  => [ 'style' => 'width:100%;max-width:52em;' ],
-				'_order'      => $order,
-			];
-
-			$order += 10;
-
-			// A type that rolls bursts up needs a second wording, because the first one is written
-			// about one person and cannot be reused once there are twelve. Only the handful of
-			// types that actually roll up get this field, so the screen does not double in length.
-			$grouped = hp\get_array_value( $args, 'text_grouped' );
-
-			if ( $grouped ) {
-				$settings['notifications']['sections']['text']['fields'][ 'notification_text_grouped_' . $type ] = array_merge(
-					$settings['notifications']['sections']['text']['fields'][ 'notification_text_' . $type ],
-					[
-						/* translators: %s: notification name. */
-						'label'       => sprintf( esc_html__( '%s (more than one)', 'notifications-for-hivepress' ), $this->get_type_label( $type ) ),
-						/* translators: %other_count% is a HivePress token, not a printf placeholder: it is replaced by name, so it must keep its spelling exactly and must not be numbered. */
-						'description' => esc_html__( 'Used from the second one onwards, when several arrive close together and are shown as one notification rather than a stream of them. Keep %other_count% exactly as written; it is replaced with the number of other people and the word for them, such as "12 others" or "1 other", so do not add that word yourself.', 'notifications-for-hivepress' ) . ' ' . $this->get_token_hint( $type ),
-						'placeholder' => $grouped,
-						'_order'      => $order,
-					]
-				);
+					'_order'      => $order,
+				];
 
 				$order += 10;
+
+				$settings['notifications']['sections']['text']['fields'][ 'notification_text_' . $type ] = [
+					'label'       => $this->get_type_label( $type ),
+					'description' => $this->get_token_hint( $type ),
+					'type'        => 'text',
+					'max_length'  => 256,
+
+					/*
+					 * Sanitised through wp_kses rather than sanitize_text_field, which eats tokens.
+					 *
+					 * sanitize_text_field() strips percent-encoded octets, and it cannot tell one from
+					 * a HivePress token: in "%badge.name%" it reads the "%ba" as an encoded byte,
+					 * because b and a are both hex digits, and saves "dge.name%". The admin types the
+					 * token this very field's hint told them to use, presses Save, and the notification
+					 * goes out reading "You have earned the dge.name% badge". Measured on WP 7.0.2.
+					 *
+					 * It is a whole class of tokens, not one: any name whose first two characters are
+					 * both hex digits goes the same way, so %category...%, %date...% and anything an
+					 * extension adds starting ba, ca, da, de, fa and so on are all affected. %user...%
+					 * and %listing...% happen to survive, which is what makes this so easy to miss.
+					 *
+					 * Setting "html" to a non-empty array routes the value through wp_kses instead
+					 * (reference/hivepress/includes/fields/class-text.php:194-201), which leaves
+					 * percent sequences alone. The list is HivePress's own minimal set, the one
+					 * hp\sanitize_html() uses. Nothing is loosened by this in practice: render_text()
+					 * puts every stored string through wp_strip_all_tags() before it reaches anyone,
+					 * the notifications page escapes with esc_html(), and the pop-up and bell assign to
+					 * textContent. The control itself is unchanged - class-text.php:234 renders a plain
+					 * input either way.
+					 */
+					'html'        => [
+						'strong' => [],
+						'i'      => [ 'class' => [] ],
+						'a'      => [
+							'href'   => [],
+							'target' => [],
+							'class'  => [],
+						],
+					],
+
+					// The default wording shows here as grey hint text, so leaving the box empty is a
+					// visible choice rather than a blank. Types HivePress only emails to the site
+					// administrator have no wording of their own and say so.
+					'placeholder' => hp\get_array_value( $args, 'text' ) ? $args['text'] : esc_html__( 'The email subject is used', 'notifications-for-hivepress' ),
+
+					/*
+					 * Full width, because these hold a whole sentence and the box is otherwise about
+					 * 350px - roughly a third of a default, and none of the end of a 256 character one,
+					 * so nobody can read what they are editing.
+					 *
+					 * An inline width rather than a class: HivePress's admin stylesheet sizes these
+					 * with ".hp-field.regular-text{width:25em}" and ships no rule for WordPress's
+					 * "large-text", so adding that class changes nothing. An inline style wins on the
+					 * cascade without an !important arms race, and only for these fields.
+					 */
+					'attributes'  => [
+						'style'           => 'width:100%;max-width:52em;',
+						'data-hpnf-group' => $group_label,
+					],
+
+					'_order'      => $order,
+				];
+
+				$order += 10;
+
+				// A type that rolls bursts up needs a second wording, because the first one is
+				// written about one person and cannot be reused once there are twelve. Only the
+				// handful of types that actually roll up get this field, so the screen does not
+				// double in length. Inheriting the wording field's definition also carries its
+				// group attribute, which keeps this row inside the same collapsible group.
+				$grouped = hp\get_array_value( $args, 'text_grouped' );
+
+				if ( $grouped ) {
+					$settings['notifications']['sections']['text']['fields'][ 'notification_text_grouped_' . $type ] = array_merge(
+						$settings['notifications']['sections']['text']['fields'][ 'notification_text_' . $type ],
+						[
+							/* translators: %s: notification name. */
+							'label'       => sprintf( esc_html__( '%s (more than one)', 'notifications-for-hivepress' ), $this->get_type_label( $type ) ),
+							/* translators: %other_count% is a HivePress token, not a printf placeholder: it is replaced by name, so it must keep its spelling exactly and must not be numbered. */
+							'description' => esc_html__( 'Used from the second one onwards, when several arriving close together are shown as one notification. Keep %other_count% exactly as written; it becomes "12 others" or "1 other".', 'notifications-for-hivepress' ) . ' ' . $this->get_token_hint( $type ),
+							'placeholder' => $grouped,
+							'_order'      => $order,
+						]
+					);
+
+					$order += 10;
+				}
 			}
 		}
 
@@ -3076,7 +3643,7 @@ final class Hpnf_Notification extends Component {
 		unset( $tokens['user_password'] );
 
 		if ( ! $tokens ) {
-			return esc_html__( 'Tokens are placeholders such as %listing.title% that are swapped for the real wording when a notification is sent. The ones this notification offers are listed here once it has been sent for the first time. Until then ordinary words work, and leaving the box empty uses the subject line of the email HivePress sends.', 'notifications-for-hivepress' );
+			return esc_html__( 'Tokens are placeholders such as %listing.title%, swapped for the real wording when a notification is sent. The ones this notification offers are listed here after its first send; until then ordinary words work.', 'notifications-for-hivepress' );
 		}
 
 		ksort( $tokens );
@@ -3095,7 +3662,7 @@ final class Hpnf_Notification extends Component {
 
 		return sprintf(
 			/* translators: %s: comma-separated list of tokens. Keep the doubled percent signs as they are; they print as single ones. */
-			esc_html__( 'Tokens: %s. A token is a placeholder, swapped for the real wording when the notification is sent, so %%listing.title%% becomes the name of the listing. Copy them exactly, because anything else you put between percent signs is sent to people exactly as you typed it. Where one ends in ".field", change that word to the detail you want, and to choose your own wording for when a detail is missing, add a vertical bar (|) inside the token, as in %%listing.title|your listing%%.', 'notifications-for-hivepress' ),
+			esc_html__( 'Tokens: %s. Each is swapped for the real wording when the notification is sent; copy them exactly. Where one ends in ".field", change that word to the detail you want, and a vertical bar (|) inside a token sets fallback wording, as in %%listing.title|your listing%%.', 'notifications-for-hivepress' ),
 			implode( ', ', $list )
 		);
 	}
@@ -3249,6 +3816,14 @@ final class Hpnf_Notification extends Component {
 			wp_add_inline_style( 'hivepress-notifications', $styles );
 		}
 
+		// Load the pinned Font Awesome only when the chosen bell icon actually needs it: the added solid
+		// names and the brands are not in the FA5 set HivePress enqueues, so without this they
+		// render as a blank space. A site on the bundled icons makes no CDN request.
+		if ( get_option( 'hp_notification_bell' ) && $this->is_extended_icon( $this->get_bell_icon() ) ) {
+			$this->register_fontawesome();
+			wp_enqueue_style( 'freestylr-fontawesome' );
+		}
+
 		// Add script data. This is localized whether or not pop-ups are enabled, because the
 		// notification list uses the same endpoints to mark notifications as read and delete them.
 		//
@@ -3373,7 +3948,7 @@ final class Hpnf_Notification extends Component {
 		$output .= '<div class="hp-notification-bell" data-component="notification-bell">';
 
 		$output .= '<a href="' . esc_url( hivepress()->router->get_url( 'notifications_view_page' ) ) . '" class="hp-notification-bell__toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . esc_attr__( 'Notifications', 'notifications-for-hivepress' ) . '">';
-		$output .= '<i class="hp-icon fas fa-' . esc_attr( $this->get_bell_icon() ) . '"></i>';
+		$output .= '<i class="hp-icon ' . esc_attr( $this->get_bell_icon_class() ) . '"></i>';
 
 		if ( $count ) {
 			$output .= '<small>' . esc_html( number_format_i18n( $count ) ) . '</small>';
@@ -3529,7 +4104,58 @@ final class Hpnf_Notification extends Component {
 		$button_radius = get_option( 'hp_notification_button_radius' );
 
 		if ( '' !== $button_radius && ! is_null( $button_radius ) && false !== $button_radius ) {
-			$output .= '.hp-button.hp-notifications__action,.hp-button.hp-notifications__filter-submit,.hp-notification-push .hp-button,.hp-notification-undo .hp-button{border-radius:' . absint( $button_radius ) . 'px;}';
+
+			// The last selector is the Save Changes button on the member's Notification Settings
+			// page: it is core's own form button, so it carries no class of ours, and scoping
+			// through the form's generated class (hp-form--{name}, class-form.php:226) reaches
+			// that one button without touching any other HivePress form on the site.
+			$output .= '.hp-button.hp-notifications__action,.hp-button.hp-notifications__filter-submit,.hp-notification-push .hp-button,.hp-notification-undo .hp-button,.hp-form--hpnf-notification-update .hp-form__button{border-radius:' . absint( $button_radius ) . 'px;}';
+		}
+
+		/*
+		 * The bell icon's weight. Font Awesome ships one solid weight, so "bolder" is drawn as a
+		 * thin stroke around the glyph in currentColor - which is what makes it follow the bell
+		 * colour settings, hover included, without any colour plumbing of its own. paint-order
+		 * keeps the stroke behind the fill so the glyph does not thin out. Normal emits nothing.
+		 */
+		$strokes = [
+			'semibold' => '0.3px',
+			'bold'     => '0.5px',
+		];
+
+		$weight_option = (string) get_option( 'hp_notification_bell_weight', 'normal' );
+
+		if ( get_option( 'hp_notification_bell' ) && isset( $strokes[ $weight_option ] ) ) {
+			$output .= '.hp-notification-bell .hp-notification-bell__toggle i{-webkit-text-stroke:' . $strokes[ $weight_option ] . ' currentColor;paint-order:stroke fill;}';
+		}
+
+		/*
+		 * The pinned header's corner radii, one option per corner because one linked value cannot
+		 * round only the visible bottom edge. Emitted as a whole rule only when a corner is set,
+		 * so an untouched site ships no rule at all - same reasoning as the button radius above.
+		 * A cleared number field stores '', so anything non-numeric counts as 0. The glass
+		 * overlay follows via border-radius:inherit in the stylesheet.
+		 */
+		if ( get_option( 'hp_notification_bell' ) && get_option( 'hp_notification_sticky_header' ) ) {
+			$corners = [];
+
+			// Shorthand order: top-left, top-right, bottom-right, bottom-left.
+			foreach ( [
+				'hp_notification_sticky_radius_top_left',
+				'hp_notification_sticky_radius_top_right',
+				'hp_notification_sticky_radius_bottom_right',
+				'hp_notification_sticky_radius_bottom_left',
+			] as $option ) {
+				$value = get_option( $option, 0 );
+
+				$corners[] = ( is_numeric( $value ) ? max( 0, min( 40, (int) $value ) ) : 0 ) . 'px';
+			}
+
+			$radius = implode( ' ', $corners );
+
+			if ( '0px 0px 0px 0px' !== $radius ) {
+				$output .= '.hp-nfh-sticky{border-radius:' . $radius . ';}';
+			}
 		}
 
 		// Recolour the account menu count, but only when the admin has actually chosen a colour

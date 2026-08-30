@@ -123,9 +123,16 @@ class Hpnf_Notification_Update extends Form {
 
 		$quiet = hivepress()->hpnf_notification->get_quiet_hours( get_current_user_id() );
 
+		// Text messages are only mentioned while an SMS channel is actually registered (by the
+		// Twilio extension); on a site without one the sentence promised to silence something
+		// that does not exist.
+		$quiet_hint = isset( $labels['sms'] )
+			? esc_html__( 'No pop-ups, push notifications or text messages between these times. Anything with an on-site notification still waits in your list. Set both the same to switch this off.', 'notifications-for-hivepress' )
+			: esc_html__( 'No pop-ups or push notifications between these times. Anything with an on-site notification still waits in your list. Set both the same to switch this off.', 'notifications-for-hivepress' );
+
 		$fields['quiet_start'] = [
 			'label'       => esc_html__( 'Quiet Hours', 'notifications-for-hivepress' ),
-			'description' => esc_html__( 'No pop-ups, push notifications or text messages between these times. Anything with an on-site notification still waits in your list. Set both the same to switch this off.', 'notifications-for-hivepress' ),
+			'description' => $quiet_hint,
 			'type'        => 'select',
 			'options'     => $hours,
 			'default'     => absint( hp\get_array_value( $quiet, 'start' ) ),

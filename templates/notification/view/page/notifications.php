@@ -133,7 +133,8 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 							</div>
 
 							<div class="hp-notification__body">
-								<span class="hp-notification__type"><?php echo esc_html( hivepress()->hpnf_notification->get_type_label( $hp_notification->get_type() ) ); ?></span>
+								<?php // The member-facing heading: the admin's saved title, or the label without the "(User)"/"(Vendor)" bracket. ?>
+								<span class="hp-notification__type"><?php echo esc_html( hivepress()->hpnf_notification->get_type_title( $hp_notification->get_type() ) ); ?></span>
 
 								<?php if ( $hp_url ) : ?>
 									<a class="hp-notification__text" href="<?php echo esc_url( $hp_url ); ?>"><?php echo esc_html( $hp_text ); ?></a>

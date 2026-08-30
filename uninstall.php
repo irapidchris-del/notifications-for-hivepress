@@ -126,8 +126,11 @@ if ( $hp_delete_all ) {
 	delete_metadata( 'comment', 0, 'hp_notification_sent', '', true );
 
 	// Delete the options. The names are matched on the plugin's prefix because several are dynamic:
-	// one text option per notification type, one types option per group, one default per role. This
-	// runs once, while the plugin is being deleted, so there is nothing worth caching.
+	// one text option and one title option per notification type, one types option per group, one
+	// default per role. The prefix sweep is also what covers options added in later versions - the
+	// sticky corner radii and the bell weight among them - so a new option only needs a mention
+	// here if its name ever stops starting with "hp_notification". This runs once, while the
+	// plugin is being deleted, so there is nothing worth caching.
 	//
 	// The "delete all data" option itself is excluded here and removed at the very end. If this run
 	// fails part-way through - a timeout on a large site is the realistic case - the flag is still

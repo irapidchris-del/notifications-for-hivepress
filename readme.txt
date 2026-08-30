@@ -2,9 +2,9 @@
 
 Contributors: ChrisB
 Requires at least: 6.0
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.5.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,84 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.5.6 =
+* Housekeeping only: nothing on your settings screen has moved, changed or
+  behaves differently. The settings-screen code this extension shares with the
+  others in the family was reformatted to match them line for line, so that a
+  fix made to one of them can be checked against all of them in one go.
+
+= 1.5.5 =
+* The settings tab now carries the same controls as the other extensions in this family: the quick
+  links stay in view as you scroll, a Save Changes tab sits on the right edge of the screen
+  wherever you are on the page (a bar across the bottom on a phone), and a back-to-top button
+  appears once you have scrolled down. Whichever of these extensions you have installed, you see
+  one set of controls, in the same places.
+* The quick links now say "Jump to a section:" rather than "Jump to:", which is the wording every
+  extension in the family uses.
+* The section headings keep the ids WordPress already gives them, so a link or a bookmark pointing
+  at a section carries on working.
+
+= 1.5.4 =
+* Fixed: this plugin's settings styles and scripts were being loaded on every HivePress settings
+  tab, not just its own. They now load only on the Notifications tab, so the other tabs are
+  lighter and there is no chance of this plugin's appearance styles affecting another
+  extension's settings. The Notifications tab itself is unchanged.
+
+= 1.5.3 =
+* Changed: outline icon styles now render as outlines. An icon set to an outline style
+  previously appeared filled in, because only the solid style was included with the plugin and
+  your browser quietly used that instead.
+
+= 1.5.2 =
+* Changed: the icon library is now included with the plugin instead of being loaded from a
+  third-party server, which is faster and keeps every request on your own site. Your bell icon
+  and settings are unaffected.
+
+= 1.5.1 =
+* Fixed: two PHP warnings could be written to the error log when a settings page was loaded
+  while the plugin's files were being replaced, such as during an update. Nothing was visibly
+  broken, but the log filled with "Undefined array key" notices.
+* Changed: the live preview panel now sits beside the settings from 1200 pixels wide, rather
+  than 1400, so it is a side column on a normal laptop screen instead of a block above the
+  fields.
+
+= 1.5.0 =
+* Changed: each notification's title field now sits above its wording field, matching the order
+  the two appear in on the site.
+* Added: the Text section's per-notification fields fold into one collapsible group per source
+  (Listings, Bookings and so on), and each long list of notification-type tick boxes, in the
+  admin and on the member's Notification Settings page alike, folds behind a toggle with a
+  ticked-count. Everything still saves exactly as before, and without JavaScript the pages
+  simply render fully expanded.
+* Changed: the push notification status at the top of the settings page now leaves a gap before
+  the options below it.
+* Fixed: the Button Radius appearance option now also rounds the Save Changes button on the
+  member's Notification Settings page.
+* Changed: every bell on the page now works, not just the first, so a second bell placed by
+  another extension (such as an action bar) opens its own dropdown; the unread count and the
+  notifications fetch are shared between them.
+
+= 1.4.0 =
+* Added: a customisable title for every notification type, under Settings > Notifications > Text.
+  The title shows on the pop-up, the bell dropdown, the notifications page and as the push
+  notification title.
+* Added: quick links at the top of the settings tab, with a divider between sections, and shorter
+  setting descriptions that wrap at a readable width.
+* Added: separate corner radius options for each corner of the pinned (sticky) header.
+* Added: newer Font Awesome solid icons and the brand icons to the bell icon picker, loading the
+  official Font Awesome stylesheet only when one of them is chosen, plus a Bell Icon Weight option.
+* Changed: the glass effect now also applies to the menus that drop down from the pinned header,
+  including the bell dropdown.
+* Changed: the "(User)" and "(Vendor)" labels HivePress puts on paired emails no longer show to
+  members; each member only ever receives their own side of the pair, so the bracket was noise.
+* Changed: the push button on the notification settings page moved to the top of the page and got
+  a shorter label.
+* Fixed: enabling push notifications now completes in one click. The subscription used to be
+  attempted before the newly registered service worker was active, so the first click failed
+  quietly and only a second click worked.
+* Fixed: the Quiet Hours description no longer mentions text messages on sites without an SMS
+  extension.
 
 = 1.3.4 =
 * Fixed: the plugin no longer writes a PHP warning on every page load. It registered itself with

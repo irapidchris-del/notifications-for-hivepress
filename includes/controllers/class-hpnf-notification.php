@@ -299,6 +299,11 @@ final class Hpnf_Notification extends Controller {
 				// The worker passes this straight to showNotification() as the body, which the
 				// operating system renders as plain text. See decode_text().
 				'text'  => hivepress()->hpnf_notification->decode_text( $notification->get_text() ),
+
+				// The push title. Only a title the admin actually wrote is sent: with no custom
+				// title the worker keeps the site name, which is what identifies the sender on an
+				// operating-system notification.
+				'title' => hivepress()->hpnf_notification->decode_text( hivepress()->hpnf_notification->get_type_custom_title( $notification->get_type() ) ),
 				'url'   => (string) $notification->get_url(),
 
 				// The notification's own picture, where it has one: a badge's image, or the avatar
@@ -385,7 +390,10 @@ final class Hpnf_Notification extends Controller {
 				// Read into textContent by the bell dropdown, so the stored entities are decoded
 				// here. See decode_text() for why this is a serve-time decode.
 				'text'       => hivepress()->hpnf_notification->decode_text( $notification->get_text() ),
-				'type'       => hivepress()->hpnf_notification->get_type_label( $notification->get_type() ),
+
+				// The heading the bell dropdown shows: the admin's saved title, or the public label
+				// without the "(User)"/"(Vendor)" bracket the admin labels carry.
+				'type'       => hivepress()->hpnf_notification->get_type_title( $notification->get_type() ),
 				'icon'       => hivepress()->hpnf_notification->get_notification_icon( $notification ),
 				'color'      => (string) $notification->get_color(),
 				'image'      => (string) $notification->get_image(),
