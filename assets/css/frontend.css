@@ -1010,8 +1010,12 @@ a.hp-notifications__action.button--secondary:focus {
  * Push setup on the settings page
  * ----------------------------------------------------------------------- */
 
+/* The block sits at the top of the settings page since 1.4.0, so the gap it needs is below,
+ * before the notification options - without it the "Push notifications are on for this
+ * device." status ran straight into the first group. The old top margin goes: the page
+ * heading already provides that space. */
 .hp-notification-push {
-	margin-top: 2rem;
+	margin: 0 0 1.75rem;
 }
 
 /* Once push is on, the script hides the button with the hidden attribute. That alone is not
@@ -1031,6 +1035,54 @@ a.hp-notifications__action.button--secondary:focus {
 /* The status reads on its own once the button is gone. */
 .hp-notification-push button[hidden] + .hp-notification-push__status {
 	margin-left: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * Collapsible groups on the settings page
+ *
+ * The script folds each checkbox group behind its heading (initSettingsCollapse). Without
+ * scripting none of these classes appear and the form renders fully expanded.
+ * ----------------------------------------------------------------------- */
+
+.hp-nfh-fold .hp-field__label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	cursor: pointer;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* The heading text keeps its place; the count and chevron sit at the end of the row. */
+.hp-nfh-fold .hp-field__label > span:first-child {
+	margin-right: auto;
+}
+
+.hp-nfh-fold__count {
+	font-size: 80%;
+	opacity: 0.6;
+}
+
+.hp-nfh-fold__chevron {
+	font-size: 12px;
+	transition: transform 0.15s;
+}
+
+.hp-nfh-fold--open .hp-nfh-fold__chevron {
+	transform: rotate(180deg);
+}
+
+/* Enforce the hidden attribute the script sets. Themes style ".hp-field" and the description
+ * with display values of their own, and a class beats the browser's [hidden] rule - the same
+ * trap as the push button above, answered the same way. */
+.hp-nfh-fold > [hidden] {
+	display: none !important;
+}
+
+/* A closed group is one row; keep the rows evenly spaced rather than inheriting the taller
+ * field margin that suited an open list. */
+.hp-nfh-fold:not(.hp-nfh-fold--open) {
+	margin-bottom: 1rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -1115,6 +1167,48 @@ a.hp-notifications__action.button--secondary:focus {
 		bottom: 0;
 		left: 0;
 		z-index: -1;
+
+		/* Follows the per-corner radius options, so the blur pane never pokes out of a rounded
+		 * corner. Harmless when no radius is set: inherit of 0 is 0. */
+		border-radius: inherit;
+		-webkit-backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
+		backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
+	}
+
+	/*
+	 * The menus that drop down from a glassed header get the glass too. Without this they opened
+	 * as solid panes over a see-through bar, which read as a rendering bug rather than a design.
+	 *
+	 * Three panels: the theme's own navigation submenus (HiveTheme positions and paints
+	 * ".header-navbar__menu ... li ul", frontend.less), and this plugin's bell dropdown. All are
+	 * descendants of the bar, so they inherit the tint and blur variables initSticky() sets
+	 * inline, and the selectors only exist under the glass class, so an unstuck or non-glass
+	 * header leaves every menu exactly as the theme drew it.
+	 *
+	 * The blur lives on a ::before overlay for the same containing-block reason as the bar's own
+	 * blur above: backdrop-filter on the element would make it the containing block for fixed
+	 * descendants, and the bell panel IS position:fixed on phones. Both panels already create a
+	 * stacking context (z-index 1000 and 1010), so the negative-z overlay stays inside them, and
+	 * the bell panel's overflow:hidden clips the overlay to its rounded corners.
+	 */
+	/* No position of their own here: both panels are already positioned by their own rules -
+	 * absolute for the submenus, absolute-then-fixed-on-phones for the bell panel - and that is
+	 * all the ::before overlay needs. */
+	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel {
+		background-color: var(--hp-nfh-glass-background) !important;
+	}
+
+	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul::before,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: -1;
+		border-radius: inherit;
 		-webkit-backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
 		backdrop-filter: blur( var(--hp-nfh-glass-blur, 20px) ) saturate( 180% );
 	}
@@ -1142,6 +1236,19 @@ a.hp-notifications__action.button--secondary:focus {
 		backdrop-filter: none;
 
 		/* With no blur behind it, the overlay is just a pane over the page. Take it away. */
+		display: none;
+	}
+
+	/* The dropdowns follow the bar: opaque fallback colour, blur pane removed. */
+	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel {
+		background-color: var(--hp-nfh-opaque-background, var(--hp-nfh-glass-background)) !important;
+	}
+
+	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul::before,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel::before {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 		display: none;
 	}
 }

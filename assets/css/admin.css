@@ -138,7 +138,10 @@
  * ----------------------------------------------------------------------- */
 
 /*
- * Above 1400px the panel becomes a column beside the settings, and follows the reader down the page.
+ * Above 1200px the panel becomes a column beside the settings, and follows the reader down the page.
+ * The threshold was 1400px until 2026-08-30, which is wider than a typical laptop, so the panel
+ * stayed stacked on top for most people and the owner reported it as misplaced. 1200px matches the
+ * width Social Proof's own side-by-side preview targets (a 320px panel against a ~640px form).
  *
  * Both rules hang off the same :has() test so they can only ever apply together. That matters: the
  * panel's absolute positioning without the form's padding would drop it on top of the fields. On a
@@ -154,10 +157,10 @@
  * few pixels and then scroll away. 46px clears the admin bar, which is fixed at that height on
  * screens this wide.
  */
-@media screen and (min-width: 1400px) {
+@media screen and (min-width: 1200px) {
 	form.hp-form--table:has(> .hpnf-preview) {
 		position: relative;
-		padding-right: 372px;
+		padding-right: 352px;
 	}
 
 	form.hp-form--table:has(> .hpnf-preview) > .hpnf-preview {
@@ -165,7 +168,7 @@
 		top: 0;
 		right: 0;
 		bottom: 0;
-		width: 340px;
+		width: 320px;
 		margin-top: 0;
 		margin-bottom: 0;
 	}
@@ -177,7 +180,7 @@
 }
 
 /*
- * Below 1400px the panel is a plain block at the top of the form, full width and in the flow, and
+ * Below 1200px the panel is a plain block at the top of the form, full width and in the flow, and
  * it is never sticky: the only sticky rule is inside the query above, so there is nothing to undo.
  * Below 782px wp-admin stacks each form-table row into its own block and the whole screen turns
  * touch-sized, so the stage loses a little height to keep the Save button within reach.
@@ -190,4 +193,403 @@
 	.hpnf-preview__stage {
 		height: 190px;
 	}
+}
+
+/* ==========================================================================
+ * SHARED SETTINGS CHROME
+ *
+ * The quick-links nav, the floating Save control and the back-to-top button,
+ * all injected by admin-nav.js. Copied verbatim from the reference
+ * implementation (account-menu-enhancer-for-hivepress, assets/css/backend.css)
+ * with only the `hpnf-` prefix changed, so this block is self-contained.
+ *
+ * DO NOT RESTYLE IT HERE. An owner moving from this tab to another extension's
+ * tab must find the same nav in the same place, the same Save tab on the same
+ * edge and the same back-to-top button in the same corner. If one of these
+ * rules is genuinely wrong, fix it in the reference first and sweep every
+ * sibling in the same session (resources/hivepress-settings.md, "The settings
+ * anchor nav: one shared marker class").
+ *
+ * Every piece carries a shared marker class as well as the prefixed one. THE
+ * MARKERS ARE NEVER STYLED: they exist so a sibling can find a nav that is
+ * already there and stand down. Style only the prefixed class, so one plugin's
+ * chrome can never restyle another's.
+ *
+ * The admin bar is fixed and overlays the top of the page, so anything that
+ * sticks, and every scroll target, has to clear it: 32px normally, 46px below
+ * 783px where WordPress makes it taller. The nav is the sticky thing here, so
+ * a heading has to clear the admin bar AND the nav, which is why the
+ * scroll-margin values are larger than the offsets.
+ * ========================================================================== */
+
+:root {
+	--hpnf-admin-bar: 32px;
+	--hpnf-nav-height: 46px;
+}
+
+@media screen and (max-width: 782px) {
+	:root {
+		--hpnf-admin-bar: 46px;
+	}
+}
+
+/*
+ * The admin bar stops being fixed below 601px and scrolls away with the page,
+ * so nothing needs to clear it there.
+ */
+@media screen and (max-width: 600px) {
+	:root {
+		--hpnf-admin-bar: 0px;
+	}
+}
+
+/*
+ * Quick links to each settings section, injected above the first heading
+ * because WordPress renders sections as bare <h2>s with no anchors.
+ *
+ * Sticky, so a long tab can be navigated from anywhere on it. The z-index sits
+ * above the form but below the admin bar's own 99999, and the background is
+ * opaque so the fields scroll underneath rather than through it.
+ */
+.hpnf-settings-nav {
+	position: sticky;
+	top: var(--hpnf-admin-bar);
+	z-index: 100;
+	display: flex;
+	flex-wrap: wrap;
+
+	/*
+	 * Centre the row's contents on their line.
+	 *
+	 * Without this the flex default of `stretch` applies: the pill links are
+	 * inline-block and take their own height, while the bare label span is
+	 * stretched to the full height of the line and its text then renders at
+	 * the TOP of that stretched box, sitting visibly higher than the pills.
+	 * The fix belongs here rather than on the label, because a margin or a
+	 * relative nudge would only paper over it and would come apart the moment
+	 * the links wrap to a second line - which they do at narrow widths. With
+	 * this, each line centres its own contents however many lines there are.
+	 */
+	align-items: center;
+	gap: 6px 8px;
+	margin: 16px 0 8px;
+	padding: 12px 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	background: #fff;
+}
+
+/*
+ * The bar names itself before its links. Part of the house chrome spec, so
+ * this rule is the reference the sibling plugins copy.
+ */
+.hpnf-settings-nav__label {
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1.6;
+	color: #50575e;
+}
+
+.hpnf-settings-nav a {
+	display: inline-block;
+	padding: 3px 10px;
+	border: 1px solid #dcdcde;
+	border-radius: 9999px;
+	text-decoration: none;
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.hpnf-settings-nav a:hover,
+.hpnf-settings-nav a:focus {
+	border-color: #2271b1;
+}
+
+/*
+ * Section dividers, and room for the admin bar AND the sticky nav above them,
+ * so a quick link never lands a heading underneath the bar it was clicked in.
+ */
+.hp-page .hp-form--table h2.hpnf-section-heading {
+	margin-top: 8px;
+	padding-top: 24px;
+	border-top: 1px solid #dcdcde;
+	scroll-margin-top: calc(var(--hpnf-admin-bar) + var(--hpnf-nav-height) + 16px);
+}
+
+.hp-page .hp-form--table h2.hpnf-section-heading--first {
+	padding-top: 0;
+	border-top: 0;
+}
+
+/*
+ * The floating Save control: a genuine sideways tab on the right edge, always
+ * within reach on a long tab. It presses the form's own submit button rather
+ * than saving by itself, so there is only one save path.
+ *
+ * `writing-mode: vertical-rl` is what makes it sideways, and the choice is not
+ * cosmetic: it turns the LAYOUT BOX on its side, so the control is about 36px
+ * wide and as tall as its label. Rotating a horizontal box with `transform`
+ * instead leaves the box its original width - the element still reserves a
+ * ~150px-wide strip of the page, which is what put an earlier version of this
+ * button on top of the live preview panel while the CSS looked correct.
+ *
+ * The tick icon is dropped here and kept only for the mobile bar below: a
+ * dashicons glyph inside a vertical-rl flow is laid on its side with the text,
+ * and a sideways tick reads as a stray mark rather than as a tick.
+ *
+ * NOTHING HERE PAINTS THE CONTROL. It carries core's own `button
+ * button-primary` classes and WordPress supplies the background, border, text
+ * colour, hover, focus ring and disabled state. That is not tidiness: every
+ * user picks an Admin Colour Scheme under Users > Profile and each one
+ * repaints .wp-core-ui .button-primary, so a hex here matches the default
+ * scheme and no other. Measured on 2026-08-30 under Modern, with the old
+ * hardcoded #2271b1 still in place: the real Save button rendered
+ * rgb(56,88,233) and this tab rgb(34,113,177), on the same screen, one
+ * pretending to be the other. Add a colour here and it will be wrong again on
+ * seven of the eight schemes.
+ *
+ * The selector carries .wp-core-ui so these layout rules tie with core's own
+ * .wp-core-ui .button on specificity and win on order, since this stylesheet
+ * is enqueued after the admin's. Layout is all they may set.
+ */
+.wp-core-ui .hpnf-settings-save {
+	position: fixed;
+	top: 50%;
+
+	/*
+	 * Physical `right`, not `inset-inline-end`, and that is a consequence of
+	 * the vertical writing mode rather than an oversight. A logical inset
+	 * resolves against the ELEMENT'S OWN writing mode, so on a vertical-rl
+	 * box the inline axis is the vertical one: `inset-inline-end: 0` set a
+	 * vertical offset, left nothing horizontal, and pinned the tab to the
+	 * LEFT edge of the screen. Measured on 2026-08-30, at 1440px.
+	 */
+	right: 0;
+	z-index: 100;
+	display: block;
+
+	/*
+	 * The padding is given in the rotated box's own terms. Core's button
+	 * padding is horizontal-first, and on a vertical-rl box those axes swap,
+	 * so core's own values would pad the wrong edges: 14px is the space above
+	 * and below the sideways label, 10px the space either side of it.
+	 * Measured at 1440px rather than reasoned about.
+	 */
+	writing-mode: vertical-rl;
+	height: auto;
+	padding: 14px 10px;
+	transform: translateY(-50%);
+
+	/* Rounded on the side that is not against the edge of the screen. */
+	border-inline-end: 0;
+	border-radius: 4px 0 0 4px;
+	font-size: 13px;
+	line-height: 1.4;
+	letter-spacing: 0.2px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.hpnf-settings-save .dashicons {
+	display: none;
+}
+
+/*
+ * The one core declaration these two controls have to undo.
+ *
+ * wp-admin/css/buttons.css carries
+ * `.wp-core-ui .button .dashicons, .wp-core-ui .button-primary .dashicons,
+ * .wp-core-ui .button-secondary .dashicons { line-height: 1.9 }`, which beats
+ * the `line-height: 1` dashicons.css gives every icon. That 1.9 exists to drop
+ * a dashicon onto the text baseline of an ordinary horizontal button, and it
+ * is right there. It is wrong here, because both of these controls centre
+ * their glyph with flexbox instead: the glyph keeps its 20px box but is drawn
+ * inside a 38px line box (1.9 x 20px, measured), so it paints low and off
+ * centre while the BOX it sits in measures as perfectly centred - which is why
+ * this reads as an alignment bug with nothing visibly misaligned.
+ *
+ * Only line-height is restored, and only on our own two controls, so
+ * everything else core does to a button icon still applies. The selectors
+ * score the same as core's and this stylesheet is enqueued after the admin's,
+ * so they win on order without !important and without a magic offset.
+ */
+.wp-core-ui .hpnf-settings-save .dashicons,
+.wp-core-ui .hpnf-settings-top .dashicons {
+	line-height: 1;
+}
+
+/*
+ * The back-to-top button, above the Save tab's own corner so the two never
+ * overlap. Hidden by the script until the page has actually scrolled.
+ *
+ * Painted by core as well, through its plain `button` class - the secondary
+ * button's blue is the admin scheme's blue, and the old hardcoded #2271b1 and
+ * #c3c4c7 were the default scheme's alone. Only the round shape and the
+ * position belong here.
+ */
+.wp-core-ui .hpnf-settings-top {
+	position: fixed;
+	inset-inline-end: 20px;
+	bottom: 20px;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.wp-core-ui .hpnf-settings-top[hidden] {
+	display: none;
+}
+
+/*
+ * On a phone the sideways Save tab would sit over the fields, and the two
+ * round buttons would fight for the same corner, so Save becomes a bar along
+ * the bottom and the back-to-top button sits above it. 782px is where wp-admin
+ * itself switches to its touch layout.
+ */
+@media screen and (max-width: 782px) {
+
+	/*
+	 * The .wp-core-ui prefix is carried down here too. Without it these rules
+	 * score below the desktop ones above and the tab would stay sideways on a
+	 * phone: a media query grants no extra specificity.
+	 */
+	.wp-core-ui .hpnf-settings-save {
+		top: auto;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		writing-mode: horizontal-tb;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		transform: none;
+
+		/* Square across the full width, and the border only along the top. */
+		border-inline-end: 0;
+		border-radius: 0;
+		padding: 12px;
+	}
+
+	/* The text runs left to right again down here, so the tick reads. */
+	.hpnf-settings-save .dashicons {
+		display: inline-flex;
+		font-size: 16px;
+		width: 16px;
+		height: 16px;
+	}
+
+	.wp-core-ui .hpnf-settings-top {
+		bottom: 68px;
+	}
+
+	/* Room for the bar, so it never covers the last field on the page. */
+	.hp-page .hp-form--table {
+		padding-bottom: 56px;
+	}
+}
+
+/* --------------------------------------------------------------------------
+ * This plugin's own settings rules
+ * ----------------------------------------------------------------------- */
+
+/*
+ * A readable measure for the section descriptions. do_settings_sections() prints them as bare
+ * <p> siblings of the tables, and on a wide screen they ran the full width of the form - lines
+ * over 200 characters long. 62em at 13px is roughly the 45-75 character measure typography
+ * guides ask for. Scoped through :has() to this tab's own form, like the preview layout.
+ */
+form.hp-form--table:has([name^="hp_notification_"]) > p {
+	max-width: 62em;
+}
+
+/* The tooltip bubble is 173px wide in core, which turns even a two-sentence description into a
+ * tall ribbon. Widen it for this tab's tooltips only. */
+form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text {
+	width: 300px;
+}
+
+/* --------------------------------------------------------------------------
+ * Collapsible groups
+ *
+ * admin-nav.js folds the Text section's rows into one group per source and each Types checkbox
+ * list behind a Show options toggle. Everything here styles what that script injects; without
+ * the script none of these classes exist and the tab renders fully expanded.
+ * ----------------------------------------------------------------------- */
+
+/* WordPress gives every form-table cell top padding; the group header reads better as a tight
+ * bar. The full-width button keeps the whole row clickable, like a details/summary. */
+.hpnf-group-row > td {
+	padding: 4px 0;
+}
+
+.hpnf-group-toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 8px 12px;
+	background-color: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	cursor: pointer;
+	text-align: left;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.hpnf-group-toggle:hover,
+.hpnf-group-toggle:focus {
+	border-color: #2271b1;
+	background-color: #f0f6fc;
+}
+
+.hpnf-group-toggle__name {
+	margin-right: auto;
+}
+
+.hpnf-group-toggle__count,
+.hpnf-fold-toggle__count {
+	color: #646970;
+	font-weight: 400;
+}
+
+.hpnf-group-toggle__chevron,
+.hpnf-fold-toggle__chevron {
+	font-size: 16px;
+	line-height: 1;
+	transition: transform 0.15s;
+}
+
+.hpnf-group-row--open .hpnf-group-toggle__chevron,
+.hpnf-fold-toggle--open .hpnf-fold-toggle__chevron {
+	transform: rotate(180deg);
+}
+
+/* The Show options toggle sits where the checkbox list begins; button-link gives it core's
+ * plain-link look, and the gap keeps its three parts readable. */
+.hpnf-fold-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: 2px 0 4px;
+	text-decoration: none;
+}
+
+/* Enforce the hidden attribute the script sets on the list. HivePress styles these lists
+ * directly, and a class with a display value beats the browser's own [hidden] rule. */
+.hp-field[data-hpnf-collapse] > ul[hidden] {
+	display: none !important;
+}
+
+/* Same enforcement for the folded rows. The browser's own [hidden] rule lives in the UA sheet,
+ * which ANY author display declaration on tr outranks regardless of specificity - and wp-admin
+ * restyles form-table rows below 782px. */
+form.hp-form--table tr[hidden] {
+	display: none !important;
 }

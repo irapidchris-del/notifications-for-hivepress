@@ -912,88 +912,127 @@
 	}
 
 	/**
-	 * Manages the header bell.
+	 * Manages every header bell on the page.
+	 *
+	 * Plural on purpose. The Action Bar extension renders a second bell with the same markup
+	 * inside its bottom bar, and this used to bind querySelector's first match only, so whichever
+	 * bell rendered second was a dead link. Each instance now gets its own panel, open state and
+	 * positioning, while the unread count and the recent-notifications fetch stay shared: one
+	 * request serves every panel, and setBadge() already updates every toggle it can find.
 	 */
-	var Bell = {
-		wrap: null,
-		toggle: null,
-		panel: null,
-		loaded: false,
+	var Bells = {
+		instances: [],
+
+		// The shared fetch, cached as a promise so two bells opened back to back cost one request.
+		promise: null,
 
 		init: function() {
 			var self = this;
 
-			this.wrap = document.querySelector( '[data-component="notification-bell"]' );
+			Array.prototype.forEach.call( document.querySelectorAll( '[data-component="notification-bell"]' ), function( wrap ) {
+				var toggle = wrap.querySelector( '.hp-notification-bell__toggle' );
+				var panel = wrap.querySelector( '.hp-notification-bell__panel' );
 
-			if ( ! this.wrap ) {
+				if ( ! toggle || ! panel ) {
+					return;
+				}
+
+				// Keep the shared header area a single row. The stylesheet does this with :has();
+				// this is the same fix for browsers that don't support it.
+				var area = wrap.parentElement;
+
+				if ( area && ! ( window.CSS && window.CSS.supports && window.CSS.supports( 'selector(:has(> *))' ) ) ) {
+					area.style.display = 'flex';
+					area.style.alignItems = 'center';
+					area.style.flexWrap = 'nowrap';
+				}
+
+				var instance = {
+					wrap: wrap,
+					toggle: toggle,
+					panel: panel,
+				};
+
+				// The bell stays a plain link without scripting, so the panel only takes over here.
+				toggle.addEventListener( 'click', function( event ) {
+					event.preventDefault();
+
+					if ( panel.hidden ) {
+						self.open( instance );
+					} else {
+						self.close( instance );
+					}
+				} );
+
+				self.instances.push( instance );
+			} );
+
+			if ( ! this.instances.length ) {
 				return;
 			}
 
-			// Keep the shared header area a single row. The stylesheet does this with :has();
-			// this is the same fix for browsers that don't support it.
-			var area = this.wrap.parentElement;
-
-			if ( area && ! ( window.CSS && window.CSS.supports && window.CSS.supports( 'selector(:has(> *))' ) ) ) {
-				area.style.display = 'flex';
-				area.style.alignItems = 'center';
-				area.style.flexWrap = 'nowrap';
-			}
-
-			this.toggle = this.wrap.querySelector( '.hp-notification-bell__toggle' );
-			this.panel = this.wrap.querySelector( '.hp-notification-bell__panel' );
-
-			// The bell stays a plain link without scripting, so the panel only takes over here.
-			this.toggle.addEventListener( 'click', function( event ) {
-				event.preventDefault();
-
-				if ( self.panel.hidden ) {
-					self.open();
-				} else {
-					self.close();
-				}
-			} );
-
+			// One set of document and window listeners walks every instance, rather than one set
+			// per bell piling up handlers.
 			document.addEventListener( 'click', function( event ) {
-				if ( ! self.panel.hidden && ! self.wrap.contains( event.target ) ) {
-					self.close();
-				}
+				self.instances.forEach( function( instance ) {
+					if ( ! instance.panel.hidden && ! instance.wrap.contains( event.target ) ) {
+						self.close( instance );
+					}
+				} );
 			} );
 
 			document.addEventListener( 'keydown', function( event ) {
-				if ( 'Escape' === event.key && ! self.panel.hidden ) {
-					self.close();
-					self.toggle.focus();
+				if ( 'Escape' !== event.key ) {
+					return;
 				}
+
+				self.instances.forEach( function( instance ) {
+					if ( ! instance.panel.hidden ) {
+						self.close( instance );
+						instance.toggle.focus();
+					}
+				} );
 			} );
 
-			// Re-measure while the panel is open. place() ran only on open, so turning a phone with
+			// Re-measure while a panel is open. place() ran only on open, so turning a phone with
 			// the dropdown showing left a coordinate taken in the other orientation: the panel
 			// detached from the bell and floated below it. Crossing the breakpoint the other way
 			// left "top" set on a panel that is no longer fixed, which place() now clears.
 			[ 'resize', 'orientationchange' ].forEach( function( name ) {
 				window.addEventListener( name, function() {
-					if ( ! self.panel.hidden ) {
-						self.place();
-					}
+					self.instances.forEach( function( instance ) {
+						if ( ! instance.panel.hidden ) {
+							self.place( instance );
+						}
+					} );
 				} );
 			} );
 		},
 
-		open: function() {
-			this.panel.hidden = false;
-			this.toggle.setAttribute( 'aria-expanded', 'true' );
+		open: function( instance ) {
+			var self = this;
 
-			this.place();
-			this.load();
+			// One panel at a time: two bells showing the same list twice is clutter, not choice.
+			this.instances.forEach( function( other ) {
+				if ( other !== instance && ! other.panel.hidden ) {
+					self.close( other );
+				}
+			} );
+
+			instance.panel.hidden = false;
+			instance.toggle.setAttribute( 'aria-expanded', 'true' );
+
+			this.place( instance );
+			this.load( instance );
 		},
 
-		close: function() {
-			this.panel.hidden = true;
-			this.toggle.setAttribute( 'aria-expanded', 'false' );
+		close: function( instance ) {
+			instance.panel.hidden = true;
+			instance.toggle.setAttribute( 'aria-expanded', 'false' );
 
 			// Drop the measurement with the panel. It was taken against one viewport, and leaving
 			// it behind means the next open starts from a stale number before place() runs.
-			this.panel.style.top = '';
+			instance.panel.style.top = '';
 		},
 
 		/**
@@ -1004,41 +1043,63 @@
 		 * vertical anchor, though - "top: auto" falls back to the static position, which is not
 		 * dependably under the bell once a theme has laid the header out its own way. So the top is
 		 * measured from the bell itself, which is right whatever the theme does.
+		 *
+		 * Only for a bell in the TOP half of the screen. A bell in the bottom half - the Action
+		 * Bar's - opens its panel upwards, positioned by that bar's own scoped stylesheet, and an
+		 * inline "top" written here would both outrank those rules and pin the panel off the
+		 * bottom of the screen. Leaving the property alone is what lets the bar's CSS win.
 		 */
-		place: function() {
+		place: function( instance ) {
 			if ( ! window.matchMedia || ! window.matchMedia( '(max-width: 47.99em)' ).matches ) {
-				this.panel.style.top = '';
+				instance.panel.style.top = '';
 
 				return;
 			}
 
-			this.panel.style.top = Math.round( this.toggle.getBoundingClientRect().bottom + 8 ) + 'px';
+			var rect = instance.toggle.getBoundingClientRect();
+
+			if ( rect.bottom > window.innerHeight / 2 ) {
+				instance.panel.style.top = '';
+
+				return;
+			}
+
+			instance.panel.style.top = Math.round( rect.bottom + 8 ) + 'px';
 		},
 
-		load: function() {
+		load: function( instance ) {
 			var self = this;
 
-			if ( this.loaded ) {
-				return;
+			// One fetch feeds every panel. The cached promise stands for 30 seconds, so a second
+			// bell opened moments later renders the same data without another round trip.
+			if ( ! this.promise ) {
+				this.promise = request( '/notifications/recent', null, 'GET' ).then( function( response ) {
+					setBadge( response.data.unread );
+
+					// Let the next open fetch fresh data after a while.
+					window.setTimeout( function() {
+						self.promise = null;
+					}, 30000 );
+
+					return response.data.notifications;
+				} ).catch( function( error ) {
+
+					// A failed fetch must not be cached, or every bell would show the error until
+					// the page was reloaded. Clearing it means closing and reopening tries again.
+					self.promise = null;
+
+					throw error;
+				} );
 			}
 
-			request( '/notifications/recent', null, 'GET' ).then( function( response ) {
-				self.loaded = true;
-
-				setBadge( response.data.unread );
-				self.render( response.data.notifications );
-
-				// Let the next open fetch fresh data after a while.
-				window.setTimeout( function() {
-					self.loaded = false;
-				}, 30000 );
+			this.promise.then( function( notifications ) {
+				self.render( instance, notifications );
 			} ).catch( function() {
 
 				// Say so rather than sitting on "Loading…" for ever. An expired nonce, an offline
 				// phone or a 500 all land here, and this was the one place in the file that entered
-				// a visible in-progress state with no way out of it. "loaded" is still false, so
-				// closing and reopening the bell tries again.
-				var body = self.wrap.querySelector( '[data-component="notification-bell-body"]' );
+				// a visible in-progress state with no way out of it.
+				var body = instance.wrap.querySelector( '[data-component="notification-bell-body"]' );
 
 				if ( body ) {
 					body.innerHTML = '';
@@ -1052,8 +1113,8 @@
 			} );
 		},
 
-		render: function( notifications ) {
-			var body = this.wrap.querySelector( '[data-component="notification-bell-body"]' );
+		render: function( instance, notifications ) {
+			var body = instance.wrap.querySelector( '[data-component="notification-bell-body"]' );
 
 			body.innerHTML = '';
 
@@ -1212,10 +1273,49 @@
 	}
 
 	/**
+	 * Waits until a registration has an active worker.
+	 *
+	 * register() resolves as soon as the registration exists, while the worker itself can still be
+	 * installing - and pushManager.subscribe() on a registration with no active worker rejects.
+	 * That is what made enabling push a two-click affair: the first click registered the worker and
+	 * then failed to subscribe, and only the second click, finding the worker active by then,
+	 * succeeded. Waiting here makes the first click carry all the way through.
+	 *
+	 * @param {ServiceWorkerRegistration} registration Registration to wait on.
+	 * @return {Promise}
+	 */
+	function waitForActiveWorker( registration ) {
+		if ( registration.active ) {
+			return Promise.resolve( registration );
+		}
+
+		return new Promise( function( resolve ) {
+			var worker = registration.installing || registration.waiting;
+
+			// Nothing to wait on; let subscribe() report whatever is really wrong.
+			if ( ! worker ) {
+				resolve( registration );
+
+				return;
+			}
+
+			var check = function() {
+				if ( 'activated' === worker.state || 'redundant' === worker.state ) {
+					worker.removeEventListener( 'statechange', check );
+					resolve( registration );
+				}
+			};
+
+			worker.addEventListener( 'statechange', check );
+			check();
+		} );
+	}
+
+	/**
 	 * Registers the worker and subscribes the browser to push.
 	 */
 	function subscribePush() {
-		return window.navigator.serviceWorker.register( settings.push.worker, { scope: '/' } ).then( function( registration ) {
+		return window.navigator.serviceWorker.register( settings.push.worker, { scope: '/' } ).then( waitForActiveWorker ).then( function( registration ) {
 			return registration.pushManager.subscribe( {
 				userVisibleOnly: true,
 				applicationServerKey: decodeKey( settings.push.key )
@@ -1879,6 +1979,100 @@
 	}
 
 	/**
+	 * Folds each notification group on the settings page behind its own heading.
+	 *
+	 * The Notification Settings form is one checkbox group per source - Listings, Bookings,
+	 * Messages and so on - and with a dozen sources the page was a wall of tick boxes with the
+	 * quiet hours and the save button somewhere below it. Each group collapses to its heading
+	 * with a ticked-count, so the page reads as a list of areas and only the one being changed
+	 * is open. Everything stays in the DOM, merely hidden, so the form still posts every value
+	 * and nothing changes server-side.
+	 *
+	 * Without scripting the form renders fully expanded, which is the right fallback.
+	 */
+	function initSettingsCollapse() {
+		var form = document.querySelector( 'form[action*="/notifications/preferences"]' );
+
+		if ( ! form ) {
+			return;
+		}
+
+		Array.prototype.forEach.call( form.querySelectorAll( '.hp-form__field--checkboxes' ), function( field ) {
+			var label = field.querySelector( '.hp-field__label' );
+
+			if ( ! label ) {
+				return;
+			}
+
+			// Everything after the heading folds: the description where a group has one, and the
+			// checkbox list itself.
+			var parts = [];
+			var node = label.nextElementSibling;
+
+			while ( node ) {
+				parts.push( node );
+
+				node = node.nextElementSibling;
+			}
+
+			var boxes = field.querySelectorAll( 'input[type="checkbox"]' );
+
+			if ( ! parts.length || ! boxes.length ) {
+				return;
+			}
+
+			field.classList.add( 'hp-nfh-fold' );
+
+			// "3/4" beside the heading, so a closed group still says how much of it is on. Digits
+			// only, deliberately: a worded phrase here would need translating, and the count is
+			// legible in any language as it stands.
+			var count = document.createElement( 'span' );
+			count.className = 'hp-nfh-fold__count';
+
+			var chevron = document.createElement( 'i' );
+			chevron.className = 'hp-icon fas fa-chevron-down hp-nfh-fold__chevron';
+
+			label.appendChild( count );
+			label.appendChild( chevron );
+
+			// The label is not bound to an input (no "for"), so making it the toggle takes nothing
+			// away; role and tabindex give keyboards and screen readers the same control.
+			label.setAttribute( 'role', 'button' );
+			label.setAttribute( 'tabindex', '0' );
+
+			function recount() {
+				count.textContent = field.querySelectorAll( 'input[type="checkbox"]:checked' ).length + '/' + boxes.length;
+			}
+
+			function setOpen( open ) {
+				label.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+				field.classList.toggle( 'hp-nfh-fold--open', open );
+
+				parts.forEach( function( part ) {
+					part.hidden = ! open;
+				} );
+			}
+
+			recount();
+			setOpen( false );
+
+			label.addEventListener( 'click', function() {
+				setOpen( 'false' === label.getAttribute( 'aria-expanded' ) );
+			} );
+
+			label.addEventListener( 'keydown', function( event ) {
+				if ( 'Enter' === event.key || ' ' === event.key ) {
+					event.preventDefault();
+
+					label.click();
+				}
+			} );
+
+			field.addEventListener( 'change', recount );
+		} );
+	}
+
+	/**
 	 * Starts once the document is ready.
 	 */
 	function init() {
@@ -1887,11 +2081,12 @@
 		}
 
 		bindList();
-		Bell.init();
+		Bells.init();
 		initPush();
 		initPushButton();
 		initReviewDeepLink();
 		initSticky();
+		initSettingsCollapse();
 
 		if ( settings.sound ) {
 			document.addEventListener( 'pointerdown', function unlock() {

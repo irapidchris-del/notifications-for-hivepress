@@ -82,7 +82,11 @@ function hpShow( data ) {
 	// used, and the site icon remains the fallback and the small monochrome badge either way.
 	var image = data && data.image && /^https?:\/\//i.test( data.image ) ? data.image : '';
 
-	return self.registration.showNotification( hpSettings.title, {
+	// A title the admin wrote for this notification type wins; otherwise the site name stays, which
+	// is what identifies the sender on an operating-system notification.
+	var title = data && data.title ? data.title : hpSettings.title;
+
+	return self.registration.showNotification( title, {
 		body: data && data.text ? data.text : hpSettings.text,
 		icon: image || hpSettings.icon || undefined,
 		badge: hpSettings.icon || undefined,
