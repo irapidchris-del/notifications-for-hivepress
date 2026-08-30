@@ -2534,15 +2534,43 @@ final class Hpnf_Notification extends Component {
 	/**
 	 * Adds the newer Font Awesome and brand icons to the icons config.
 	 *
-	 * The config feeds every "options => icons" picker, so the bell picker and core's attribute
-	 * pickers all gain the same choices. Keys match values, the shape of core's own config, and
-	 * the merged list is re-sorted so the additions interleave alphabetically rather than
-	 * trailing at the end.
+	 * Keys match values, the shape of core's own config, and the merged list is re-sorted so the
+	 * additions interleave alphabetically rather than trailing at the end.
+	 *
+	 * SCOPED ON PURPOSE - do not remove the gate. `hivepress/v1/icons` filters the SHARED icons
+	 * config (reference/hivepress/includes/class-core.php:412-433), which feeds every
+	 * "options => icons" picker on the site: this plugin's bell, core's listing-attribute icons
+	 * and the listing-category Icon field that ExpertHive, JobHive and MeetingHive add
+	 * (themes/experthive/includes/components/class-theme.php:253-280). This plugin only enqueues
+	 * its bundled Font Awesome 7 on its own settings tab and, on the front end, when the BELL
+	 * itself uses an extended name - so anywhere else the names were offered they could not be
+	 * drawn.
+	 *
+	 * Measured on hivepress-dev 2026-08-30, ExpertHive, front page, logged out, with the sibling
+	 * plugins that also bundle Font Awesome switched off: a category set to `house-chimney`
+	 * rendered `<i class="hp-icon fas fa-house-chimney">` whose ::before computed
+	 * `content: none` - Font Awesome 5 has no such rule, so the element was EMPTY. A category set
+	 * to the brand `stripe` did have a rule (the FA5 CSS carries the brand codepoints) but drew
+	 * into "Font Awesome 5 Free" weight 900, which holds no glyph there: an inked-pixel count of
+	 * the rendered character came back at 0 px, against 1,038 px for the FA5 control `home`. Both
+	 * cards showed an empty tile on the front page. The bug hid on this site for a day because
+	 * Action Bar enqueues the SAME shared `freestylr-fontawesome` handle on the front end, so
+	 * whichever sibling happens to be active decided whether another plugin's icons appeared.
+	 *
+	 * The theme hard-codes `fas fa-{name}` in its category template, so a brand name could never
+	 * render there even with the stylesheet loaded - it would need the `fa-brands` family too.
+	 * That is why the fix is to stop offering the names rather than to load the font site-wide:
+	 * offering a choice that cannot be drawn is the defect, and 307 KB of fonts on every page of
+	 * every site would not have fixed the brand half of it anyway.
 	 *
 	 * @param array $icons Icons config.
 	 * @return array
 	 */
 	public function add_icons( $icons ) {
+		if ( ! $this->is_own_settings_screen() ) {
+			return $icons;
+		}
+
 		foreach ( array_merge( $this->get_extra_solid_icons(), $this->get_brand_icons() ) as $name ) {
 			if ( ! isset( $icons[ $name ] ) ) {
 				$icons[ $name ] = $name;
@@ -2552,6 +2580,53 @@ final class Hpnf_Notification extends Component {
 		ksort( $icons );
 
 		return $icons;
+	}
+
+	/**
+	 * Whether this request is building this plugin's own HivePress settings tab.
+	 *
+	 * This is the twin of is_settings_tab() below and exists because that one cannot be used here.
+	 * is_settings_tab() reads $GLOBALS['wp_settings_fields'], which core fills during
+	 * register_settings() - and register_settings() is the very thing that builds the fields and
+	 * therefore asks for the icons config, so at the moment this filter runs that global is still
+	 * empty. Asking it here would always answer false and the bell picker would lose its own
+	 * icons.
+	 *
+	 * So the tab is resolved the way core resolves it (class-admin.php:277 and :606-621),
+	 * including two details that are easy to miss:
+	 *
+	 * - `options.php` must be allowed through, or SAVING the tab would validate the chosen bell
+	 *   icon against a list that no longer contains it and silently reset it.
+	 * - the tab falls back to the FIRST tab when "tab" is absent, which is what the bare
+	 *   admin.php?page=hp_settings link in the HivePress menu is. Core's own settings form posts
+	 *   to options.php?tab={tab}, so the parameter is present on save.
+	 *
+	 * @return bool
+	 */
+	protected function is_own_settings_screen() {
+		global $pagenow;
+
+		if ( ! is_admin() ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading the address to identify the admin screen being rendered, not processing submitted data.
+		$hp_page = (string) hp\get_array_value( $_GET, 'page' );
+
+		if ( 'options.php' !== $pagenow && ! ( 'admin.php' === $pagenow && 'hp_settings' === $hp_page ) ) {
+			return false;
+		}
+
+		$hp_tabs = array_keys( hp\sort_array( hivepress()->get_config( 'settings' ) ) );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading the address to identify the admin screen being rendered, not processing submitted data.
+		$hp_tab = (string) hp\get_array_value( $_GET, 'tab' );
+
+		if ( ! in_array( $hp_tab, $hp_tabs, true ) ) {
+			$hp_tab = (string) hp\get_first_array_value( $hp_tabs );
+		}
+
+		return 'notifications' === $hp_tab;
 	}
 
 	/**

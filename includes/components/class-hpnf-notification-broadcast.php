@@ -644,7 +644,15 @@ final class Hpnf_Notification_Broadcast extends Component {
 			}
 
 			/* The tooltip is positioned relative to its icon, and the widget clips at its edges,
-			 * so the bubble is pulled back inside rather than disappearing under the card. */
+			 * so the bubble is pulled back inside rather than disappearing under the card.
+			 *
+			 * The max-width here is deliberately a CAP, not a widening, and it is currently
+			 * inert: core sets a fixed `width: 173px` on .hp-tooltip__text
+			 * (hivepress/assets/css/backend.min.css), which is already below 240px. Do NOT
+			 * "fix" it to `width` the way the settings screens were fixed on 2026-08-30 - in
+			 * this clipped widget that would make the bubble wider than the card, which is the
+			 * problem the rule above exists to solve. Left in place so the cap still applies if
+			 * core ever stops setting a fixed width. */
 			.hp-broadcast--compact .hp-tooltip__text {
 				right: auto;
 				left: 0;

@@ -508,10 +508,29 @@ form.hp-form--table:has([name^="hp_notification_"]) > p {
 	max-width: 62em;
 }
 
-/* The tooltip bubble is 173px wide in core, which turns even a two-sentence description into a
+/* The tooltip bubble is 173px wide in core,
+which turns even a two-sentence description into a
  * tall ribbon. Widen it for this tab's tooltips only. */
 form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text {
 	width: 300px;
+	right: auto;
+	left: 26px;
+}
+
+/* Anchored to the RIGHT of the icon, with the arrow turned round.
+ * Core anchors it left (`right: 26px`) and sizes it to just clear the
+ * WordPress admin menu at its own 173px. Widening it therefore pushes it
+ * UNDER the menu: at 300px the left edge lands at 46px against a menu edge
+ * of 160px, so 114px of the bubble is hidden. Growing rightwards instead
+ * leaves 1000px+ of room on a settings screen. Measured 2026-08-30. */
+/* The tooltip bubble is 173px wide in core::after,
+which turns even a two-sentence description into a
+ * tall ribbon. Widen it for this tab's tooltips only. */
+form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
+	right: auto;
+	left: -8px;
+	border-left-color: transparent;
+	border-right-color: rgba(0, 0, 0, 0.75);
 }
 
 /* --------------------------------------------------------------------------

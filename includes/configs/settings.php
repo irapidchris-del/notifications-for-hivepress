@@ -87,6 +87,13 @@ return [
 						// rendered as live previews in Select2 - the same control core uses for
 						// attribute icons. Children must sort after their parent checkbox (order
 						// 40), or the show-and-hide reveals them above it.
+						//
+						// That filter is SCOPED to this settings tab (Notification::add_icons),
+						// because the icons config is shared with every other picker on the site
+						// and this plugin loads its Font Awesome only for the bell. Before the
+						// scope was added, a category icon set to one of the added names rendered
+						// as an empty tile for visitors. Read the docblock on add_icons() before
+						// changing either half.
 						'options'     => 'icons',
 						'_parent'     => 'notification_bell',
 						'_order'      => 41,

@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.6
+Stable tag: 1.5.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -175,6 +175,16 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 == Changelog ==
 
+= 1.5.7 =
+* Fixed: the newer Font Awesome icons and the brand icons this extension adds were being offered
+  everywhere an icon can be chosen, including your listing category icons and your listing
+  attribute icons, and they showed as an empty space there because this extension only loads the
+  Font Awesome stylesheet for its own bell. Choosing one for a category left visitors looking at a
+  blank tile. They are now offered only where the bell icon is chosen, on this extension's own
+  settings tab, so every icon you can pick is one that will actually appear. If you had already
+  chosen one of them for a category or an attribute, pick a different icon from the list; it was
+  showing as blank before this release.
+
 = 1.5.6 =
 * Housekeeping only: nothing on your settings screen has moved, changed or
   behaves differently. The settings-screen code this extension shares with the
@@ -240,8 +250,10 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
   setting descriptions that wrap at a readable width. The hover tooltips are wider too, so their
   text no longer breaks into ragged slivers.
 * Added: separate corner radius options for each corner of the pinned (sticky) header.
-* Added: newer Font Awesome solid icons and the brand icons to the bell icon picker, loading the
-  official Font Awesome stylesheet only when one of them is chosen, plus a Bell Icon Weight option.
+* Added: newer Font Awesome solid icons and the brand icons for the bell, loading the official
+  Font Awesome stylesheet only when one of them is chosen, plus a Bell Icon Weight option. (These
+  also appeared in HivePress's other icon pickers, where they showed as a blank space; corrected
+  in 1.5.7.)
 * Changed: the glass effect now also applies to the menus that drop down from the pinned header,
   including the bell dropdown.
 * Changed: the "(User)" and "(Vendor)" labels HivePress puts on paired emails no longer show to
