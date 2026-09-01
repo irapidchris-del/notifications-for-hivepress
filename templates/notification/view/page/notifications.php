@@ -57,17 +57,17 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 			// the script has no way to rebuild one that was never printed.
 			?>
 			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-read-all" <?php echo $notification_unread ? '' : 'hidden'; ?>>
-				<i class="hp-icon fas fa-check-double"></i>
+				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'check-double' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 				<span><?php esc_html_e( 'Mark all as read', 'notifications-for-hivepress' ); ?></span>
 			</button>
 
 			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-delete-read" <?php echo $notification_total ? '' : 'hidden'; ?>>
-				<i class="hp-icon fas fa-trash"></i>
+				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'trash' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 				<span><?php esc_html_e( 'Clear read', 'notifications-for-hivepress' ); ?></span>
 			</button>
 
 			<a class="hp-button button button--secondary hp-notifications__action" href="<?php echo esc_url( hivepress()->router->get_url( 'notification_settings_page' ) ); ?>">
-				<i class="hp-icon fas fa-cog"></i>
+				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'cog' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 				<span><?php esc_html_e( 'Settings', 'notifications-for-hivepress' ); ?></span>
 			</a>
 		</div>
@@ -128,7 +128,7 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 								<?php if ( $hp_image ) : ?>
 									<img src="<?php echo esc_url( $hp_image ); ?>" alt="" loading="lazy">
 								<?php else : ?>
-									<i class="hp-icon fas fa-<?php echo esc_attr( $hp_icon ); ?>"></i>
+									<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( $hp_icon ), hivepress()->hpnf_notification->icon_kses() ); ?>
 								<?php endif; ?>
 							</div>
 
@@ -145,7 +145,7 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 								<?php if ( $hp_url ) : ?>
 									<a class="hp-notification__link" href="<?php echo esc_url( $hp_url ); ?>">
 										<span><?php echo esc_html( hivepress()->hpnf_notification->get_type_link_text( $hp_notification->get_type() ) ); ?></span>
-										<i class="hp-icon fas fa-chevron-right"></i>
+										<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'chevron-right' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 									</a>
 								<?php endif; ?>
 
@@ -170,11 +170,11 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 								$hp_toggle_label = $hp_read ? esc_html__( 'Mark as unread', 'notifications-for-hivepress' ) : esc_html__( 'Mark as read', 'notifications-for-hivepress' );
 								?>
 								<button type="button" class="hp-notification__toggle" data-component="notification-toggle" aria-label="<?php echo esc_attr( $hp_toggle_label ); ?>" title="<?php echo esc_attr( $hp_toggle_label ); ?>">
-									<i class="hp-icon fas fa-<?php echo $hp_read ? 'envelope' : 'check'; ?>"></i>
+									<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( $hp_read ? 'envelope' : 'check' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 								</button>
 
 								<button type="button" class="hp-notification__delete" data-component="notification-delete" aria-label="<?php esc_attr_e( 'Delete notification', 'notifications-for-hivepress' ); ?>">
-									<i class="hp-icon fas fa-times"></i>
+									<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'times' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 								</button>
 							</div>
 						</li>
@@ -206,8 +206,8 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 					'add_args'  => $hp_args ? $hp_args : false,
 					'type'      => 'plain',
 					'mid_size'  => 1,
-					'prev_text' => '<i class="hp-icon fas fa-chevron-left"></i>',
-					'next_text' => '<i class="hp-icon fas fa-chevron-right"></i>',
+					'prev_text' => hivepress()->hpnf_notification->get_icon_markup( 'chevron-left' ),
+					'next_text' => hivepress()->hpnf_notification->get_icon_markup( 'chevron-right' ),
 				]
 			);
 
@@ -226,7 +226,7 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 		?>
 	<?php else : ?>
 		<div class="hp-notifications__empty">
-			<i class="hp-icon fas fa-inbox"></i>
+			<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'inbox' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 
 			<?php if ( $hp_filtered ) : ?>
 				<p><?php esc_html_e( 'Nothing matches that.', 'notifications-for-hivepress' ); ?></p>

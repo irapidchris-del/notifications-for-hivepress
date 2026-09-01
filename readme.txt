@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.7
+Stable tag: 1.5.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,19 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.5.13 =
+* Changed: icons are now drawn directly into the page instead of being loaded as a font. A
+  visitor's browser no longer downloads roughly 230 KB of stylesheet and font files just to show
+  a few small pictures, and the icons can no longer clash with the icon font HivePress loads
+  itself. Your colour and size settings work exactly as before.
+* Added: every icon in the free Font Awesome 7 set is now available, brand icons included, which
+  is around 800 more than before. Type a few letters to find one rather than scrolling a long
+  list, and each result still shows you the icon itself.
+* Changed: the settings screen loads a great deal faster, because the icon choices are fetched as
+  you search instead of every one of them being written into the page.
+* Fixed: three of the icons used by the insight notifications, the magnifying glass and the two
+  trend arrows, showed as an empty space on most sites. They now draw correctly.
 
 = 1.5.7 =
 * Fixed: the newer Font Awesome icons and the brand icons this extension adds were being offered
@@ -447,7 +460,7 @@ Plugins-screen fixes.
   of the other buttons in your theme, which is what most sites want; set 0 for square corners.
 * Fixed: characters such as a pound sign no longer appear as their HTML code in a pop-up, in the
   header bell or in a notification shown by the phone itself. An order total that read
-  "Total &amp;pound;10.00" now reads "Total £10.00" everywhere. The wording is decoded as it is shown,
+  "Total &amp;pound;10.00" now reads "Total Â£10.00" everywhere. The wording is decoded as it is shown,
   so notifications saved before this update are corrected too.
 * For developers: the prefix rename changes these public hook names, each gaining an hpnf_ prefix
   on its last part - `hivepress/v1/forms/notification_update` (and `/meta`) is now

@@ -2554,7 +2554,7 @@ final class Hpnf_Notification extends Component {
 	 * into "Font Awesome 5 Free" weight 900, which holds no glyph there: an inked-pixel count of
 	 * the rendered character came back at 0 px, against 1,038 px for the FA5 control `home`. Both
 	 * cards showed an empty tile on the front page. The bug hid on this site for a day because
-	 * Action Bar enqueues the SAME shared `freestylr-fontawesome` handle on the front end, so
+	 * Action Bar enqueues the SAME shared `fafh-fontawesome` handle on the front end, so
 	 * whichever sibling happens to be active decided whether another plugin's icons appeared.
 	 *
 	 * The theme hard-codes `fas fa-{name}` in its category template, so a brand name could never
@@ -2661,6 +2661,143 @@ final class Hpnf_Notification extends Component {
 	 *
 	 * @return string
 	 */
+	/**
+	 * Icons the front-end script draws on its own, rather than from a payload.
+	 *
+	 * Chrome: chevrons, the close and tick controls, the read/unread flip, and
+	 * the fallback bell. Localised once per page so the script never has to ask
+	 * for one. Keep in step with assets/js/frontend.js -- a name used there but
+	 * missing here draws nothing at all.
+	 *
+	 * @var array
+	 */
+	const SCRIPT_ICONS = [
+		'bell',
+		'check',
+		'check-double',
+		'chevron-down',
+		'chevron-left',
+		'chevron-right',
+		'cog',
+		'envelope',
+		'times',
+		'trash',
+	];
+
+	/**
+	 * Compact glyph data for a set of icon names, for handing to a script.
+	 *
+	 * Returns canonical name => "viewBox|path". Unknown names are dropped, so a
+	 * consumer can treat a missing key as "no icon" without a second check.
+	 *
+	 * @param array $names Icon names, canonical or Font Awesome 5 era.
+	 * @return array
+	 */
+	public function get_icon_pairs( $names ) {
+		if ( ! class_exists( 'FAFH' ) ) {
+			return [];
+		}
+
+		$wanted = [];
+
+		foreach ( array_unique( array_filter( (array) $names ) ) as $name ) {
+			// Brand names live in their own family, and a bare name would resolve
+			// to solid first, so the style is stated rather than guessed.
+			$wanted[ (string) $name ] = $this->is_brand_icon( (string) $name ) ? 'brands' : 'solid';
+		}
+
+		return \FAFH::map( $wanted );
+	}
+
+	/**
+	 * Allowed tags for echoing get_icon_markup() output.
+	 *
+	 * The markup is built by this plugin from bundled data, never from user
+	 * input, but templates still pass it through wp_kses() so the escaping
+	 * sniff has something to see and a future edit cannot quietly widen it.
+	 *
+	 * @return array
+	 */
+	public function icon_kses() {
+		if ( class_exists( 'FAFH' ) ) {
+			return \FAFH::kses();
+		}
+
+		return [
+			'i' => [
+				'class'       => true,
+				'aria-hidden' => true,
+			],
+		];
+	}
+
+	/**
+	 * Markup for one icon, as inline SVG where the library is available.
+	 *
+	 * Keeps `hp-icon`, which is core's own class and carries the sizing and
+	 * spacing every one of these icons inherits. Falls back to the class markup
+	 * if the library is missing, so a broken include degrades to the previous
+	 * behaviour rather than to a blank space.
+	 *
+	 * @param string $icon    Icon name, or a full Font Awesome class string.
+	 * @param string $classes Extra classes for the wrapper.
+	 * @return string
+	 */
+	public function get_icon_markup( $icon, $classes = '' ) {
+		$icon = (string) $icon;
+
+		if ( '' === $icon ) {
+			return '';
+		}
+
+		$wrapper = trim( 'hp-icon ' . $classes );
+
+		if ( class_exists( 'FAFH' ) ) {
+			$svg = \FAFH::svg( $icon );
+
+			if ( $svg ) {
+				return '<i class="' . esc_attr( trim( $wrapper . ' fafh-icon' ) ) . '" aria-hidden="true">' . $svg . '</i>';
+			}
+		}
+
+		// A bare name needs the family class the old markup carried.
+		$class = false === strpos( $icon, 'fa-' ) ? $this->get_icon_class( $icon ) : $icon;
+
+		return '<i class="' . esc_attr( trim( $wrapper . ' ' . $class ) ) . '" aria-hidden="true"></i>';
+	}
+
+	/**
+	 * Font Awesome classes for one icon name.
+	 *
+	 * Only used by the fallback path in get_icon_markup(); the SVG path needs no
+	 * family class at all.
+	 *
+	 * @param string $icon Bare icon name.
+	 * @return string
+	 */
+	public function get_icon_class( $icon ) {
+		if ( $this->is_brand_icon( $icon ) ) {
+			return 'fa-brands fa-' . $icon;
+		}
+
+		if ( $this->is_extended_icon( $icon ) ) {
+			return 'fa-solid fa-' . $icon;
+		}
+
+		return 'fas fa-' . $icon;
+	}
+
+	/**
+	 * Font Awesome classes for the configured header-bell icon.
+	 *
+	 * Only the fallback path needs this now: get_icon_markup() draws the bell as
+	 * inline SVG, which carries no family class at all. Kept because the bell
+	 * icon can be a brand, an added Font Awesome 6/7 solid name, or one of the
+	 * Font Awesome 5 names core's own stylesheet already covers, and each of the
+	 * three needs a different class when a font is drawing it.
+	 *
+	 * @return string
+	 */
 	public function get_bell_icon_class() {
 		$icon = $this->get_bell_icon();
 
@@ -2684,47 +2821,14 @@ final class Hpnf_Notification extends Component {
 	 * already ships loads nothing extra at all.
 	 */
 	protected function register_fontawesome() {
-		if ( ! wp_style_is( 'freestylr-fontawesome', 'registered' ) ) {
+		// The webfont lives inside FAFH now and is wanted in wp-admin only, for
+		// the picker previews. FAFH also loads the sheet that re-points brand
+		// names at the brands family, which is what the $hp_brand_css block below
+		// used to do by hand -- that block is now the fallback, not the norm.
+		if ( class_exists( 'FAFH' ) ) {
+			\FAFH::enqueue_admin();
 
-			// After core's FA5 solid sheet wherever both load, so the newer sheet's own ".fas"
-			// rules win and the newer names resolve to the newer font.
-			$deps = wp_style_is( 'fontawesome-solid', 'registered' ) ? [ 'fontawesome-solid' ] : [];
-
-			/*
-			 * Font Awesome 7.1.0 Free is BUNDLED, in assets/vendor/fontawesome/. Never point this
-			 * at cdnjs or any other CDN. A convenience CDN copy of a library is the exact case the
-			 * offloaded-assets rule exists to catch (resources/security-standards.md, "Offloaded
-			 * assets" - a remote asset is only acceptable when it is a service's own required SDK
-			 * from that service's own domain), Plugin Check reported EnqueuedResourceOffloading on
-			 * every plugin that did it, and Chris ruled on 2026-08-30 that the files ship with the
-			 * plugin. It is also faster: cache partitioning (Chrome 86+, Firefox, Safari) means a
-			 * CDN copy is a cold download for every site anyway, plus a DNS lookup and TLS
-			 * handshake to a third origin.
-			 *
-			 * Layout matters. assets/vendor/fontawesome/css/all.min.css sits beside
-			 * assets/vendor/fontawesome/webfonts/, so the stock "../webfonts/" paths inside the
-			 * upstream CSS resolve unchanged. Three faces ship - fa-solid-900.woff2,
-			 * fa-brands-400.woff2 and fa-regular-400.woff2 - and only the v4-compatibility
-			 * @font-face block was removed from the CSS, so nothing can request a file that is not
-			 * there. The regular face is NOT optional, and it costs ~19 KB: with no weight-400
-			 * face declared the browser silently substitutes the weight-900 solid one, so a far /
-			 * fa-regular name draws a FILLED glyph instead of an outline. That shipped between
-			 * 2026-08-29 and 2026-08-30 and read as somebody picking the wrong icon rather than as
-			 * a missing font, which is why it survived a whole day.
-			 *
-			 * Pinned to 7.1.0, and every plugin sharing this handle must pin the identical
-			 * version, because only the first registration of a shared handle wins, so a differing
-			 * pin here would change which version the whole site gets by load order. 7.1.0 keeps
-			 * the FA5 "fas"/"fab" alias classes, so the older icon names keep working.
-			 * Full rule: resources/hivepress-ui.md, "FA6/7 and brand icons: bundle them, never
-			 * load a CDN copy (2026-08-30)".
-			 */
-			wp_register_style(
-				'freestylr-fontawesome',
-				plugin_dir_url( HP_NOTIFICATIONS_FILE ) . 'assets/vendor/fontawesome/css/all.min.css',
-				$deps,
-				'7.1.0'
-			);
+			return;
 		}
 	}
 
@@ -2833,20 +2937,12 @@ final class Hpnf_Notification extends Component {
 		 * exactly the brand names this plugin adds at the brands family. Brand and solid names
 		 * never overlap in Font Awesome, so nothing legitimate is re-pointed.
 		 */
+		// The brand CSS this block used to generate is gone with the webfont.
+		// It re-pointed brand NAMES at the brands font family, because core
+		// previews every option as `fas fa-{id}` and a brand glyph is not in the
+		// solid font. An SVG has no font family to be wrong about, so the whole
+		// problem disappeared rather than being solved somewhere else.
 		$this->register_fontawesome();
-		wp_enqueue_style( 'freestylr-fontawesome' );
-
-		$hp_brand_css = implode(
-			',',
-			array_map(
-				function( $name ) {
-					return '.fa-' . $name;
-				},
-				$this->get_brand_icons()
-			)
-		) . '{font-family:var(--fa-style-family-brands, "Font Awesome 7 Brands") !important;font-weight:400 !important;}';
-
-		wp_add_inline_style( 'freestylr-fontawesome', $hp_brand_css );
 
 		// The shared settings chrome and the collapsible groups on the Notifications tab. The
 		// script keeps its own hp_notification_* gate as a belt and braces, but the tab check above
@@ -3891,12 +3987,17 @@ final class Hpnf_Notification extends Component {
 			wp_add_inline_style( 'hivepress-notifications', $styles );
 		}
 
-		// Load the pinned Font Awesome only when the chosen bell icon actually needs it: the added solid
-		// names and the brands are not in the FA5 set HivePress enqueues, so without this they
-		// render as a blank space. A site on the bundled icons makes no CDN request.
-		if ( get_option( 'hp_notification_bell' ) && $this->is_extended_icon( $this->get_bell_icon() ) ) {
+		// Icons are inline SVG on the front end, so what the page needs is FAFH's
+		// tiny sizing sheet and NOT the ~234 KB webfont. This used to load the
+		// webfont whenever the BELL icon was an extended name, which also meant
+		// three notification type icons that are FA6/7 names -- magnifying-glass,
+		// arrow-trend-up and arrow-trend-down -- drew an empty tile on any site
+		// whose bell was a plain FA5 name. Inline SVG fixes that as a side effect.
+		if ( class_exists( 'FAFH' ) ) {
+			\FAFH::enqueue_style();
+		} elseif ( get_option( 'hp_notification_bell' ) && $this->is_extended_icon( $this->get_bell_icon() ) ) {
+			// Fallback only: without the library there is no SVG to draw.
 			$this->register_fontawesome();
-			wp_enqueue_style( 'freestylr-fontawesome' );
 		}
 
 		// Add script data. This is localized whether or not pop-ups are enabled, because the
@@ -3912,6 +4013,11 @@ final class Hpnf_Notification extends Component {
 			'hpNotificationsData',
 			[
 				'config' => [
+					// Canonical name => "viewBox|path" for the icons the script
+					// draws itself. Payload icons are NOT here: they arrive in the
+					// REST envelope that references them, because a notification
+					// type can name any icon and the types filter is public.
+					'icons'          => $this->get_icon_pairs( self::SCRIPT_ICONS ),
 					'apiURL'         => esc_url_raw( rest_url( 'hivepress/v1' ) ),
 					'apiNonce'       => wp_create_nonce( 'wp_rest' ),
 					'toasts'         => (bool) get_option( 'hp_notification_toasts', true ),
@@ -4023,7 +4129,7 @@ final class Hpnf_Notification extends Component {
 		$output .= '<div class="hp-notification-bell" data-component="notification-bell">';
 
 		$output .= '<a href="' . esc_url( hivepress()->router->get_url( 'notifications_view_page' ) ) . '" class="hp-notification-bell__toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . esc_attr__( 'Notifications', 'notifications-for-hivepress' ) . '">';
-		$output .= '<i class="hp-icon ' . esc_attr( $this->get_bell_icon_class() ) . '"></i>';
+		$output .= $this->get_icon_markup( $this->get_bell_icon() );
 
 		if ( $count ) {
 			$output .= '<small>' . esc_html( number_format_i18n( $count ) ) . '</small>';
@@ -4201,7 +4307,16 @@ final class Hpnf_Notification extends Component {
 		$weight_option = (string) get_option( 'hp_notification_bell_weight', 'normal' );
 
 		if ( get_option( 'hp_notification_bell' ) && isset( $strokes[ $weight_option ] ) ) {
-			$output .= '.hp-notification-bell .hp-notification-bell__toggle i{-webkit-text-stroke:' . $strokes[ $weight_option ] . ' currentColor;paint-order:stroke fill;}';
+			/*
+			 * Two declarations because there are two renderers. -webkit-text-stroke
+			 * thickens a FONT glyph and does nothing to an SVG; stroke/stroke-width do
+			 * the reverse. Both are inherited, so the <i> carries them and whichever
+			 * one drew the bell picks its pair up. The SVG's path sets
+			 * vector-effect="non-scaling-stroke", without which stroke-width would be
+			 * read in user units (1/512 em, every Font Awesome viewBox being
+			 * "0 0 W 512") and 0.3px would be invisible.
+			 */
+			$output .= '.hp-notification-bell .hp-notification-bell__toggle i{-webkit-text-stroke:' . $strokes[ $weight_option ] . ' currentColor;stroke:currentColor;stroke-width:' . $strokes[ $weight_option ] . ';paint-order:stroke fill;}';
 		}
 
 		/*

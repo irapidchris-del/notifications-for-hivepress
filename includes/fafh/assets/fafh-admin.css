@@ -1,0 +1,53 @@
+/* FAFH admin shim.
+ *
+ * Sizes the SVGs that fafh-admin.js swaps in for Font Awesome's webfont glyphs.
+ * The elements it converts were written expecting a FONT, so they inherit their
+ * size from font-size and their colour from color -- which is exactly what an
+ * SVG at 1em with fill:currentColor reproduces. */
+
+/* The element this shim converts KEEPS its `fas fa-star` classes, because they
+ * carry layout (fa-fw) and because the plugins that wrote them have not all
+ * been migrated. HivePress core enqueues its Font Awesome 5 in wp-admin as well
+ * as on the front end (hivepress/includes/configs/styles.php:14-18,
+ * scope frontend+backend), so those classes still draw a ::before glyph -- and
+ * the converted element ends up showing TWO icons, the font one beside the SVG.
+ *
+ * Seen in the Trust Signals icon picker on staging, 2026-09-01: every option in
+ * the dropdown had a doubled glyph. Suppressing the pseudo-elements is the fix;
+ * stripping the classes instead would take fa-fw's spacing with it. */
+.fafh-icon::before,
+.fafh-icon::after {
+	content: none !important;
+}
+
+.fafh-icon {
+	display: inline-block;
+	line-height: 1;
+	vertical-align: -0.125em;
+}
+
+.fafh-icon .fafh-icon__svg {
+	display: block;
+	width: 1em;
+	height: 1em;
+	fill: currentColor;
+}
+
+/* Font Awesome's fixed-width helper reserves 1.25em and centres the glyph.
+ * Core's picker template sets fa-fw on every option, and without this the icon
+ * and its label sit hard against each other. */
+.fafh-icon.fa-fw {
+	width: 1.25em;
+	text-align: center;
+}
+
+.fafh-icon.fa-fw .fafh-icon__svg {
+	margin: 0 auto;
+}
+
+/* Until a glyph arrives the element is empty. Reserving the box stops the
+ * option labels in a select2 dropdown jumping sideways as each one lands. */
+i[class*="fa-"]:not(.fafh-icon) {
+	display: inline-block;
+	min-width: 1em;
+}

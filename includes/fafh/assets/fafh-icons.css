@@ -1,0 +1,12 @@
+/* FAFH inline-SVG icons. Sized to the surrounding text, coloured by it. */
+
+/* Belt and braces: if a wrapper ever carries a Font Awesome name class as well
+ * as fafh-icon, core's Font Awesome 5 -- which HivePress enqueues on the front
+ * end AND in wp-admin -- would draw its ::before glyph beside our SVG, showing
+ * the icon twice. The plugins here do not put fa- classes on their wrappers, so
+ * this is insurance rather than a fix; the admin shim, which deliberately keeps
+ * those classes, needs the same rule and carries its own copy. */
+.fafh-icon::before,.fafh-icon::after{content:none !important}
+
+.fafh-icon{display:inline-block;line-height:1;vertical-align:-.125em}
+.fafh-icon__svg{display:block;width:1em;height:1em;fill:currentColor}

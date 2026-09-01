@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir -p build/notifications-for-hivepress
           cp notifications-for-hivepress.php updater.php uninstall.php readme.txt build/notifications-for-hivepress/
-          cp -r includes assets templates build/notifications-for-hivepress/
+          cp -r includes assets templates languages build/notifications-for-hivepress/
           if [ -d languages ]; then cp -r languages build/notifications-for-hivepress/; fi
           cd build
           zip -r notifications-for-hivepress.zip notifications-for-hivepress

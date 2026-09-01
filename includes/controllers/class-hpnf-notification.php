@@ -168,10 +168,16 @@ final class Hpnf_Notification extends Controller {
 			$queue
 		);
 
+		$queue = array_values( $queue );
+
 		return hp\rest_response(
 			200,
 			[
-				'notifications' => array_values( $queue ),
+				'notifications' => $queue,
+
+				// Deduplicated: the queue holds up to 20 entries and a run of the
+				// same type would otherwise repeat one path twenty times.
+				'icons'         => hivepress()->hpnf_notification->get_icon_pairs( wp_list_pluck( $queue, 'icon' ) ),
 				'unread'        => hivepress()->hpnf_notification->get_unread_count( $user_id ),
 			]
 		);
@@ -410,6 +416,10 @@ final class Hpnf_Notification extends Controller {
 			200,
 			[
 				'notifications' => $results,
+
+				// Deduplicated, as in get_notification_queue(): eight rows commonly
+				// share two or three icons between them.
+				'icons'         => hivepress()->hpnf_notification->get_icon_pairs( wp_list_pluck( $results, 'icon' ) ),
 				'unread'        => hivepress()->hpnf_notification->get_unread_count( $user_id ),
 			]
 		);

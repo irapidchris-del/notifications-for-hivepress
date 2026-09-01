@@ -13,6 +13,119 @@
 	// top-level scalar into a string, so booleans and numbers only keep their types when nested.
 	var settings = window.hpNotificationsData && window.hpNotificationsData.config;
 
+	/*
+	 * Icons.
+	 *
+	 * Two sources. The chrome glyphs this script draws itself -- chevrons, the
+	 * close and tick controls, the read/unread flip, the fallback bell -- arrive
+	 * once in settings.icons. Icons belonging to a NOTIFICATION cannot be known
+	 * up front, because any type can name one and hivepress/v1/notification_types
+	 * is a public filter, so each REST response carries a deduplicated map of the
+	 * icons it references and mergeIcons() folds it in.
+	 *
+	 * Values are "viewBox|path" pairs, not markup. They contain no angle
+	 * brackets at all, so nothing here can be mistaken for HTML.
+	 */
+	var icons = ( settings && settings.icons ) || {};
+
+	function mergeIcons( map ) {
+		if ( ! map ) {
+			return;
+		}
+
+		Object.keys( map ).forEach( function( name ) {
+			icons[ name ] = map[ name ];
+		} );
+	}
+
+	/**
+	 * Builds an <svg> for one icon name, or returns null.
+	 *
+	 * hasOwnProperty rather than a bare lookup: an icon named "constructor" or
+	 * "__proto__" would otherwise return a truthy non-string off the prototype
+	 * chain and throw on .split().
+	 */
+	function glyph( name ) {
+		if ( ! name || ! Object.prototype.hasOwnProperty.call( icons, name ) ) {
+			return null;
+		}
+
+		var parts = String( icons[ name ] ).split( "|" );
+
+		if ( 2 !== parts.length || ! parts[ 0 ] || ! parts[ 1 ] ) {
+			return null;
+		}
+
+		var ns  = "http://www.w3.org/2000/svg";
+		var svg = document.createElementNS( ns, "svg" );
+
+		svg.setAttribute( "viewBox", parts[ 0 ] );
+		svg.setAttribute( "class", "fafh-icon__svg" );
+		svg.setAttribute( "aria-hidden", "true" );
+		svg.setAttribute( "focusable", "false" );
+
+		var path = document.createElementNS( ns, "path" );
+
+		// Without this a stroke-width in px is read in USER units (1/512 em,
+		// every Font Awesome viewBox being "0 0 W 512"), so the bell weight
+		// setting would render invisibly.
+		path.setAttribute( "vector-effect", "non-scaling-stroke" );
+		path.setAttribute( "d", parts[ 1 ] );
+		svg.appendChild( path );
+
+		return svg;
+	}
+
+	/**
+	 * Builds the <i> wrapper for one icon.
+	 *
+	 * Keeps hp-icon, which is core's class and carries the sizing and spacing
+	 * these icons have always inherited. Falls back to the Font Awesome classes
+	 * when there is no glyph data, which is what a site without the library, or
+	 * a payload cached before an icon was added to the map, gets.
+	 */
+	function makeIcon( name, extra ) {
+		var element = document.createElement( "i" );
+		var svg     = glyph( name );
+
+		element.className = "hp-icon " + ( svg ? "fafh-icon" : "fas fa-" + name ) + ( extra ? " " + extra : "" );
+		element.setAttribute( "aria-hidden", "true" );
+
+		if ( svg ) {
+			element.appendChild( svg );
+		}
+
+		return element;
+	}
+
+	/**
+	 * Swaps the glyph inside an existing <i>, keeping its other classes.
+	 *
+	 * The read/unread toggle used to do this by rewriting className, which sets
+	 * the glyph and the layout classes in one assignment. With an SVG child the
+	 * two have to be separated, or flipping the icon would strip the layout.
+	 */
+	function swapIcon( element, name ) {
+		if ( ! element ) {
+			return;
+		}
+
+		var replacement = makeIcon( name );
+
+		// Carry over anything that is not ours, so a caller's layout class rides
+		// through the swap.
+		String( element.className ).split( /\s+/ ).forEach( function( token ) {
+			if ( token && "hp-icon" !== token && "fafh-icon" !== token && "fas" !== token && 0 !== token.indexOf( "fa-" ) ) {
+				replacement.className += " " + token;
+			}
+		} );
+
+		if ( element.parentNode ) {
+			element.parentNode.replaceChild( replacement, element );
+		}
+	}
+
+
 	// Pop-ups already shown this page view, so polling never repeats one.
 	var seen = {};
 
@@ -295,10 +408,9 @@
 
 			visual.appendChild( image );
 		} else {
-			var icon = document.createElement( 'i' );
-			icon.className = 'hp-icon fas fa-' + ( notification.icon || 'bell' );
+			var iconElement = makeIcon( notification.icon || 'bell' );
 
-			visual.appendChild( icon );
+			visual.appendChild( iconElement );
 		}
 
 		return visual;
@@ -476,8 +588,11 @@
 				var link = document.createElement( 'a' );
 				link.className = 'hp-notification-toast__link';
 				link.href = url;
-				link.innerHTML = '<span></span><i class="hp-icon fas fa-chevron-right"></i>';
-				link.querySelector( 'span' ).textContent = notification.link_label || settings.viewText;
+
+				var linkLabel = document.createElement( 'span' );
+				linkLabel.textContent = notification.link_label || settings.viewText;
+				link.appendChild( linkLabel );
+				link.appendChild( makeIcon( 'chevron-right' ) );
 
 				link.addEventListener( 'click', function() {
 					self.markRead( notification.id, true );
@@ -493,7 +608,7 @@
 			close.type = 'button';
 			close.className = 'hp-notification-toast__close';
 			close.setAttribute( 'aria-label', settings.closeText );
-			close.innerHTML = '<i class="hp-icon fas fa-times"></i>';
+			close.appendChild( makeIcon( 'times' ) );
 
 			close.addEventListener( 'click', function() {
 				self.hide( toast );
@@ -654,6 +769,9 @@
 		queueChecked  = Date.now();
 
 		request( '/notifications/queue' ).then( function( response ) {
+			// Before the rows are built, or the first one draws no icon.
+			mergeIcons( response.data.icons );
+
 			response.data.notifications.forEach( function( notification ) {
 				Toasts.add( notification );
 				List.insert( notification );
@@ -824,8 +942,11 @@
 				var link = document.createElement( 'a' );
 				link.className = 'hp-notification__link';
 				link.href = url;
-				link.innerHTML = '<span></span><i class="hp-icon fas fa-chevron-right"></i>';
-				link.querySelector( 'span' ).textContent = notification.link_label || settings.viewText;
+
+				var rowLabel = document.createElement( 'span' );
+				rowLabel.textContent = notification.link_label || settings.viewText;
+				link.appendChild( rowLabel );
+				link.appendChild( makeIcon( 'chevron-right' ) );
 
 				body.appendChild( link );
 			}
@@ -855,14 +976,14 @@
 			toggle.setAttribute( 'data-component', 'notification-toggle' );
 			toggle.setAttribute( 'aria-label', settings.readText );
 			toggle.setAttribute( 'title', settings.readText );
-			toggle.innerHTML = '<i class="hp-icon fas fa-check"></i>';
+			toggle.appendChild( makeIcon( 'check' ) );
 
 			var remove = document.createElement( 'button' );
 			remove.type = 'button';
 			remove.className = 'hp-notification__delete';
 			remove.setAttribute( 'data-component', 'notification-delete' );
 			remove.setAttribute( 'aria-label', settings.deleteText );
-			remove.innerHTML = '<i class="hp-icon fas fa-times"></i>';
+			remove.appendChild( makeIcon( 'times' ) );
 
 			controls.appendChild( toggle );
 			controls.appendChild( remove );
@@ -1081,6 +1202,8 @@
 						self.promise = null;
 					}, 30000 );
 
+					mergeIcons( response.data.icons );
+
 					return response.data.notifications;
 				} ).catch( function( error ) {
 
@@ -1174,8 +1297,7 @@
 
 				// A quiet cue that this row goes somewhere.
 				if ( url ) {
-					var go = document.createElement( 'i' );
-					go.className = 'hp-icon fas fa-chevron-right hp-notification-bell__go';
+					var go = makeIcon( 'chevron-right', 'hp-notification-bell__go' );
 
 					item.appendChild( go );
 				}
@@ -1187,7 +1309,7 @@
 					dismiss.type      = 'button';
 					dismiss.className = 'hp-notification-bell__dismiss';
 					dismiss.setAttribute( 'aria-label', settings.readText );
-					dismiss.innerHTML = '<i class="hp-icon fas fa-times"></i>';
+					dismiss.appendChild( makeIcon( 'times' ) );
 
 					dismiss.addEventListener( 'click', function( event ) {
 						event.preventDefault();
@@ -1825,7 +1947,7 @@
 
 			toggle.setAttribute( 'aria-label', label );
 			toggle.setAttribute( 'title', label );
-			toggle.querySelector( 'i' ).className = 'hp-icon fas fa-' + ( read ? 'envelope' : 'check' );
+			swapIcon( toggle.querySelector( 'i' ), read ? 'envelope' : 'check' );
 		}
 
 		// Mark everything as read.
@@ -2029,8 +2151,7 @@
 			var count = document.createElement( 'span' );
 			count.className = 'hp-nfh-fold__count';
 
-			var chevron = document.createElement( 'i' );
-			chevron.className = 'hp-icon fas fa-chevron-down hp-nfh-fold__chevron';
+			var chevron = makeIcon( 'chevron-down', 'hp-nfh-fold__chevron' );
 
 			label.appendChild( count );
 			label.appendChild( chevron );

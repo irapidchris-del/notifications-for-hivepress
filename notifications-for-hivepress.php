@@ -3,7 +3,7 @@
  * Plugin Name: Notifications for HivePress
  * Plugin URI: https://github.com/irapidchris-del/notifications-for-hivepress
  * Description: Adds on-site notifications with toast pop-ups and a notification history page, mirroring the email notifications sent by HivePress and its extensions.
- * Version: 1.5.7
+ * Version: 1.5.13
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: notifications-for-hivepress
@@ -21,7 +21,25 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
-define( 'HP_NOTIFICATIONS_VERSION', '1.5.7' );
+define( 'HP_NOTIFICATIONS_VERSION', '1.5.13' );
+
+/*
+ * FAFH (Font Awesome For HivePress) -- the shared icon library, BUNDLED in
+ * includes/fafh/ rather than installed separately, so this plugin still works
+ * on its own. Sibling plugins each register their copy and the highest version
+ * runs; see includes/fafh/class-fafh-loader.php.
+ *
+ * Notifications draws icons in BOTH PHP and JavaScript, so it uses both of the
+ * library's delivery forms: FAFH::svg() for markup rendered server-side, and
+ * FAFH::map() for the compact "viewBox|path" pairs the script builds nodes
+ * from. Icon names in a REST payload are open-ended -- any notification type
+ * can name one, and the hivepress/v1/notification_types filter is public -- so
+ * each response carries a deduplicated map of just the icons IT references.
+ *
+ * Never edit includes/fafh/ in place. Edit tools/fafh/ and run
+ * tools\sync-fafh.ps1, which keeps every copy byte-identical.
+ */
+require_once __DIR__ . '/includes/fafh/bootstrap.php';
 define( 'HP_NOTIFICATIONS_FILE', __FILE__ );
 
 /**
