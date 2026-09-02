@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -177,6 +177,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.7.2 =
+* Fixed: a pound sign in changelog.txt showed a stray character before it. Nothing in the plugin itself changes.
 
 = 1.7.1 =
 * Changed: the emails sent with Email Studio's composer were listed under their class name, "Hpes

@@ -264,7 +264,7 @@ Plugins-screen fixes.
   of the other buttons in your theme, which is what most sites want; set 0 for square corners.
 * Fixed: characters such as a pound sign no longer appear as their HTML code in a pop-up, in the
   header bell or in a notification shown by the phone itself. An order total that read
-  "Total &amp;pound;10.00" now reads "Total Â£10.00" everywhere. The wording is decoded as it is shown,
+  "Total &amp;pound;10.00" now reads "Total £10.00" everywhere. The wording is decoded as it is shown,
   so notifications saved before this update are corrected too.
 * For developers: the prefix rename changes these public hook names, each gaining an hpnf_ prefix
   on its last part - `hivepress/v1/forms/notification_update` (and `/meta`) is now
