@@ -40,6 +40,20 @@ final class Hpnf_Notification_Extensions extends Component {
 	const BLOCK_WINDOW = DAY_IN_SECONDS;
 
 	/**
+	 * Where the pending gallery access changes are held between digests.
+	 *
+	 * @var string
+	 */
+	const DIGEST_OPTION = 'hp_notification_gallery_access_digest';
+
+	/**
+	 * Most buyers recorded per vendor, per bucket, in one digest.
+	 *
+	 * @var int
+	 */
+	const DIGEST_LIMIT = 200;
+
+	/**
 	 * Class constructor.
 	 *
 	 * @param array $args Component arguments.
@@ -70,6 +84,14 @@ final class Hpnf_Notification_Extensions extends Component {
 		add_action( 'hp_agl/access_purchased', [ $this, 'add_access_purchase_notification' ], 10, 4 );
 		add_action( 'hp_agl/access_expiring', [ $this, 'add_access_expiring_notification' ], 10, 4 );
 		add_action( 'hp_agl/access_expired', [ $this, 'add_access_expired_notification' ], 10, 3 );
+
+		/*
+		 * Priority 20, so the gallery's own daily scan - hooked at the default 10 - has already
+		 * queued today's warnings by the time the digest is sent. At priority 10 the two would run in
+		 * registration order, and a warning raised after the flush would sit in the queue for a whole
+		 * day before anyone heard about it.
+		 */
+		add_action( 'hivepress/v1/events/daily', [ $this, 'send_access_digests' ], 20 );
 		add_action( 'hp_agl/folder_flagged', [ $this, 'add_folder_hold_notification' ], 10, 2 );
 
 		// Holiday Mode.
@@ -106,7 +128,24 @@ final class Hpnf_Notification_Extensions extends Component {
 	 * @return array
 	 */
 	public function register_types( $types ) {
-		$types = array_merge( $types, $this->get_gallery_types(), $this->get_listing_types(), $this->get_performance_types() );
+		/*
+		 * The performance types are stamped vendor-only, the same way the insights component stamps
+		 * its own. Every one of them is delivered to a vendor - trust_verified goes to $owner_id,
+		 * the vendor who was verified - so a member who does not sell can never receive one and
+		 * should not be offered the preference.
+		 *
+		 * The gallery and listing types are NOT stamped. Both sets genuinely reach either side: a
+		 * buyer is told when their gallery access is running out, and a comment author is told when
+		 * their comment is liked or replied to.
+		 */
+		$performance = array_map(
+			function( $args ) {
+				return array_merge( $args, [ 'audience' => 'vendor' ] );
+			},
+			$this->get_performance_types()
+		);
+
+		$types = array_merge( $types, $this->get_gallery_types(), $this->get_listing_types(), $performance );
 
 		/*
 		 * The analytics summary is registered by its own email class, so it only needs an icon: with
@@ -259,6 +298,35 @@ final class Hpnf_Notification_Extensions extends Component {
 				'tokens'    => [ 'vendor_name', 'gallery_url' ],
 				'channels'  => [ 'onsite', 'push' ],
 				'icon'      => 'hourglass-end',
+			];
+
+			/*
+			 * The vendor's side of the two types above, as ONE notification a day rather than one per
+			 * buyer.
+			 *
+			 * Per-buyer would be the obvious shape and the wrong one. These events fire once for
+			 * every grant, so a vendor with fifty people holding access gets fifty separate notices
+			 * as they lapse - and because a member's preferences are set per group, the only way to
+			 * escape that is to switch off Gallery entirely, taking the notices about their own
+			 * photos and folders with it. Chris chose the digest on 2026-09-02.
+			 *
+			 * On-site only. A digest is a summary of things that have already happened, so waking
+			 * somebody's phone for it is the wrong trade even where push is available.
+			 *
+			 * Two tokens rather than one assembled sentence, so an owner can still reword this in
+			 * Email Studio. %detail% carries the split because the sentence genuinely changes shape -
+			 * a day may bring only endings, only warnings, or both - and a template cannot choose
+			 * between those without gluing fragments together, which does not survive translation.
+			 */
+			$types['gallery_access_digest'] = [
+				'label'     => esc_html__( 'Gallery Access Summary', 'notifications-for-hivepress' ),
+				/* translators: keep %people% and %detail% exactly as written; %people% becomes a number and the word for it, such as "4 people", and %detail% a phrase such as "3 ended, 1 ends within a week". */
+				'text'      => __( 'Gallery access changed for %people%: %detail%.', 'notifications-for-hivepress' ),
+				'link_text' => esc_html__( 'View your gallery', 'notifications-for-hivepress' ),
+				'tokens'    => [ 'people', 'detail', 'gallery_url' ],
+				'channels'  => [ 'onsite' ],
+				'icon'      => 'clock-rotate-left',
+				'audience'  => 'vendor',
 			];
 		}
 
@@ -712,6 +780,8 @@ final class Hpnf_Notification_Extensions extends Component {
 				'gallery_url' => $this->get_vendor_gallery_url( $vendor_id ),
 			]
 		);
+
+		$this->queue_access_digest( $vendor_id, $user_id, 'ending' );
 	}
 
 	/**
@@ -731,6 +801,166 @@ final class Hpnf_Notification_Extensions extends Component {
 				'gallery_url' => $this->get_vendor_gallery_url( $vendor_id ),
 			]
 		);
+
+		$this->queue_access_digest( $vendor_id, $user_id, 'ended' );
+	}
+
+	/**
+	 * Records one access change for its vendor's next digest.
+	 *
+	 * Held in a single option rather than in post meta on each vendor, because the flush would
+	 * otherwise have to find the vendors with something waiting - a meta query across every vendor on
+	 * the site, run daily, to reach the handful that had a lapse. One option is one read and one
+	 * write. Autoload is off: this is touched by a cron job and by nothing else.
+	 *
+	 * Buyers are recorded rather than counted, so somebody whose access both warns and lapses inside
+	 * one day is one person in the total rather than two. The two buckets are still kept apart,
+	 * because the sentence names each.
+	 *
+	 * Nothing is queued when the digest is switched off, or where the vendor has no owner. Queuing
+	 * regardless would be harmless but would leave a growing option nobody ever reads.
+	 *
+	 * @param int    $vendor_id Vendor ID.
+	 * @param int    $user_id Buyer user ID.
+	 * @param string $bucket Either "ending" or "ended".
+	 * @return void
+	 */
+	protected function queue_access_digest( $vendor_id, $user_id, $bucket ) {
+		$vendor_id = (int) $vendor_id;
+		$user_id   = (int) $user_id;
+		$component = hivepress()->hpnf_notification;
+
+		if ( ! $vendor_id || ! $user_id || ! $component ) {
+			return;
+		}
+
+		if ( ! in_array( 'gallery_access_digest', $component->get_enabled_types(), true ) ) {
+			return;
+		}
+
+		if ( ! (int) get_post_field( 'post_author', $vendor_id ) ) {
+			return;
+		}
+
+		$queue = $this->get_access_digest_queue();
+		$held  = (array) hp\get_array_value( $queue, $vendor_id, [] );
+		$ids   = array_map( 'absint', (array) hp\get_array_value( $held, $bucket, [] ) );
+
+		if ( in_array( $user_id, $ids, true ) ) {
+			return;
+		}
+
+		// A cap, so a runaway loop somewhere else cannot grow this option without limit. Past it the
+		// count stops rising, which reads as "at least 200" rather than as a wrong smaller number.
+		if ( count( $ids ) >= self::DIGEST_LIMIT ) {
+			return;
+		}
+
+		$ids[]           = $user_id;
+		$held[ $bucket ] = $ids;
+
+		$queue[ $vendor_id ] = $held;
+
+		update_option( self::DIGEST_OPTION, $queue, false );
+	}
+
+	/**
+	 * Gets the pending access changes, keyed by vendor ID.
+	 *
+	 * @return array
+	 */
+	protected function get_access_digest_queue() {
+		$queue = get_option( self::DIGEST_OPTION );
+
+		return is_array( $queue ) ? $queue : [];
+	}
+
+	/**
+	 * Sends each vendor one notification covering the day's access changes.
+	 *
+	 * The queue is cleared BEFORE anything is delivered. A delivery that throws would otherwise leave
+	 * the whole queue in place and send the same digest again tomorrow, on top of tomorrow's; losing
+	 * one day's summary is the better failure of the two.
+	 *
+	 * @return void
+	 */
+	public function send_access_digests() {
+		$queue = $this->get_access_digest_queue();
+
+		if ( ! $queue ) {
+			return;
+		}
+
+		delete_option( self::DIGEST_OPTION );
+
+		foreach ( $queue as $vendor_id => $held ) {
+			$vendor_id = (int) $vendor_id;
+			$owner_id  = $vendor_id ? (int) get_post_field( 'post_author', $vendor_id ) : 0;
+
+			if ( ! $owner_id ) {
+				continue;
+			}
+
+			$ended  = array_unique( array_map( 'absint', (array) hp\get_array_value( $held, 'ended', [] ) ) );
+			$ending = array_unique( array_map( 'absint', (array) hp\get_array_value( $held, 'ending', [] ) ) );
+
+			// Somebody warned today and lapsed today is one person, not two.
+			$people = count( array_unique( array_merge( $ended, $ending ) ) );
+
+			if ( ! $people ) {
+				continue;
+			}
+
+			$this->deliver(
+				'gallery_access_digest',
+				$owner_id,
+				[
+					'people'      => $this->count_people( $people ),
+					'detail'      => $this->describe_access_changes( count( $ended ), count( $ending ) ),
+					'gallery_url' => $this->get_vendor_gallery_url( $vendor_id ),
+				]
+			);
+		}
+	}
+
+	/**
+	 * Turns a head count into a number and the word for it.
+	 *
+	 * @param int $count Number of people.
+	 * @return string
+	 */
+	protected function count_people( $count ) {
+		$count = max( 0, (int) $count );
+
+		/* translators: %s: number of people. */
+		return sprintf( _n( '%s person', '%s people', $count, 'notifications-for-hivepress' ), number_format_i18n( $count ) );
+	}
+
+	/**
+	 * Describes a day's access changes in one phrase.
+	 *
+	 * Either half may be nothing - a day can bring only lapses, or only warnings - so the phrase is
+	 * assembled from whichever halves happened rather than from a template with holes in it.
+	 *
+	 * @param int $ended Number whose access ended.
+	 * @param int $ending Number whose access is about to end.
+	 * @return string
+	 */
+	protected function describe_access_changes( $ended, $ending ) {
+		$parts = [];
+
+		if ( $ended > 0 ) {
+			/* translators: %s: number of people whose access ended. */
+			$parts[] = sprintf( _n( '%s ended', '%s ended', $ended, 'notifications-for-hivepress' ), number_format_i18n( $ended ) );
+		}
+
+		if ( $ending > 0 ) {
+			/* translators: %s: number of people whose access is about to end. */
+			$parts[] = sprintf( _n( '%s ends within a week', '%s end within a week', $ending, 'notifications-for-hivepress' ), number_format_i18n( $ending ) );
+		}
+
+		/* translators: joins the two halves of a summary, as in "3 ended, 1 ends within a week". */
+		return implode( _x( ', ', 'access summary separator', 'notifications-for-hivepress' ), $parts );
 	}
 
 	/**

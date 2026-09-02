@@ -1,0 +1,359 @@
+== Changelog ==
+
+Releases before 1.5.7. The most recent entries are in readme.txt.
+
+= 1.5.6 =
+* Housekeeping only: nothing on your settings screen has moved, changed or
+  behaves differently. The settings-screen code this extension shares with the
+  others in the family was reformatted to match them line for line, so that a
+  fix made to one of them can be checked against all of them in one go.
+
+= 1.5.5 =
+* The settings tab now carries the same controls as the other extensions in this family: the quick
+  links stay in view as you scroll, a Save Changes tab sits on the right edge of the screen
+  wherever you are on the page (a bar across the bottom on a phone), and a back-to-top button
+  appears once you have scrolled down. Whichever of these extensions you have installed, you see
+  one set of controls, in the same places.
+* The quick links now say "Jump to a section:" rather than "Jump to:", which is the wording every
+  extension in the family uses.
+* The section headings keep the ids WordPress already gives them, so a link or a bookmark pointing
+  at a section carries on working.
+
+= 1.5.4 =
+* Fixed: this plugin's settings styles and scripts were being loaded on every HivePress settings
+  tab, not just its own. They now load only on the Notifications tab, so the other tabs are
+  lighter and there is no chance of this plugin's appearance styles affecting another
+  extension's settings. The Notifications tab itself is unchanged.
+
+= 1.5.3 =
+* Changed: outline icon styles now render as outlines. An icon set to an outline style
+  previously appeared filled in, because only the solid style was included with the plugin and
+  your browser quietly used that instead.
+
+= 1.5.2 =
+* Changed: the icon library is now included with the plugin instead of being loaded from a
+  third-party server, which is faster and keeps every request on your own site. Your bell icon
+  and settings are unaffected.
+
+= 1.5.1 =
+* Fixed: two PHP warnings could be written to the error log when a settings page was loaded
+  while the plugin's files were being replaced, such as during an update. Nothing was visibly
+  broken, but the log filled with "Undefined array key" notices.
+* Changed: the live preview panel now sits beside the settings from 1200 pixels wide, rather
+  than 1400, so it is a side column on a normal laptop screen instead of a block above the
+  fields.
+
+= 1.5.0 =
+* Changed: each notification's title field now sits above its wording field, matching the order
+  the two appear in on the site.
+* Added: the Text section's per-notification fields fold into one collapsible group per source
+  (Listings, Bookings and so on), and each long list of notification-type tick boxes, in the
+  admin and on the member's Notification Settings page alike, folds behind a toggle with a
+  ticked-count. Everything still saves exactly as before, and without JavaScript the pages
+  simply render fully expanded.
+* Changed: the push notification status at the top of the settings page now leaves a gap before
+  the options below it.
+* Fixed: the Button Radius appearance option now also rounds the Save Changes button on the
+  member's Notification Settings page.
+* Changed: every bell on the page now works, not just the first, so a second bell placed by
+  another extension (such as an action bar) opens its own dropdown; the unread count and the
+  notifications fetch are shared between them.
+
+= 1.4.0 =
+* Added: a customisable title for every notification type, under Settings > Notifications > Text.
+  The title shows on the pop-up, the bell dropdown, the notifications page and as the push
+  notification title.
+* Added: quick links at the top of the settings tab, with a divider between sections, and shorter
+  setting descriptions that wrap at a readable width. The hover tooltips are wider too, so their
+  text no longer breaks into ragged slivers.
+* Added: separate corner radius options for each corner of the pinned (sticky) header.
+* Added: newer Font Awesome solid icons and the brand icons for the bell, loading the official
+  Font Awesome stylesheet only when one of them is chosen, plus a Bell Icon Weight option. (These
+  also appeared in HivePress's other icon pickers, where they showed as a blank space; corrected
+  in 1.5.7.)
+* Changed: the glass effect now also applies to the menus that drop down from the pinned header,
+  including the bell dropdown.
+* Changed: the "(User)" and "(Vendor)" labels HivePress puts on paired emails no longer show to
+  members; each member only ever receives their own side of the pair, so the bracket was noise.
+* Changed: the push button on the notification settings page moved to the top of the page and got
+  a shorter label.
+* Fixed: enabling push notifications now completes in one click. The subscription used to be
+  attempted before the newly registered service worker was active, so the first click failed
+  quietly and only a second click worked.
+* Fixed: the Quiet Hours description no longer mentions text messages on sites without an SMS
+  extension.
+
+= 1.3.4 =
+* Fixed: the plugin no longer writes a PHP warning on every page load. It registered itself with
+  HivePress in a way that made HivePress's own code raise "Array to string conversion" on every
+  request of every site without a paid HivePress extension. It now registers the same way the
+  official extensions do, and still works from a renamed folder.
+* Fixed: a burst of related notifications is no longer written into a notification you have
+  already deleted. Dismissing an unopened "Alice liked your photo" meant every further like or
+  comment on that photo for the next day was added to the deleted one, so it never appeared in the
+  list, the bell, the unread count or a push message, while the pop-up still said "and 3 others".
+* Fixed: an announcement sent to one role can no longer go to everyone. If your site uses a role
+  whose internal name is not all lower case, the audience was quietly widened to every user; the
+  announcement is now stopped with an explanation instead, because it cannot be recalled.
+* Fixed: the sticky header is now properly solid for anyone who has asked their device to reduce
+  transparency. The blur was switched off but the see through background was left in place, so
+  those visitors were the only ones reading the navigation over the page scrolling behind it.
+* Fixed: pop-ups now clear the Action Bar at the screen widths where the bar is actually shown,
+  instead of at every width, and they clear it when the mobile position is used as well.
+* Fixed: "Delete all data" and a personal data erasure request now both remove the record of
+  having told somebody their gallery access had lapsed.
+* Fixed: deleting the plugin now also clears the update check's own leftovers and cancels its
+  background update check.
+
+= 1.3.3 =
+* Fixed: a message sent while the Messages extension has storage switched off is no longer stopped
+  by the recipient's email preference. In that mode the email is the only copy of the message, so
+  stopping it destroyed the text entirely; the email now always goes out for that one case.
+* Fixed: the gallery access expiring and expired notifications no longer read "Your access to 's
+  gallery..." with a link to a 404 when the vendor has since been deleted - a neutral name is used
+  and the dead link is dropped.
+* Fixed: the "Leave a review" link on a completed booking, and the link on an approved review, are
+  dropped rather than sent broken when the listing has expired or been trashed in the meantime.
+* Fixed: the %token|fallback% wording the token hint documents now works for plain-text tokens
+  such as %vendor_name% and %listing_title%, not just for the %model.field% ones.
+* Fixed: a listing or badge literally named "0" no longer leaves the raw token in the wording.
+
+= 1.3.2 =
+* Improved: the gallery notifications that announce a comment, a reply to your comment, or a like
+  on your comment now land you ON that comment rather than at the top of the photo page, the same
+  way review notifications land on the review. The pinned header is already accounted for - the
+  same scroll offset that serves review links serves these. A photo LIKE keeps the plain photo
+  link, since a like has no place on the page of its own. Needs Additional Gallery 1.8.12 for the
+  anchors; on an older gallery the links simply behave as before.
+
+= 1.3.1 =
+* Fixed: with the Glass Effect on, the theme's full-screen mobile menu rendered wrongly once the
+  page had been scrolled - squashed into the header's own box instead of covering the screen. The
+  blur is applied by a `backdrop-filter`, which quietly makes the pinned header the positioning
+  ancestor of everything fixed inside it, and the mobile menu is fixed inside it. The blur now
+  lives on an overlay of the header rather than the header itself, which looks identical and
+  changes nobody's positioning.
+
+= 1.3.0 =
+Nine notifications about how a vendor is actually doing, rather than about something that has just
+happened. Needs Vendor Analytics Pro or Trust Signals installed to have anything to compare.
+
+* **New - a weekly summary.** How many times a vendor's listings were viewed last week, and whether
+  that is up or down on the week before, said in plain words rather than as a signed percentage.
+* **New - milestones.** Passing a hundred views, then five hundred, then a thousand, and the same
+  for completed bookings. The gaps widen as the numbers grow, so it stays an occasion rather than a
+  weekly chore.
+* **New - a listing suddenly getting attention**, so a vendor knows to keep an eye on it while it
+  lasts. A listing needs both a real number of views and several times its usual traffic before this
+  counts, so one view against a quiet fortnight never triggers it.
+* **New - a listing nobody is looking at**, with a nudge to refresh its photos or description. This
+  one starts switched off, because it is useful advice on some sites and a monthly reminder of
+  failure on others.
+* **New - the search term that found them most often** last month.
+* **New - response rate and response time.** A vendor is told when their rate moves by ten points
+  either way, and when they are replying quickly enough that their profile now says something better
+  than it did. The test is on the words their profile shows, not on the underlying seconds, so they
+  are never told they have improved while their profile says exactly what it said yesterday.
+* **New - a glass effect for the pinned header**, matching the one the Action Bar offers: the header
+  becomes slightly see-through and blurs the page moving behind it, with its own opacity and blur
+  settings. The tint is taken from the colour your header is already showing, so it suits a dark
+  theme as readily as a light one. A browser that cannot blur keeps the solid header, and so does
+  anyone who has asked their device to reduce transparency.
+* All nine notifications can be reworded and switched off like every other one, and each person
+  still chooses how they receive them.
+* These comparisons have no event to react to, so once a night each vendor is compared with how they
+  were. That pass is spread over small background jobs, never runs while somebody is loading a page,
+  and has its own section in Settings with a single box to turn the whole thing off, plus how many
+  vendors each job takes and how many a night will look at in total.
+* On the first night nothing is announced retrospectively: where each vendor already stands is
+  recorded quietly, so somebody joining with fifty thousand views behind them is not told they have
+  passed a hundred, then five hundred, then a thousand, one a night for a week.
+
+= 1.2.0 =
+Nineteen new notifications, covering six companion extensions that had no way of telling anybody
+anything, and a badge for the Action Bar.
+
+* **New - Additional Gallery notifications.** Somebody liking or commenting on one of your photos,
+  replying to your comment, liking your comment, buying access to your gallery, and their access
+  ending. Bursts of likes and comments about the same photo roll into one notification that reads
+  "Alice and 12 others liked your photo" rather than arriving as twelve separate pop-ups.
+* **New - the gallery that vanishes.** When the photo review hides one of your galleries you are now
+  told, instead of finding out by noticing it has gone.
+* **New - Listing Moderation notifications.** A vendor whose listing is held for review is now told
+  it is waiting to be checked, which nothing anywhere said before. The site owner gets their own
+  copy carrying the risk score and what was actually found, linked to the listing in the dashboard,
+  so the pending queue can be triaged rather than read. A listing pulled back by the photo check
+  gets its own wording, because it happens after the vendor has already seen it live.
+* **New - Holiday Mode notifications.** Confirmation when holiday mode goes on and off, with how
+  many listings went with it, and, separately, a warning about any that stayed hidden because their
+  listing period ran out while you were away. That last one was completely invisible: the behaviour
+  is right, but vendors came back from holiday quietly short of listings. A listing kept hidden
+  because holiday mode is still on now says so, which answers "why will my listing not publish?"
+  before it is asked. And a vendor whose membership lapses while they are away is told their
+  listings are stuck, rather than only finding out if they happen to try switching it off.
+* **New - Verified.** Vendors are told when you verify them. Nothing said so before.
+* **New - the monthly analytics summary** now has wording written for a notification list rather
+  than falling back to the email subject.
+* **New - "Unread notifications" as an Action Bar badge.** Requires Action Bar 1.4.0. The bar's
+  existing "All notifications" counter has never counted these notifications: it is HivePress's own
+  combined counter, and it is now labelled "Account activity" so the two are told apart. The
+  Notifications page has always been available as an Action Bar link, so with the badge you can put
+  the bell on the bar.
+* **New - the badge stays live**, updating as notifications arrive rather than waiting for the next
+  page load, and pop-ups pinned to the bottom of the screen now sit above the Action Bar instead of
+  landing underneath it on a phone.
+* **New - For Site Owners, Gallery and Performance groups** on the settings screen, so notifications
+  meant for you are not mixed in with the ones meant for your members. Two of the owner ones start
+  switched off, because they are useful on some sites and noise on others.
+* Every one of these can be reworded and switched off exactly like the existing notifications, and
+  each person still chooses how they receive it.
+* Fixed: sending a web push no longer holds up the page that caused it. A notification that also
+  goes out as a push - a new message, a review, a booking - had that push handed to Google, Mozilla
+  or Microsoft during the visitor's own request, once for every browser signed up, and how long they
+  take to answer is not something your server can hurry. One slow reply holds one visitor; enough of
+  them at once holds up the whole site, which looks like the site going down for no reason rather
+  than like anything to do with notifications. Pushes now go out a moment later in the background.
+  Nothing changes for the person receiving one.
+* Fixed: a browser that has dropped its subscription is now forgotten. When somebody clears their
+  site data, uninstalls their browser or turns notifications off at the phone, the push service says
+  so plainly - but the answer was never read, so the dead subscription stayed on the account and was
+  tried again on every notification from then on. Those are now cleared the first time the push
+  service reports one.
+* Requires Additional Gallery 1.8.2, Automated Listing Moderation 1.6.9, Holiday Mode 1.7.4 or
+  Action Bar 1.4.0 for the parts that concern them. Older versions are ignored rather than broken.
+* Fixed - checking for updates no longer holds up an admin page. The check ran while WordPress was
+  building the Plugins screen, so on a site with several of these extensions one page load made one
+  request to GitHub after another and could sit there for many seconds, once, before behaving
+  normally again for hours. The check now runs in the background moments later. Pressing Check for
+  updates still asks GitHub straight away, because you are waiting for that answer.
+* Fixed - "View details" is back on the Plugins screen. WordPress only offers that link for a
+  plugin that has told it about itself, and this one stayed quiet whenever there was nothing to
+  update to, which is almost always. The details popup, its changelog and the donate link inside
+  it were all unreachable from the Plugins screen as a result.
+
+= 1.1.1 =
+* Checking for updates no longer reports "Could not reach GitHub" when nothing is wrong. GitHub allows a server only a limited number of anonymous update checks each hour, shared by every plugin on the site and, on shared hosting, by every other site on the same server. Running out is ordinary, but it was reported as though the site could not reach GitHub at all. Update checks now read the release from github.com, which sets no such limit, so the message no longer appears. If the limit is ever reached by some other route, the notice now says so plainly instead of blaming your connection.
+* A failed update check no longer hides an update that is genuinely waiting. The last successful answer is kept until a later check succeeds, so a pending update stays on the Plugins screen instead of disappearing for an hour.
+
+= 1.1.0 =
+A live preview on the settings screen, internal naming, opt-in channel support, and a couple of
+Plugins-screen fixes.
+
+* **New - a Live preview panel on the Notifications settings tab.** A sample pop-up sits beside the
+  settings and redraws the moment you change a colour, a size, the corner radius, the icon shape,
+  the position or the countdown, so you can see the result before you press Save Changes. It uses
+  the same stylesheet your site uses rather than an imitation of it, so nothing can look right here
+  and wrong on your pages. There is a Play again button to watch a pop-up arrive, and on a wide
+  screen the panel follows you down the page as you scroll. Nothing in the panel is a setting, so it
+  cannot change anything by accident.
+* **All of the plugin's PHP classes and files now carry a unique Hpnf prefix**, so they can never
+  clash with HivePress core or another extension. Notifications, settings and preferences are
+  unaffected, and no action is needed after updating unless you have custom code naming the old
+  classes or hooks.
+* **New - opt-in channel support.** A delivery channel can now be registered as strictly opt-in
+  through the `hivepress/v1/notification_optin_channels` filter: role defaults never grant an
+  opt-in channel, its boxes never appear under Defaults, and it reaches a member only once they
+  tick it themselves on their Notification Settings page. Built for the SMS channel provided by
+  Twilio for HivePress 1.7.0, where "on by default" would mean unsolicited texts.
+* The Quiet Hours wording now covers text messages, and the note on the first notification group
+  gains a sentence about texts where the SMS channel is available.
+* The author name on the Plugins screen now reads "ChrisB @ HivePress Community", and a Donate
+  link has been added to the plugin row and the "View details" popup.
+* **New - a Button Radius setting.** One box under Appearance rounds every button this extension
+  adds, such as Mark all as read, Clear read and Settings. Leave it empty and they keep the shape
+  of the other buttons in your theme, which is what most sites want; set 0 for square corners.
+* Fixed: characters such as a pound sign no longer appear as their HTML code in a pop-up, in the
+  header bell or in a notification shown by the phone itself. An order total that read
+  "Total &amp;pound;10.00" now reads "Total Â£10.00" everywhere. The wording is decoded as it is shown,
+  so notifications saved before this update are corrected too.
+* For developers: the prefix rename changes these public hook names, each gaining an hpnf_ prefix
+  on its last part - `hivepress/v1/forms/notification_update` (and `/meta`) is now
+  `hivepress/v1/forms/hpnf_notification_update`, `hivepress/v1/templates/notifications_view_page`
+  (and `/blocks`) is now `hivepress/v1/templates/hpnf_notifications_view_page`,
+  `hivepress/v1/templates/notification_settings_page` (and `/blocks`) is now
+  `hivepress/v1/templates/hpnf_notification_settings_page`, `hivepress/v1/models/notification`
+  (and `/meta`) is now `hivepress/v1/models/hpnf_notification`, and
+  `hivepress/v1/blocks/notifications` is now `hivepress/v1/blocks/hpnf_notifications`. The
+  component keys (`hivepress()->hpnf_notification` and friends) and the settings form's
+  `hp-form--hpnf-notification-update` class carry the same prefix, and a ticked protected-forms
+  entry (reCAPTCHA, or Turnstile for HivePress) is migrated automatically. Routes, REST paths, the stored comment type,
+  option and meta names, WP-CLI commands and the `hivepress/v1/notification_*` hooks are all
+  unchanged.
+
+= 1.0.1 =
+Deleting the plugin now keeps your data, and the tick boxes do what they say.
+
+* **Unticking every box now means "none of these", not "all of them".** This affected two
+  places, and in both the screen showed one thing and the plugin did the opposite. Under Types,
+  clearing every box in a group switched that whole group back on, sometimes leaving more
+  notifications enabled than before you touched it. Under Defaults, clearing every box for a
+  role gave that role every channel instead of none. Both now do exactly what you set. If you
+  had cleared a group or a role to mean "everything", set it explicitly instead, because that
+  is no longer how it is read.
+* **Fixed wording being mangled when you saved it.** Any token whose name began with two
+  characters that happen to be hexadecimal was destroyed on save: `%badge.name%` became
+  `dge.name%` and `%decline_reason%` became `cline_reason%`, so the notification went out with
+  a fragment in it. The tokens the box recommends now survive being typed into it.
+* **Every setting on the page has been rewritten.** Several were describing something the plugin
+  did not do. Types said that unticking a notification left it "working exactly as HivePress
+  sends it", which was untrue of the four that have no HivePress email behind them, so unticking
+  one of those turned the feature off rather than handing it back. Text said an empty box used
+  the email subject line, when almost every box has wording of its own built in, shown in grey
+  inside it. Appearance implied every colour reached the notifications page, when three of them
+  do not. Every setting now has a tooltip, including the notification groups and the per-role
+  boxes, which had none at all.
+* **Storage Period has moved and been renamed.** It is now "Delete Notifications Older Than
+  (days)" in its own section, Deleting Old Notifications, instead of sitting under a heading
+  that promised nothing could be lost. Your existing setting is unchanged.
+* **Sticky Header no longer gets stuck.** Switching the header bell off after using a sticky
+  header left the header pinned to the top of every page, with the tick box that would undo it
+  no longer on screen.
+* Translations no longer keep HTML entities in the notification wording, and the site name is
+  no longer written into notifications as "Bob &amp;amp; Sons".
+* Two pieces of internal hardening: the browser settings payload now keeps its true number and
+  yes/no types rather than relying on WordPress's string conversion behaving, and the admin
+  colour pickers detect a colour being picked by the picker's own signal rather than an event it
+  never sends.
+* The updater and web push no longer send your site address and WordPress version to GitHub or
+  to the push service in the request header.
+
+* **Your notifications and settings survive deleting the plugin.** Until now, deleting it removed
+  everything straight away. It now keeps the lot unless you tick the new "Delete All Data" box in
+  the Removing the Plugin section, so an accidental delete, or removing the plugin to install a
+  clean copy, no longer costs you anything. WordPress still shows its own "(will also delete its
+  data)" warning on the delete screen because it shows that for every plugin with an uninstaller,
+  but it does not apply here unless you ticked the box. Switching the plugin off has never removed
+  anything and still doesn't.
+* Deleting the plugin always clears the things that would otherwise be left behind pointing at a
+  plugin that is gone: the cached update lookup, and any announcement batches still queued.
+
+= 1.0.0 =
+First public release.
+
+The plugin has been through a long private development and testing programme before this release,
+so the changelog starts here rather than replaying that history. Everything below is what 1.0.0
+does, and every item was verified on a live staging site before release.
+
+* Mirrors every email HivePress and its extensions send as an on-site notification, working from
+  the email layer so it covers extensions installed later without any per-extension code.
+* Sensible wording out of the box for thirty-five notification types, written for a notification
+  list rather than an inbox: "Welcome to your site, Alex. Your account is ready to use." instead of
+  "User Registered". Every word is editable, and %site_name% is available in any of them.
+* Adds four notifications HivePress has no email for at all: Listing Favourited, Review Received,
+  Booking Completed and Badge Earned.
+* A notifications page under the user's account, grouped by date, with search, a type filter,
+  mark as read and unread, delete with an undo window, and clear read.
+* Pop-up notifications with a pausable countdown, a per-user channel choice of on-site, email and
+  push, and quiet hours.
+* Web push for people who have the site closed, with keys generated on first use and a payloadless
+  push, so nothing sensitive travels and the token cannot be used as a login.
+* An optional header bell with its own unread count and dropdown, with configurable icon and
+  background colours for both resting and hover states, and a pixel nudge for lining it up with
+  whatever your theme puts beside it.
+* Announcements: send a notification to everyone, one role, all vendors, or named users, with a
+  history of what was sent and a resend that recomputes the audience at send time.
+* An optional sticky header, which also keeps page anchors clear of itself so a link to a review
+  or a section lands where you meant it to.
+* Anonymous per-type delivery and open statistics, so you can tell which wording works.
+* A storage period that removes notifications once they pass a chosen age.
+* WP-CLI commands for listing types, rebuilding the cached counts and running the cleanup.

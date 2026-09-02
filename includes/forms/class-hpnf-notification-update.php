@@ -59,7 +59,40 @@ class Hpnf_Notification_Update extends Form {
 			$note .= ' ' . esc_html__( 'Texts apply only where an event has an SMS message set up.', 'notifications-for-hivepress' );
 		}
 
+		/**
+		 * Filters the capability a member needs to be offered the owner-only groups.
+		 *
+		 * @hook hpnf_notification_owner_group_capability
+		 * @param {string} $capability Capability name.
+		 * @return {string} Capability name.
+		 */
+		$hpnf_owner_capability = apply_filters( 'hpnf_notification_owner_group_capability', 'manage_options' );
+		$hpnf_is_owner         = current_user_can( $hpnf_owner_capability );
+
 		foreach ( hivepress()->hpnf_notification->get_groups() as $group => $group_label ) {
+			/*
+			 * "For Site Owners" is not a feature area, it is an audience: every type in it reaches
+			 * whoever runs the site, not the member reading this form. Offering them here let every
+			 * signed-in member see, and switch, preferences for notifications they can never receive
+			 * - reported by Chris on 2026-09-02 and present since at least v1.3.4, so it is a
+			 * long-standing gap rather than a new one.
+			 *
+			 * The group holds sixteen types, not the three it held when this guard was written.
+			 * Thirteen more were found on 2026-09-02 by reading the recipient at each send site:
+			 * they all go to `get_option( 'admin_email' )` but were filed by name prefix under
+			 * Listings, Orders and Requests. See Hpnf_Notification::OWNER_TYPES.
+			 *
+			 * Gated on the group rather than on the individual types, because the group IS the
+			 * statement about audience; a type declaring `'group' => 'admin'` is declaring who
+			 * reads it. See Hpnf_Notification::get_groups().
+			 *
+			 * The save path needs no separate guard: a member's form never carries these fields, so
+			 * HivePress has nothing to accept for them even if a crafted POST names them.
+			 */
+			if ( 'admin' === $group && ! $hpnf_is_owner ) {
+				continue;
+			}
+
 			$channels = [];
 
 			foreach ( hivepress()->hpnf_notification->get_enabled_types() as $type ) {
@@ -69,6 +102,21 @@ class Hpnf_Notification_Update extends Form {
 
 				// System types can't be switched off, so they don't appear here at all.
 				if ( hp\get_array_value( hivepress()->hpnf_notification->get_type_args( $type ), '_system' ) ) {
+					continue;
+				}
+
+				/*
+				 * Nor do the ones this member could never receive. A type declaring itself
+				 * vendor-only is about somebody's own listings, gallery or figures, so offering it
+				 * to a member who does not sell asks them to make a choice with no effect.
+				 *
+				 * The group's field survives as long as ONE type in it is offered, because the field
+				 * is per group. That is why this does not, on its own, empty many groups: Bookings
+				 * and Orders reach both sides of a transaction and stay whoever is reading. The
+				 * group that does empty is Performance, every type of which is a vendor's own
+				 * analytics, and emptying is exactly what should happen to it.
+				 */
+				if ( ! hivepress()->hpnf_notification->is_type_offered( $type ) ) {
 					continue;
 				}
 

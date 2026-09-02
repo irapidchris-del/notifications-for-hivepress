@@ -95,7 +95,24 @@ final class Hpnf_Notification_Insights extends Component {
 	 * @return array
 	 */
 	public function register_types( $types ) {
-		return array_merge( $types, $this->get_analytics_types(), $this->get_trust_types() );
+		/*
+		 * Every type this component sends is vendor-only: they are all about a vendor's own
+		 * listings, their own profile and their own figures, and a member who does not sell can
+		 * never receive one.
+		 *
+		 * Stamped over the whole set here rather than repeated on each definition. The definitions
+		 * below are already vendor-facing by construction - the wording of every one of them says
+		 * "your listings" - so an insight added later is vendor-only whether or not somebody
+		 * remembers to say so, and a per-type argument is one line to forget.
+		 */
+		$own = array_map(
+			function( $args ) {
+				return array_merge( $args, [ 'audience' => 'vendor' ] );
+			},
+			array_merge( $this->get_analytics_types(), $this->get_trust_types() )
+		);
+
+		return array_merge( $types, $own );
 	}
 
 	/**

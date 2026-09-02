@@ -35,6 +35,37 @@ final class Hpnf_Notification extends Component {
 	const BADGE_COLOR = '#ff5a5f';
 
 	/**
+	 * Types HivePress and its extensions address to the site owner.
+	 *
+	 * Filed into the "For Site Owners" group by get_type_group(), which explains why they need
+	 * naming here rather than being recognised from their names.
+	 *
+	 * @var array
+	 */
+	const OWNER_TYPES = [
+		'listing_claim_submit',
+		'listing_import',
+		'listing_report',
+		'listing_submit',
+		'listing_update',
+		'offer_submit',
+		'order_dispute',
+		'order_refund_fail',
+		'order_refund_request',
+		'payout_fail',
+		'payout_request',
+		'request_submit',
+		'vendor_register',
+	];
+
+	/**
+	 * Whether each user sells on this site, keyed by user ID.
+	 *
+	 * @var array
+	 */
+	protected $vendors = [];
+
+	/**
 	 * Cached notification types.
 	 *
 	 * Null until first built, and reset to null when the type list changes within a request, which
@@ -469,6 +500,28 @@ final class Hpnf_Notification extends Component {
 			return $declared;
 		}
 
+		/*
+		 * The owner-addressed types that come from HivePress and its extensions, which cannot
+		 * declare a group because this plugin builds them from the email classes rather than
+		 * registering them by hand.
+		 *
+		 * Each one was confirmed by reading the recipient at its send site: every entry below is
+		 * `'recipient' => get_option( 'admin_email' )`. Their names all begin with a member-facing
+		 * prefix - `listing_`, `order_`, `payout_`, `request_` - so the map underneath files them
+		 * with the notifications a member manages, and until 2026-09-02 every signed-in member could
+		 * see and switch preferences for notifications only the site owner receives. The three types
+		 * already in this group had it right; these thirteen are the same fault, unnoticed because
+		 * the prefix was doing the filing.
+		 *
+		 * Naming them one by one, rather than testing the recipient, because the recipient is only
+		 * known while an email is being sent and this question is asked while a settings form is
+		 * being built. An extension adding another owner-facing email is handled by the filter on
+		 * get_types(), which can set 'group' directly.
+		 */
+		if ( in_array( $type, self::OWNER_TYPES, true ) ) {
+			return 'admin';
+		}
+
 		$groups = [
 			'listing'    => 'listings',
 			'holiday'    => 'listings',
@@ -505,6 +558,69 @@ final class Hpnf_Notification extends Component {
 				return ! hp\get_array_value( $args, '_system' );
 			}
 		);
+	}
+
+	/**
+	 * Gets who a notification type is meant for.
+	 *
+	 * "vendor" means the type only ever reaches somebody who sells on the site - a notice about
+	 * their own listings, their own gallery, their own figures. Anything else is "all", which is the
+	 * default: a type says nothing and is offered to everybody, so no existing type changes
+	 * behaviour by this argument arriving.
+	 *
+	 * Deliberately NOT a delivery rule. Nothing here decides who receives a notification - the code
+	 * that raises one already knows who it is for, and a buyer never triggers a vendor's event. This
+	 * only decides who is OFFERED the preference, so a member who can never receive a thing is not
+	 * asked whether they would like it by email.
+	 *
+	 * @param string $type Notification type.
+	 * @return string Audience name.
+	 */
+	public function get_type_audience( $type ) {
+		$audience = hp\get_array_value( $this->get_type_args( $type ), 'audience' );
+
+		return 'vendor' === $audience ? 'vendor' : 'all';
+	}
+
+	/**
+	 * Checks whether a user sells on this site.
+	 *
+	 * Any vendor profile counts, whatever its status. Core's own lookup adds `'status' => 'publish'`
+	 * (controllers/class-user.php:1055), which is right for "is there a profile page to link to" and
+	 * wrong here: a profile awaiting approval belongs to somebody who has already registered as a
+	 * vendor, and taking their notification settings away while they wait - then handing them back
+	 * on approval - is a worse answer than showing them settings a little early. Chris chose this on
+	 * 2026-09-02.
+	 *
+	 * Cached per user for the request. The settings form asks once, but the types are looped for
+	 * every group on the page.
+	 *
+	 * @param int $user_id User ID, or 0 for the current user.
+	 * @return bool
+	 */
+	public function is_vendor( $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+
+		if ( ! $user_id ) {
+			return false;
+		}
+
+		if ( ! isset( $this->vendors[ $user_id ] ) ) {
+			$this->vendors[ $user_id ] = (bool) Models\Vendor::query()->filter( [ 'user' => $user_id ] )->get_first_id();
+		}
+
+		return $this->vendors[ $user_id ];
+	}
+
+	/**
+	 * Checks whether a type should be offered to a user.
+	 *
+	 * @param string $type Notification type.
+	 * @param int    $user_id User ID, or 0 for the current user.
+	 * @return bool
+	 */
+	public function is_type_offered( $type, $user_id = 0 ) {
+		return 'vendor' !== $this->get_type_audience( $type ) || $this->is_vendor( $user_id );
 	}
 
 	/**
@@ -1267,6 +1383,28 @@ final class Hpnf_Notification extends Component {
 	 * @param object $email Email object.
 	 */
 	public function process_email( $email ) {
+
+		/**
+		 * Filters whether an email becomes an on-site notification at all.
+		 *
+		 * This hook exists because "an email was sent" is not always "something happened to a
+		 * member". An email can be sent as a TEST - Email Studio's previews and test sends go
+		 * through HivePress's real send path on purpose, so that what an owner checks is exactly
+		 * what a member would receive - and those must not land in anybody's notifications feed.
+		 * Chris saw his own Email Studio test sends appear there on 2026-09-02.
+		 *
+		 * Returning false skips the email entirely: no notification, no feed entry, no delivery.
+		 * The plugin doing the unusual thing is the one that should say so, so the veto lives here
+		 * rather than this component carrying a list of other plugins it knows about.
+		 *
+		 * @hook hpnf_notification_process_email
+		 * @param {bool} $process Whether to turn this email into a notification.
+		 * @param {object} $email Email object.
+		 * @return {bool} Whether to turn this email into a notification.
+		 */
+		if ( ! apply_filters( 'hpnf_notification_process_email', true, $email ) ) {
+			return;
+		}
 
 		// A fresh email means any earlier suppression flag is stale: its wp_mail() either already
 		// ran or never will, so it must not linger and catch a later email that happens to match.
