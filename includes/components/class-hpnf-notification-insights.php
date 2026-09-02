@@ -71,6 +71,69 @@ final class Hpnf_Notification_Insights extends Component {
 	const BOOKING_MILESTONES = [ 1, 10, 25, 50, 100, 250, 500, 1000 ];
 
 	/**
+	 * The sibling extensions that enhance this plugin, for the settings screen to link and offer.
+	 *
+	 * `section` is the settings section each one enhances and `gives` says what it adds there;
+	 * `file` is the plugin basename WordPress knows it by; `zip` is the fixed asset name on the
+	 * permanent /releases/latest/download/ link, which is the same channel the extensions update
+	 * themselves from; `topic` is the announcement on the HivePress community forum. Product names,
+	 * so not translated. Detection is by the same test the feature itself uses, in
+	 * get_extension_state(), so the screen never says "active" about a copy the feature cannot use.
+	 *
+	 * @var array
+	 */
+	const EXTENSIONS = [
+		'twilio'        => [
+			'name'    => 'Twilio for HivePress',
+			'section' => 'delivery',
+			'file'    => 'twilio-for-hivepress/twilio-for-hivepress.php',
+			'repo'    => 'irapidchris-del/twilio-sms-for-hivepress',
+			'zip'     => 'twilio-for-hivepress.zip',
+			'topic'   => 'https://community.hivepress.io/t/twilio-for-hivepress-sms-notifications/17913',
+		],
+		'gallery'       => [
+			'name'    => 'Additional Gallery',
+			'section' => 'types',
+			'file'    => 'additional-gallery-for-hivepress/additional-gallery-for-hivepress.php',
+			'repo'    => 'irapidchris-del/gallery-for-hivepress',
+			'zip'     => 'additional-gallery-for-hivepress.zip',
+			'topic'   => 'https://community.hivepress.io/t/additional-gallery-for-hivepress/17938',
+		],
+		'holiday'       => [
+			'name'    => 'Holiday Mode',
+			'section' => 'types',
+			'file'    => 'holiday-mode-for-hivepress/holiday-mode-for-hivepress.php',
+			'repo'    => 'irapidchris-del/holiday-mode-for-hivepress',
+			'zip'     => 'holiday-mode-for-hivepress.zip',
+			'topic'   => 'https://community.hivepress.io/t/holiday-mode-for-hivepress/17884',
+		],
+		'moderation'    => [
+			'name'    => 'Automated Listing Moderation',
+			'section' => 'types',
+			'file'    => 'listing-moderation-for-hivepress/listing-moderation-for-hivepress.php',
+			'repo'    => 'irapidchris-del/listing-moderation-for-hivepress',
+			'zip'     => 'listing-moderation-for-hivepress.zip',
+			'topic'   => 'https://community.hivepress.io/t/automated-listing-moderation-for-hivepress/17900',
+		],
+		'analytics'     => [
+			'name'    => 'Vendor Analytics Pro',
+			'section' => 'insights',
+			'file'    => 'vendor-analytics-pro-for-hivepress/hivepress-vendor-analytics.php',
+			'repo'    => 'irapidchris-del/vendor-analytics-pro-for-hivepress',
+			'zip'     => 'vendor-analytics-pro-for-hivepress.zip',
+			'topic'   => 'https://community.hivepress.io/t/vendor-analytics-pro-for-hivepress/17899',
+		],
+		'trust_signals' => [
+			'name'    => 'Trust Signals',
+			'section' => 'insights',
+			'file'    => 'hivepress-trust-signals/hivepress-trust-signals.php',
+			'repo'    => 'irapidchris-del/hivepress-trust-signals',
+			'zip'     => 'hivepress-trust-signals.zip',
+			'topic'   => 'https://community.hivepress.io/t/vendor-statistics-block-for-profiles-and-listings/17835',
+		],
+	];
+
+	/**
 	 * Class constructor.
 	 *
 	 * @param array $args Component arguments.
@@ -85,7 +148,194 @@ final class Hpnf_Notification_Insights extends Component {
 		add_action( 'hivepress/v1/events/daily', [ $this, 'start_sweep' ] );
 		add_action( self::SWEEP_HOOK, [ $this, 'run_sweep' ], 10, 2 );
 
+		if ( is_admin() ) {
+			// After the main component's own pass over the settings, which runs at 10.
+			add_filter( 'hivepress/v1/settings', [ $this, 'add_extension_links' ], 20 );
+			add_action( 'admin_post_hpnf_install_extension', [ $this, 'install_extension' ] );
+		}
+
 		parent::__construct( $args );
+	}
+
+	/**
+	 * Gets the state of one of the extensions the pass reads from.
+	 *
+	 * @param string $key Key in self::EXTENSIONS.
+	 * @return string 'active', 'installed' or 'missing'.
+	 */
+	protected function get_extension_state( $key ) {
+		$extension = hp\get_array_value( self::EXTENSIONS, $key );
+
+		if ( ! $extension ) {
+			return 'missing';
+		}
+
+		// The same tests the features themselves use (the nightly pass, the extra notification
+		// types, the SMS channel), so the screen never says "active" about a copy they cannot use.
+		$active = [
+			'twilio'        => class_exists( '\\HivePress\\Components\\Hptw_Channel' ),
+			'gallery'       => defined( 'HP_AGL_VERSION' ),
+			'holiday'       => defined( 'HOLIDAY_MODE_FOR_HIVEPRESS_VERSION' ),
+			'moderation'    => defined( 'HPALM_VERSION' ),
+			'analytics'     => $this->has_analytics(),
+			'trust_signals' => $this->has_trust_signals(),
+		];
+
+		if ( ! empty( $active[ $key ] ) ) {
+			return 'active';
+		}
+
+		return file_exists( WP_PLUGIN_DIR . '/' . $extension['file'] ) ? 'installed' : 'missing';
+	}
+
+	/**
+	 * Gets what one extension adds to the section it enhances, for the sentence that offers it.
+	 *
+	 * @param string $key Key in self::EXTENSIONS.
+	 * @return string
+	 */
+	protected function get_extension_gives( $key ) {
+		$gives = [
+			'twilio'        => esc_html__( 'sends notifications as text messages', 'notifications-for-hivepress' ),
+			'gallery'       => esc_html__( 'adds the Gallery notifications', 'notifications-for-hivepress' ),
+			'holiday'       => esc_html__( 'adds the holiday notifications under Listings', 'notifications-for-hivepress' ),
+			'moderation'    => esc_html__( 'adds the moderation notifications under Listings', 'notifications-for-hivepress' ),
+			'analytics'     => esc_html__( 'provides the weekly views and enquiries to compare', 'notifications-for-hivepress' ),
+			'trust_signals' => esc_html__( 'provides the response rate and rating to compare', 'notifications-for-hivepress' ),
+		];
+
+		return (string) hp\get_array_value( $gives, $key, '' );
+	}
+
+	/**
+	 * Adds the sibling-extension links and buttons to the sections they enhance.
+	 *
+	 * Appended to each section description, which core prints through hp\sanitize_html(): links
+	 * with a class, strong and i are what that allows, and they are all this needs. Install and
+	 * Activate are offered only to someone allowed to do them, so an owner without the
+	 * capability sees the state and the link and nothing they cannot use.
+	 *
+	 * @param array $settings Settings configuration.
+	 * @return array
+	 */
+	public function add_extension_links( $settings ) {
+		if ( ! isset( $settings['notifications']['sections'] ) ) {
+			return $settings;
+		}
+
+		$sentences = [];
+
+		foreach ( self::EXTENSIONS as $key => $extension ) {
+			if ( ! isset( $settings['notifications']['sections'][ $extension['section'] ]['description'] ) ) {
+				continue;
+			}
+
+			$state = $this->get_extension_state( $key );
+			$link  = '<a href="' . esc_url( $extension['topic'] ) . '" target="_blank"><strong>' . esc_html( $extension['name'] ) . '</strong></a>';
+			$gives = $this->get_extension_gives( $key );
+
+			if ( 'active' === $state ) {
+				/* translators: 1: extension name, linked; 2: what it adds, e.g. "adds the Gallery notifications". */
+				$sentence = sprintf( esc_html__( '%1$s %2$s and is active.', 'notifications-for-hivepress' ), $link, $gives );
+			} elseif ( 'installed' === $state ) {
+				/* translators: 1: extension name, linked; 2: what it adds. */
+				$sentence = sprintf( esc_html__( '%1$s %2$s but is not active.', 'notifications-for-hivepress' ), $link, $gives );
+
+				if ( current_user_can( 'activate_plugins' ) ) {
+					$url = wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $extension['file'] ) ), 'activate-plugin_' . $extension['file'] );
+
+					/* translators: %s: extension name. */
+					$sentence .= ' <a href="' . esc_url( $url ) . '" class="button button-secondary">' . sprintf( esc_html__( 'Activate %s', 'notifications-for-hivepress' ), esc_html( $extension['name'] ) ) . '</a>';
+				}
+			} else {
+				/* translators: 1: extension name, linked; 2: what it adds. */
+				$sentence = sprintf( esc_html__( '%1$s %2$s but is not installed.', 'notifications-for-hivepress' ), $link, $gives );
+
+				if ( current_user_can( 'install_plugins' ) ) {
+					$url = wp_nonce_url( admin_url( 'admin-post.php?action=hpnf_install_extension&extension=' . rawurlencode( $key ) ), 'hpnf_install_' . $key );
+
+					/* translators: %s: extension name. */
+					$sentence .= ' <a href="' . esc_url( $url ) . '" class="button button-secondary">' . sprintf( esc_html__( 'Install %s', 'notifications-for-hivepress' ), esc_html( $extension['name'] ) ) . '</a>';
+				}
+			}
+
+			$sentences[ $extension['section'] ][] = $sentence;
+		}
+
+		foreach ( $sentences as $section => $parts ) {
+			$settings['notifications']['sections'][ $section ]['description'] .= ' ' . implode( ' ', $parts );
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * Installs one of the extensions from its permanent GitHub release link.
+	 *
+	 * WordPress's own installer with its own screen: the owner sees exactly what Upload Plugin
+	 * shows, including the Activate link at the end, and the zip comes from the same address the
+	 * extension's updater will use from then on. Nothing is written until the capability and the
+	 * nonce have both been checked.
+	 *
+	 * @return void
+	 */
+	public function install_extension() {
+		if ( ! current_user_can( 'install_plugins' ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to install plugins on this site.', 'notifications-for-hivepress' ), 403 );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- checked on the next line, once the key is known.
+		$key = sanitize_key( (string) hp\get_array_value( $_GET, 'extension' ) );
+
+		check_admin_referer( 'hpnf_install_' . $key );
+
+		$extension = hp\get_array_value( self::EXTENSIONS, $key );
+
+		if ( ! $extension ) {
+			wp_die( esc_html__( 'Unknown extension.', 'notifications-for-hivepress' ), 400 );
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/misc.php';
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+		/* translators: %s: extension name. */
+		$title = sprintf( esc_html__( 'Installing %s', 'notifications-for-hivepress' ), $extension['name'] );
+
+		// The standard installer page: WordPress's header and footer around the upgrader's own
+		// progress messages, the way wp-admin/update.php does it.
+		$GLOBALS['title'] = $title; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- The page title admin-header.php prints; this is the documented way to set it.
+
+		// admin-header.php fires admin_enqueue_scripts with this global as its argument. wp-admin's
+		// own pages set it before including the header; admin-post.php does not, and a plugin whose
+		// callback declares the argument as a string then fatals on null (Plugin Check does).
+		$GLOBALS['hook_suffix'] = 'hpnf-install-extension'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- See above; a name no plugin's screen check matches, so nothing else enqueues for it.
+
+		require_once ABSPATH . 'wp-admin/admin-header.php';
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html( $title ) . '</h1>';
+
+		$skin = new \Plugin_Installer_Skin(
+			[
+				'type'  => 'upload',
+				'title' => $title,
+				'nonce' => 'hpnf_install_' . $key,
+				'url'   => admin_url( 'admin.php?page=hp_settings&tab=notifications' ),
+			]
+		);
+
+		$upgrader = new \Plugin_Upgrader( $skin );
+
+		$upgrader->install( 'https://github.com/' . $extension['repo'] . '/releases/latest/download/' . $extension['zip'] );
+
+		echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=hp_settings&tab=notifications' ) ) . '">' . esc_html__( 'Back to the Notifications settings', 'notifications-for-hivepress' ) . '</a></p>';
+		echo '</div>';
+
+		require_once ABSPATH . 'wp-admin/admin-footer.php';
+
+		exit;
 	}
 
 	/**

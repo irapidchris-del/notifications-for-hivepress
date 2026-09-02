@@ -205,8 +205,18 @@
 		var name = nameOf( element );
 
 		if ( 'drawn' === element.getAttribute( 'data-fafh' ) ) {
-			// Already drawn, and drawn as the icon its class still names: nothing to do.
+			// Already drawn, and drawn as the icon its class still names. The sizing class is put
+			// back before returning: a script that rewrites className whole (a card header
+			// re-reading its row on every keystroke in the label) strips it without changing the
+			// name, and without it core's Font Awesome 5 sheet draws a ::before glyph in a
+			// fallback font beside the SVG - reported by Chris on 2026-09-02 as "a broken icon
+			// next to the real one" while editing an Action Bar item's label. Guarded, because
+			// adding a class re-sets the attribute and the observer would call this again.
 			if ( name === element.getAttribute( 'data-fafh-name' ) ) {
+				if ( ! element.classList.contains( 'fafh-icon' ) ) {
+					element.classList.add( 'fafh-icon' );
+				}
+
 				return;
 			}
 

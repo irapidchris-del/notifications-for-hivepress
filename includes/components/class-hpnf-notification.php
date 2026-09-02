@@ -3252,9 +3252,12 @@ final class Hpnf_Notification extends Component {
 				 * heading over them.
 				 */
 				'labels' => [
-					'jumpTo'    => esc_html__( 'Jump to a section:', 'notifications-for-hivepress' ),
-					'save'      => esc_html__( 'Save Changes', 'notifications-for-hivepress' ),
-					'backToTop' => esc_html__( 'Back to top', 'notifications-for-hivepress' ),
+					'jumpTo'     => esc_html__( 'Jump to a section:', 'notifications-for-hivepress' ),
+					'save'       => esc_html__( 'Save Changes', 'notifications-for-hivepress' ),
+					'backToTop'  => esc_html__( 'Back to top', 'notifications-for-hivepress' ),
+
+					// Said inside a Text card when none of its group is ticked in Types.
+					'noneTicked' => esc_html__( 'Nothing in this group is ticked in the Types section, so there is no wording to set.', 'notifications-for-hivepress' ),
 				],
 			]
 		);

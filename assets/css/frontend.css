@@ -953,6 +953,15 @@ a.hp-notifications__action.button--secondary:focus {
 	opacity: 0.3;
 }
 
+/* text-align centres a FONT glyph, which is inline text; the icon library's SVG is a block box
+ * one em wide, and a block ignores its parent's text-align, so it sat on the left edge of the
+ * full-width wrapper. Chris reported it on 2026-09-02 as "gone left aligned again" - the first
+ * time was a theme restyling the wrapper, this time it was the icon changing from text to a box. */
+.hp-notifications__empty i .fafh-icon__svg {
+	margin-left: auto;
+	margin-right: auto;
+}
+
 .hp-notifications__empty p {
 	margin: 0 0 0.5rem;
 	opacity: 0.75;

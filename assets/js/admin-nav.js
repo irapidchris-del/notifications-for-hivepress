@@ -480,11 +480,77 @@
 					}
 				}
 
+				// Which notification the field belongs to, read from its own name, so the Types
+				// boxes can show and hide it. text_grouped before text: the alternation is tried
+				// in order and "text" would also match the start of "text_grouped".
+				var typed = field.querySelector( '[name^="hp_notification_title_"], [name^="hp_notification_text_grouped_"], [name^="hp_notification_text_"]' ),
+					typeName = typed ? typed.name.replace( /^hp_notification_(title|text_grouped|text)_/, '' ) : '';
+
+				if ( typeName ) {
+					field.setAttribute( 'data-hpnf-type', typeName );
+					( textFields[ typeName ] = textFields[ typeName ] || [] ).push( field );
+				}
+
 				card.body.appendChild( field );
 				row.remove();
 			} );
 
+			// Said in place of the fields when nothing in the group is ticked in Types.
+			var note = document.createElement( 'p' );
+
+			note.className = 'hpnf-card__note description';
+			note.textContent = navLabels().noneTicked || 'Nothing in this group is ticked in the Types section, so there is no wording to set.';
+			note.hidden = true;
+			card.body.appendChild( note );
+
+			textCards.push( { card: card, note: note } );
 			card.open( card.remembered(), false );
+		} );
+	}
+
+	/**
+	 * Shows wording fields only for the notifications ticked in Types, following the boxes as
+	 * they change (Chris, 2026-09-02). An unticked type never sends, so its title and wording
+	 * were noise between the ones that matter. A type with no box in Types - registered by an
+	 * extension without a group field - is left alone. Hidden, not removed: the fields still post
+	 * and keep their wording for when the box is ticked again.
+	 */
+	var textFields = {},
+		textCards = [];
+
+	function navLabels() {
+		return ( window.hpnfAdminNav && window.hpnfAdminNav.labels ) || {};
+	}
+
+	function syncTextFields( form ) {
+		var state = {};
+
+		Array.prototype.forEach.call( form.querySelectorAll( 'input[type="checkbox"][name^="hp_notification_types_"]' ), function( box ) {
+			state[ box.value ] = box.checked;
+		} );
+
+		Object.keys( textFields ).forEach( function( type ) {
+			if ( ! Object.prototype.hasOwnProperty.call( state, type ) ) {
+				return;
+			}
+
+			textFields[ type ].forEach( function( field ) {
+				field.hidden = ! state[ type ];
+			} );
+		} );
+
+		// The count on the bar says how many notifications the card is showing wording for.
+		textCards.forEach( function( entry ) {
+			var shown = {};
+
+			Array.prototype.forEach.call( entry.card.body.querySelectorAll( '.hpnf-card__field[data-hpnf-type]:not([hidden])' ), function( field ) {
+				shown[ field.getAttribute( 'data-hpnf-type' ) ] = 1;
+			} );
+
+			var visible = Object.keys( shown ).length;
+
+			entry.card.count.textContent = String( visible );
+			entry.note.hidden = visible > 0;
 		} );
 	}
 
@@ -581,6 +647,8 @@
 
 		return {
 			row: row,
+			element: card,
+			toggle: button,
 			body: body,
 			count: count,
 			open: open,
@@ -632,6 +700,17 @@
 			if ( labelBlock ) {
 				labelBlock.classList.add( 'hpnf-card__label' );
 				card.body.appendChild( labelBlock );
+
+				// The group's tooltip sits at the end of the title bar (Chris, 2026-09-02), where
+				// the eye lands, rather than inside the folded body where nothing pointed at it.
+				// Beside the toggle button, not inside it, so opening the tooltip cannot fold the
+				// card; the stylesheet pins it to the bar's right end.
+				var tip = labelBlock.querySelector( '.hp-tooltip' );
+
+				if ( tip ) {
+					tip.classList.add( 'hpnf-card__tip' );
+					card.element.insertBefore( tip, card.toggle.nextSibling );
+				}
 			}
 
 			card.body.appendChild( field );
@@ -661,6 +740,14 @@
 
 		initTextGroups( form );
 		initTypeCards( form );
+
+		syncTextFields( form );
+
+		form.addEventListener( 'change', function( event ) {
+			if ( event.target && event.target.matches && event.target.matches( 'input[type="checkbox"][name^="hp_notification_types_"]' ) ) {
+				syncTextFields( form );
+			}
+		} );
 	}
 
 	if ( 'loading' === document.readyState ) {

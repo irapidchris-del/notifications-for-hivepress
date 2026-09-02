@@ -667,3 +667,35 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 form.hp-form--table tr[hidden] {
 	display: none !important;
 }
+
+/* The group's tooltip, moved from the folded body to the end of the title bar. The card is the
+ * positioning context; the bar keeps room for it on the right so the count never sits under it. */
+.hpnf-card {
+	position: relative;
+}
+
+.hpnf-card--types .hpnf-card__toggle {
+	padding-right: 44px;
+}
+
+.hpnf-card__tip {
+	position: absolute;
+	top: 12px;
+	right: 14px;
+	margin: 0;
+}
+
+/* Wording fields for notifications left unticked in Types, and the line said in their place. */
+.hpnf-card__field[hidden] {
+	display: none;
+}
+
+.hpnf-card__note {
+	margin: 0;
+	padding: 10px 14px 12px;
+	color: #646970;
+}
+
+.hpnf-card__note[hidden] {
+	display: none;
+}
