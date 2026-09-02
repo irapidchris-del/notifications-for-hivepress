@@ -618,12 +618,28 @@
 		count.className = 'hpnf-card__count';
 		body.className = 'hpnf-card__body';
 
+		// The bar: the button holds only its words, so a tooltip can follow the title (the house
+		// rule for tooltips, Chris 2026-09-02) and the count sits at the end. The whole bar still
+		// folds the card, except the tooltip itself.
+		var bar = document.createElement( 'div' );
+
+		bar.className = 'hpnf-card__bar';
+
 		button.appendChild( chevron );
 		button.appendChild( icon );
 		button.appendChild( name );
-		button.appendChild( count );
-		card.appendChild( button );
+		bar.appendChild( button );
+		bar.appendChild( count );
+		card.appendChild( bar );
 		card.appendChild( body );
+
+		bar.addEventListener( 'click', function( event ) {
+			if ( event.target === button || button.contains( event.target ) || event.target.closest( '.hp-tooltip' ) ) {
+				return;
+			}
+
+			button.click();
+		} );
 		cell.appendChild( card );
 		row.appendChild( labelCell );
 		row.appendChild( cell );
@@ -648,6 +664,7 @@
 		return {
 			row: row,
 			element: card,
+			bar: bar,
 			toggle: button,
 			body: body,
 			count: count,
@@ -701,15 +718,15 @@
 				labelBlock.classList.add( 'hpnf-card__label' );
 				card.body.appendChild( labelBlock );
 
-				// The group's tooltip sits at the end of the title bar (Chris, 2026-09-02), where
-				// the eye lands, rather than inside the folded body where nothing pointed at it.
-				// Beside the toggle button, not inside it, so opening the tooltip cannot fold the
-				// card; the stylesheet pins it to the bar's right end.
+				// The group's tooltip follows the title on the bar, the house placement for every
+				// tooltip (Chris, 2026-09-02), rather than sitting inside the folded body where
+				// nothing pointed at it. Beside the toggle button, not inside it, so opening the
+				// tooltip cannot fold the card.
 				var tip = labelBlock.querySelector( '.hp-tooltip' );
 
 				if ( tip ) {
 					tip.classList.add( 'hpnf-card__tip' );
-					card.element.insertBefore( tip, card.toggle.nextSibling );
+					card.bar.insertBefore( tip, card.toggle.nextSibling );
 				}
 			}
 

@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.3
+Stable tag: 1.7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -177,6 +177,10 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.7.4 =
+* Fixed: tooltips inside the cards were cut off at the card's edge, and the ones on the Text section's fields had dropped below their labels; each now sits at the end of its label row and opens in full.
+* Changed: the Install and Activate offers for other extensions are now links within the sentence rather than buttons.
 
 = 1.7.3 =
 * Changed: the Text section shows wording fields only for the notifications ticked in Types, following the boxes as you tick them; a card with nothing ticked says so.

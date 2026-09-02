@@ -568,16 +568,41 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 	border: 1px solid #dcdcde;
 	border-radius: 6px;
 	background: #fff;
-	overflow: hidden;
+	/* Not overflow: hidden. A tooltip bubble is positioned outside the icon it belongs to, and a
+	 * clipped card cut every bubble off at the edge (Chris, 2026-09-02: "the tooltips are no
+	 * longer readable as they're stuck inside their cards"). The toggle bar rounds its own top
+	 * corners instead, which is all the clipping ever did. */
+}
+
+.hpnf-card__toggle {
+	border-radius: 5px 5px 0 0;
+}
+
+.hpnf-card__toggle[aria-expanded="false"] {
+	border-radius: 5px;
+}
+
+/* The bar is the clickable strip; the button inside it holds only the chevron, icon and title so
+ * the group's tooltip can follow the title (the house placement) and the count can sit at the
+ * end. */
+.hpnf-card__bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-right: 14px;
+	cursor: pointer;
+}
+
+.hpnf-card__bar:hover {
+	background: #f6f7f7;
 }
 
 .hpnf-card__toggle {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	width: 100%;
 	margin: 0;
-	padding: 12px 14px;
+	padding: 12px 4px 12px 14px;
 	border: 0;
 	background: transparent;
 	color: #1d2327;
@@ -589,7 +614,7 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 
 .hpnf-card__toggle:hover,
 .hpnf-card__toggle:focus {
-	background: #f6f7f7;
+	background: transparent;
 }
 
 .hpnf-card__toggle:focus-visible {
@@ -614,6 +639,7 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 }
 
 .hpnf-card__count {
+	margin-left: auto;
 	color: #646970;
 	font-weight: 400;
 	font-variant-numeric: tabular-nums;
@@ -674,15 +700,9 @@ form.hp-form--table tr[hidden] {
 	position: relative;
 }
 
-.hpnf-card--types .hpnf-card__toggle {
-	padding-right: 44px;
-}
-
 .hpnf-card__tip {
-	position: absolute;
-	top: 12px;
-	right: 14px;
 	margin: 0;
+	line-height: 1;
 }
 
 /* Wording fields for notifications left unticked in Types, and the line said in their place. */
@@ -698,4 +718,59 @@ form.hp-form--table tr[hidden] {
 
 .hpnf-card__note[hidden] {
 	display: none;
+}
+
+/* Inside a card the field's label block is no longer a th > div, so core's flex row for it
+ * (`.hp-form--table th>div{display:flex;justify-content:space-between}`) stops applying and the
+ * tooltip dropped onto its own line under the label. A row again, with the tooltip directly after
+ * the label's "(optional)" rather than pushed to the far edge (Chris, 2026-09-02: "I wanted the
+ * tooltip after where it shows (optional)"), and the bubble on top of whatever is beneath it. */
+.hpnf-card__field .hpnf-card__label {
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+	gap: 6px;
+}
+
+.hpnf-card__field .hpnf-card__label .hp-tooltip {
+	margin-right: 0;
+}
+
+.hpnf-card .hp-tooltip__text {
+	z-index: 1001;
+}
+
+/* The sibling-extension offers are part of the sentence, not controls: a linked verb, nothing
+ * more (Chris, 2026-09-02: the buttons were "too big and feel intrusive"). */
+.hpnf-offer__action {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* Tooltip placement, house rule (Chris, 2026-09-02). The help icon sits directly after the label
+ * text, not at the far end of the label cell where core's justify-content: space-between puts it,
+ * and the bubble opens to the RIGHT at 300px. Core anchors the bubble to the left of the icon at
+ * 173px (hivepress/assets/css/backend.min.css, .hp-tooltip__text), which puts it under the admin
+ * menu whenever the icon is early in the row and turns two sentences into a tall ribbon. The same
+ * block sits in every extension with a settings tab; fix it in one and sweep the rest. */
+.hp-page .hp-form--table th > div {
+	justify-content: flex-start;
+	gap: 6px;
+}
+
+.hp-page .hp-form--table th > div .hp-tooltip {
+	margin-right: 0;
+}
+
+.hp-page .hp-form--table .hp-tooltip__text {
+	width: 300px;
+	right: auto;
+	left: 26px;
+}
+
+.hp-page .hp-form--table .hp-tooltip__text::after {
+	right: auto;
+	left: -8px;
+	border-left-color: transparent;
+	border-right-color: rgba(0, 0, 0, 0.75);
 }
