@@ -204,6 +204,16 @@ final class Hpnf_Notification extends Component {
 				];
 			}
 
+			// Email Studio's composer sends through an email class that declares no label on
+			// purpose - a label would list it for editing in Email Studio, and it has no fixed
+			// wording to edit - so the humanised name above would read "Hpes Broadcast": a class
+			// name, on the settings screen and in every member's preferences. Named here instead,
+			// in words a member can read; where those emails come from is said on the settings
+			// screen only (get_type_note()), because the sentence names another plugin.
+			if ( isset( $types['hpes_broadcast'] ) ) {
+				$types['hpes_broadcast']['label'] = esc_html__( 'Site Emails', 'notifications-for-hivepress' );
+			}
+
 			// Get extra types.
 			foreach ( $this->get_extra_types() as $name => $args ) {
 				$types[ $name ] = $args;
@@ -669,6 +679,25 @@ final class Hpnf_Notification extends Component {
 	 */
 	public function get_type_label( $type ) {
 		return (string) hp\get_array_value( $this->get_type_args( $type ), 'label', ucfirst( str_replace( '_', ' ', (string) $type ) ) );
+	}
+
+	/**
+	 * Gets the settings-screen note for a notification type, or '' for most.
+	 *
+	 * A sentence for the site owner that would mean nothing to a member, appended to the group
+	 * hint on the Types section and to the title field on the Text section. Never rendered on the
+	 * front end: the one note there is names another plugin, and a member's preferences screen is
+	 * not the place to learn which extensions the site runs.
+	 *
+	 * @param string $type Notification type.
+	 * @return string Leading space plus the sentence, or ''.
+	 */
+	public function get_type_note( $type ) {
+		if ( 'hpes_broadcast' === $type ) {
+			return ' ' . esc_html__( 'Site Emails are the messages sent with the Email Composer in Email Studio for HivePress.', 'notifications-for-hivepress' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -3776,6 +3805,11 @@ final class Hpnf_Notification extends Component {
 				$group_hint .= ' ' . esc_html__( 'Review Received, for a review left on your own listing, is under Listings.', 'notifications-for-hivepress' );
 			}
 
+			// Where Site Emails come from, for the owner only: the sentence names another plugin.
+			foreach ( array_keys( $options ) as $option_type ) {
+				$group_hint .= $this->get_type_note( $option_type );
+			}
+
 			$settings['notifications']['sections']['types']['fields'][ 'notification_types_' . $group ] = [
 				'label'       => $group_label,
 				'description' => $group_hint,
@@ -3891,7 +3925,7 @@ final class Hpnf_Notification extends Component {
 				$settings['notifications']['sections']['text']['fields'][ 'notification_title_' . $type ] = [
 					/* translators: %s: notification name. */
 					'label'       => sprintf( esc_html__( '%s (title)', 'notifications-for-hivepress' ), $this->get_type_label( $type ) ),
-					'description' => esc_html__( 'The short heading shown above the wording: on pop-ups, in the bell dropdown, on the notifications page and as the push notification title. Plain words only, as tokens are not replaced here. Leave it empty to use the name shown in grey.', 'notifications-for-hivepress' ),
+					'description' => esc_html__( 'The short heading shown above the wording: on pop-ups, in the bell dropdown, on the notifications page and as the push notification title. Plain words only, as tokens are not replaced here. Leave it empty to use the name shown in grey.', 'notifications-for-hivepress' ) . $this->get_type_note( $type ),
 					'type'        => 'text',
 					'max_length'  => 64,
 					'placeholder' => $this->get_type_public_label( $type ),
