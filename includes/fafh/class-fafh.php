@@ -810,16 +810,39 @@ final class FAFH {
 			return $options;
 		}
 
+		/*
+		 * The empty option comes first, ALWAYS, and this is not cosmetic.
+		 *
+		 * HivePress's Repeater field holds one field object per column and reuses it for every row
+		 * (fields/class-repeater.php, render() and sanitize()). set_value() runs this filter only
+		 * when the row's value is not null, so a row whose icon is empty skips it - and the shared
+		 * object still carries the options the PREVIOUS row left in it. Before this fix that was a
+		 * single option, the previous row's icon, and a select with one option and nothing marked
+		 * selected submits that option. Every empty row below a chosen icon inherited it on the next
+		 * save. Account Menu Enhancer 3.4.0 shipped exactly that on 2026-09-02: five custom items
+		 * came back as "stripe-s", and the release was pulled.
+		 *
+		 * With the empty option first, an empty row renders it selected by default and submits
+		 * nothing, whatever the previous row chose. Core's own Select puts this option in at boot
+		 * (fields/class-select.php, boot()); replacing the list wholesale had thrown it away.
+		 *
+		 * The placeholder text is the field's own, falling back to the dash core uses.
+		 */
+		$placeholder = $field->get_arg( 'placeholder' );
+		$choices     = [ '' => is_string( $placeholder ) && '' !== $placeholder ? $placeholder : '&mdash;' ];
+
 		$value = $field->get_value();
 
 		if ( ! is_scalar( $value ) || '' === (string) $value ) {
-			return [];
+			return $choices;
 		}
 
 		$value = self::clean( $value );
 		$label = self::label( $value );
 
-		return [ $value => $label ? $label : $value ];
+		$choices[ $value ] = $label ? $label : $value;
+
+		return $choices;
 	}
 
 	/**

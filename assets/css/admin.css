@@ -534,76 +534,131 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 }
 
 /* --------------------------------------------------------------------------
- * Collapsible groups
+ * Cards
  *
- * admin-nav.js folds the Text section's rows into one group per source and each Types checkbox
- * list behind a Show options toggle. Everything here styles what that script injects; without
- * the script none of these classes exist and the tab renders fully expanded.
+ * admin-nav.js draws the Types and Text sections as one card per group. Everything here styles
+ * what that script injects; without the script none of these classes exist and the tab renders
+ * fully expanded, which is the right fallback.
  * ----------------------------------------------------------------------- */
 
-/* WordPress gives every form-table cell top padding; the group header reads better as a tight
- * bar. The full-width button keeps the whole row clickable, like a details/summary. */
-.hpnf-group-row > td {
-	padding: 4px 0;
+/*
+ * The Types cards. One per group, drawn by admin-nav.js, and deliberately the same card Account
+ * Menu Enhancer draws for its placeholder pages: white surface, 1px #dcdcde border, 6px radius,
+ * a transparent toggle bar with the chevron 14px in from the edge, a 500px limit that mirrors
+ * core's own `table.hp-table { max-width: 500px }` so the two plugins' cards agree in width.
+ *
+ * Only the vertical padding of the card's row is set. Core's horizontal cell padding is what
+ * lines the card up with every other control on the tab; a shorthand would overwrite the very
+ * measurement being matched.
+ */
+.hp-page .hp-form--table tr.hpnf-card-row > th.hpnf-card-row__label {
+	padding-top: 0;
+	padding-bottom: 0;
 }
 
-.hpnf-group-toggle {
+.hp-page .hp-form--table tr.hpnf-card-row > td {
+	padding-top: 4px;
+	padding-bottom: 0;
+}
+
+.hpnf-card {
+	box-sizing: border-box;
+	max-width: 500px;
+	margin-bottom: 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	background: #fff;
+	overflow: hidden;
+}
+
+.hpnf-card__toggle {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	width: 100%;
-	padding: 8px 12px;
-	background-color: #f6f7f7;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	margin: 0;
+	padding: 12px 14px;
+	border: 0;
+	background: transparent;
+	color: #1d2327;
+	font-size: 14px;
+	font-weight: 600;
+	text-align: start;
 	cursor: pointer;
-	text-align: left;
-	font-size: 13px;
+}
+
+.hpnf-card__toggle:hover,
+.hpnf-card__toggle:focus {
+	background: #f6f7f7;
+}
+
+.hpnf-card__toggle:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: -2px;
+}
+
+.hpnf-card__toggle .dashicons {
+	color: #50575e;
+}
+
+.hpnf-card__icon {
+	display: inline-flex;
+	width: 1.25em;
+	justify-content: center;
+	color: #50575e;
+}
+
+/* An unnamed icon leaves an empty 1.25em box, so the titles still line up across cards. */
+.hpnf-card__title {
+	flex: 1 1 auto;
+}
+
+.hpnf-card__count {
+	color: #646970;
+	font-weight: 400;
+	font-variant-numeric: tabular-nums;
+}
+
+.hpnf-card__body {
+	padding: 14px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.hpnf-card__body[hidden] {
+	display: none;
+}
+
+/* On a Types card the label block moved in from the row's <th> duplicates the card title, so only
+ * the tooltip beside it has any business showing. On a Text card the label IS the field's name
+ * and stays. */
+.hpnf-card--types .hpnf-card__label label {
+	display: none;
+}
+
+.hpnf-card__label {
+	margin-bottom: 8px;
+}
+
+.hpnf-card__body .hp-field > ul {
+	margin: 0;
+}
+
+/* The Text card's fields, stacked as blocks the way a repeater card lays out its own: the label
+ * block reads as a caption above its control rather than a table heading beside one. */
+.hpnf-card__field + .hpnf-card__field {
+	margin-top: 14px;
+	padding-top: 14px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.hpnf-card__field .hpnf-card__label {
+	display: block;
+	margin-bottom: 6px;
 	font-weight: 600;
 }
 
-.hpnf-group-toggle:hover,
-.hpnf-group-toggle:focus {
-	border-color: #2271b1;
-	background-color: #f0f6fc;
-}
-
-.hpnf-group-toggle__name {
-	margin-right: auto;
-}
-
-.hpnf-group-toggle__count,
-.hpnf-fold-toggle__count {
-	color: #646970;
-	font-weight: 400;
-}
-
-.hpnf-group-toggle__chevron,
-.hpnf-fold-toggle__chevron {
-	font-size: 16px;
-	line-height: 1;
-	transition: transform 0.15s;
-}
-
-.hpnf-group-row--open .hpnf-group-toggle__chevron,
-.hpnf-fold-toggle--open .hpnf-fold-toggle__chevron {
-	transform: rotate(180deg);
-}
-
-/* The Show options toggle sits where the checkbox list begins; button-link gives it core's
- * plain-link look, and the gap keeps its three parts readable. */
-.hpnf-fold-toggle {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	margin: 2px 0 4px;
-	text-decoration: none;
-}
-
-/* Enforce the hidden attribute the script sets on the list. HivePress styles these lists
- * directly, and a class with a display value beats the browser's own [hidden] rule. */
-.hp-field[data-hpnf-collapse] > ul[hidden] {
-	display: none !important;
+.hpnf-card__field .hp-field {
+	max-width: 100%;
 }
 
 /* Same enforcement for the folded rows. The browser's own [hidden] rule lives in the UA sheet,

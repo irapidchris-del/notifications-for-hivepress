@@ -483,6 +483,34 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Gets the icon that stands for a group on the settings screen.
+	 *
+	 * Font Awesome 5 spellings throughout, resolved by the library's alias table, so the same name
+	 * works whichever copy of the library a site happens to load. Nothing here reaches a member:
+	 * these draw only on the Types cards in wp-admin.
+	 *
+	 * @param string $group Group key.
+	 * @return string Icon name, or an empty string for a group this does not know.
+	 */
+	public function get_group_icon( $group ) {
+		$icons = [
+			'listings'    => 'list',
+			'messages'    => 'comments',
+			'bookings'    => 'calendar-check',
+			'orders'      => 'receipt',
+			'requests'    => 'clipboard-list',
+			'memberships' => 'id-card',
+			'gallery'     => 'images',
+			'performance' => 'chart-line',
+			'account'     => 'user',
+			'admin'       => 'shield-alt',
+			'other'       => 'ellipsis-h',
+		];
+
+		return (string) hp\get_array_value( $icons, (string) $group, '' );
+	}
+
+	/**
 	 * Gets the group of a notification type.
 	 *
 	 * @param string $type Notification type.
@@ -1320,17 +1348,106 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Carries the regrouped owner types' saved choices into the For Site Owners option.
+	 *
+	 * 1.6.0 moved thirteen types - the ones HivePress addresses to the site owner - out of
+	 * Listings, Orders, Requests and Account into For Site Owners (see OWNER_TYPES). The move fixed
+	 * what members were shown, and broke something quieter: get_enabled_types() reads each group's
+	 * SAVED option and keeps only the types that are in it, so on a site that had ever saved the
+	 * Types section, a moved type was now looked up in an option that had never heard of it and
+	 * came out disabled. Thirteen owner notifications went silent, and the screen showed "3/16" on
+	 * the card as the only sign. Found on 2026-09-02 while building those cards; 1.6.0 had shipped
+	 * that morning.
+	 *
+	 * The rewrite reads each moved type's choice from where it USED to live and writes the answer
+	 * into the option where it now lives. A former group that was never saved means the type was
+	 * on by default; one saved as an empty string means everything in it was deliberately off.
+	 * The former options are left alone - get_enabled_types() ignores a name that is no longer in
+	 * that group - and nothing runs on a site that never saved any of the five options involved,
+	 * because the defaults already give the right answer there.
+	 *
+	 * @return void
+	 */
+	protected function migrate_owner_types_group() {
+		$former = [
+			'listing' => 'listings',
+			'order'   => 'orders',
+			'payout'  => 'orders',
+			'request' => 'requests',
+			'offer'   => 'requests',
+			'vendor'  => 'account',
+		];
+
+		$off      = $this->get_default_off_types();
+		$admin    = get_option( 'hp_notification_types_admin' );
+		$involved = is_array( $admin ) || '' === $admin;
+		$enabled  = [];
+
+		foreach ( self::OWNER_TYPES as $type ) {
+			$group = hp\get_array_value( $former, strtok( $type, '_' ) );
+
+			if ( ! $group ) {
+				continue;
+			}
+
+			$choice = get_option( 'hp_notification_types_' . $group );
+
+			if ( is_array( $choice ) ) {
+				$involved = true;
+
+				if ( in_array( $type, $choice, true ) ) {
+					$enabled[] = $type;
+				}
+			} elseif ( '' === $choice ) {
+				$involved = true;
+			} elseif ( ! in_array( $type, $off, true ) ) {
+				$enabled[] = $type;
+			}
+		}
+
+		if ( ! $involved ) {
+			return;
+		}
+
+		// What the admin group held before the move: its saved list, or its defaults if it was
+		// never saved (the three moderation types, none of which is off by default).
+		$kept = [];
+
+		if ( is_array( $admin ) ) {
+			$kept = $admin;
+		} elseif ( '' !== $admin ) {
+			foreach ( array_keys( $this->get_optional_types() ) as $type ) {
+				if ( 'admin' === $this->get_type_group( $type ) && ! in_array( $type, self::OWNER_TYPES, true ) && ! in_array( $type, $off, true ) ) {
+					$kept[] = $type;
+				}
+			}
+		}
+
+		$merged = array_values( array_unique( array_merge( array_map( 'strval', $kept ), $enabled ) ) );
+
+		// An empty list is stored the way the settings form stores it, so the "deliberately none"
+		// branch in get_enabled_types() still recognises it.
+		update_option( 'hp_notification_types_admin', $merged ? $merged : '' );
+	}
+
+	/**
 	 * Runs the one-time rewrites an update needs, once per version.
 	 *
 	 * @return void
 	 */
 	public function maybe_upgrade() {
-		if ( version_compare( (string) get_option( 'hp_notification_version' ), HP_NOTIFICATIONS_VERSION, '>=' ) ) {
+		$previous = (string) get_option( 'hp_notification_version' );
+
+		if ( version_compare( $previous, HP_NOTIFICATIONS_VERSION, '>=' ) ) {
 			return;
 		}
 
 		// The version goes first, so two requests arriving together can't both run the rewrites.
 		update_option( 'hp_notification_version', HP_NOTIFICATIONS_VERSION );
+
+		if ( version_compare( $previous, '1.7.0', '<' ) ) {
+			$this->migrate_owner_types_group();
+		}
 
 		/*
 		 * 1.1.0 renamed the settings form from "notification_update" to "hpnf_notification_update":
@@ -3588,32 +3705,24 @@ final class Hpnf_Notification extends Component {
 		}
 
 		/*
-		 * The email-less types are named here, at runtime, rather than in the config's static
-		 * description. That sentence used to hard-code all four names, and a site without the
-		 * extension behind one of them then read about a checkbox that was nowhere on its screen:
-		 * a staging install with no Badges extension was told "unticking Badge Earned turns it off
-		 * altogether" while no Badge Earned existed anywhere on the page. Building the list from
-		 * the types actually registered means the copy can only ever name what the site can see.
+		 * Said once and said generally. This used to name every email-less type the site had, built
+		 * at runtime so it could never mention a checkbox that was not on the screen - and on a site
+		 * with the gallery, holiday and insight extensions active that was thirty-three names in one
+		 * sentence. Chris asked for it to go on 2026-09-02: "It's a wall of text which we want to
+		 * avoid." The runtime gate stays, so a site with no such type is not told about one.
 		 */
-		$hp_emailless = [];
+		$hp_has_emailless = false;
 
-		foreach ( $this->get_optional_types() as $type => $args ) {
+		foreach ( $this->get_optional_types() as $args ) {
 			if ( isset( $args['channels'] ) && ! in_array( 'email', (array) $args['channels'], true ) ) {
-				$hp_emailless[] = hp\get_array_value( $args, 'label', $type );
+				$hp_has_emailless = true;
+
+				break;
 			}
 		}
 
-		if ( $hp_emailless ) {
-			$settings['notifications']['sections']['types']['description'] .= ' ' . sprintf(
-				/* translators: %s: comma-separated list of notification names. */
-				_n(
-					'One of these has no email behind it, so unticking %s switches that notification off altogether.',
-					'These have no email behind them, so unticking one of them switches that notification off altogether: %s.',
-					count( $hp_emailless ),
-					'notifications-for-hivepress'
-				),
-				implode( ', ', $hp_emailless )
-			);
+		if ( $hp_has_emailless ) {
+			$settings['notifications']['sections']['types']['description'] .= ' ' . esc_html__( 'Some notification types have no email behind them, so unticking one of those switches that notification off altogether.', 'notifications-for-hivepress' );
 		}
 
 		// One field per group keeps forty types from arriving as one wall, and only the groups
@@ -3677,7 +3786,13 @@ final class Hpnf_Notification extends Component {
 				// Marks the checkbox list for the collapse admin-nav.js adds. The attribute lands
 				// on the field's own wrapper div (class-checkboxes.php:77 renders attributes on
 				// it), which is exactly the element whose list the script folds away.
-				'attributes'  => [ 'data-hpnf-collapse' => '1' ],
+				'attributes'  => [
+					// Marks the field for admin-nav.js to draw as a card: a header bar carrying the
+					// group's icon and name over the folded checkbox list. The icon is only named
+					// when the library has it, so a missing glyph draws nothing rather than a box.
+					'data-hpnf-card'      => $group,
+					'data-hpnf-card-icon' => class_exists( 'FAFH' ) && \FAFH::has( $this->get_group_icon( $group ) ) ? $this->get_group_icon( $group ) : '',
+				],
 				'_order'      => $order,
 			];
 
@@ -3782,8 +3897,10 @@ final class Hpnf_Notification extends Component {
 					'placeholder' => $this->get_type_public_label( $type ),
 
 					'attributes'  => [
-						'style'           => 'width:100%;max-width:52em;',
-						'data-hpnf-group' => $group_label,
+						'style'                => 'width:100%;max-width:52em;',
+						'data-hpnf-group'      => $group_label,
+						'data-hpnf-group-key'  => $group,
+						'data-hpnf-group-icon' => class_exists( 'FAFH' ) && \FAFH::has( $this->get_group_icon( $group ) ) ? $this->get_group_icon( $group ) : '',
 					],
 
 					'_order'      => $order,
@@ -3846,8 +3963,10 @@ final class Hpnf_Notification extends Component {
 					 * cascade without an !important arms race, and only for these fields.
 					 */
 					'attributes'  => [
-						'style'           => 'width:100%;max-width:52em;',
-						'data-hpnf-group' => $group_label,
+						'style'                => 'width:100%;max-width:52em;',
+						'data-hpnf-group'      => $group_label,
+						'data-hpnf-group-key'  => $group,
+						'data-hpnf-group-icon' => class_exists( 'FAFH' ) && \FAFH::has( $this->get_group_icon( $group ) ) ? $this->get_group_icon( $group ) : '',
 					],
 
 					'_order'      => $order,

@@ -9,11 +9,16 @@
  *    CHROME differ. HivePress renders the tab through do_settings_sections(), which emits a bare
  *    <h2> per section with no id and no wrapper (wp-admin/includes/template.php), so there is
  *    nothing to link to server-side; the ids and the nav are added here.
- * 2. The Text section's per-type rows fold into one group per source (Listings, Bookings...).
- *    The server lays the rows down group by group and stamps each input with data-hpnf-group
- *    (alter_settings()), because a table row carries nothing else that says where one group ends.
- * 3. The Types section's long checkbox lists fold behind a "Show options" toggle per group. Those
- *    fields are stamped data-hpnf-collapse server-side.
+ * 2. The Text section's per-type rows become one card per source (Listings, Bookings...), each
+ *    type's title and wording fields moved inside it. The server lays the rows down group by group
+ *    and stamps each input with data-hpnf-group, -group-key and -group-icon (alter_settings()),
+ *    because a table row carries nothing else that says where one group ends.
+ * 3. The Types section's checkbox lists become cards, one per group: a header bar carrying the
+ *    group's icon, name and an on/total count, folding the list beneath it. Those fields are
+ *    stamped data-hpnf-card (the group key) and data-hpnf-card-icon server-side. The card is the
+ *    same one Account Menu Enhancer draws for its placeholder pages - Chris asked for the two
+ *    screens to match on 2026-09-02 - and the fold is remembered per group in localStorage, as
+ *    that plugin remembers its cards.
  *
  * Everything stays in the DOM, merely hidden, so the settings form still posts every value.
  * Without this script the tab renders fully expanded, which is the right fallback.
@@ -394,7 +399,12 @@
 	}
 
 	/**
-	 * Folds the Text section's rows into one collapsible group per source.
+	 * Draws the Text section as one card per source, each type's fields inside it.
+	 *
+	 * The server lays the rows down group by group; a run of rows sharing a data-hpnf-group is one
+	 * card. Each row's label block and control are MOVED into the card body (never rebuilt - the
+	 * <label>, the token tooltip and the inputs' registered names all travel), and the emptied
+	 * row is dropped.
 	 *
 	 * @param {Element} form Settings form.
 	 */
@@ -417,6 +427,8 @@
 			if ( ! current || current.name !== name ) {
 				current = {
 					name: name,
+					key: input.getAttribute( 'data-hpnf-group-key' ) || name,
+					icon: input.getAttribute( 'data-hpnf-group-icon' ) || '',
 					rows: [],
 				};
 
@@ -432,110 +444,206 @@
 		}
 
 		groups.forEach( function( group ) {
-			var header = document.createElement( 'tr' );
-			header.className = 'hpnf-group-row';
+			var first = group.rows[ 0 ];
 
-			var cell = document.createElement( 'td' );
-			cell.colSpan = 2;
-
-			var toggle = document.createElement( 'button' );
-			toggle.type = 'button';
-			toggle.className = 'hpnf-group-toggle';
-
-			var title = document.createElement( 'span' );
-			title.className = 'hpnf-group-toggle__name';
-			title.textContent = group.name;
-
-			// Row pairs per type, so the count reads as "how many notifications", not "how many
-			// boxes". Digits only, so nothing here needs translating.
-			var count = document.createElement( 'span' );
-			count.className = 'hpnf-group-toggle__count';
-			count.textContent = String( group.rows.length );
-
-			var chevron = document.createElement( 'span' );
-			chevron.className = 'dashicons dashicons-arrow-down-alt2 hpnf-group-toggle__chevron';
-			chevron.setAttribute( 'aria-hidden', 'true' );
-
-			toggle.appendChild( title );
-			toggle.appendChild( count );
-			toggle.appendChild( chevron );
-			cell.appendChild( toggle );
-			header.appendChild( cell );
-
-			group.rows[0].parentNode.insertBefore( header, group.rows[0] );
-
-			function setOpen( open ) {
-				toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
-				header.classList.toggle( 'hpnf-group-row--open', open );
-
-				group.rows.forEach( function( row ) {
-					row.hidden = ! open;
-				} );
-			}
-
-			setOpen( false );
-
-			toggle.addEventListener( 'click', function() {
-				setOpen( 'false' === toggle.getAttribute( 'aria-expanded' ) );
-			} );
-		} );
-	}
-
-	/**
-	 * Folds each marked checkbox list behind a Show options toggle.
-	 *
-	 * @param {Element} form Settings form.
-	 */
-	function initCheckboxFolds( form ) {
-		var strings = window.hpnfAdminNav || {};
-
-		Array.prototype.forEach.call( form.querySelectorAll( '.hp-field[data-hpnf-collapse]' ), function( field ) {
-			var list = field.querySelector( 'ul' );
-
-			if ( ! list ) {
+			if ( ! first || ! first.parentElement ) {
 				return;
 			}
 
-			var boxes = field.querySelectorAll( 'input[type="checkbox"]' );
+			// Types, not boxes: each type has a title row and a wording row, so the card says how
+			// many notifications it holds rather than how many fields. Digits only, nothing to
+			// translate.
+			var types = group.rows.filter( function( row ) {
+				return row.querySelector( 'input[name^="hp_notification_title_"]' );
+			} ).length;
 
-			var toggle = document.createElement( 'button' );
-			toggle.type = 'button';
-			toggle.className = 'button-link hpnf-fold-toggle';
+			var card = buildCard( 'text:' + group.key, group.name, group.icon, 'hpnf-card--text' );
 
-			var text = document.createElement( 'span' );
+			card.count.textContent = String( types );
+			first.parentElement.insertBefore( card.row, first );
 
-			// "3/12" alongside the action, so a closed list still says how much of it is on.
-			var count = document.createElement( 'span' );
-			count.className = 'hpnf-fold-toggle__count';
+			group.rows.forEach( function( row ) {
+				var field = document.createElement( 'div' ),
+					labelBlock = row.querySelector( 'th > div' ) || row.querySelector( 'th' ),
+					control = row.querySelector( 'td' );
 
-			var chevron = document.createElement( 'span' );
-			chevron.className = 'dashicons dashicons-arrow-down-alt2 hpnf-fold-toggle__chevron';
-			chevron.setAttribute( 'aria-hidden', 'true' );
+				field.className = 'hpnf-card__field';
 
-			toggle.appendChild( text );
-			toggle.appendChild( count );
-			toggle.appendChild( chevron );
+				if ( labelBlock ) {
+					labelBlock.classList.add( 'hpnf-card__label' );
+					field.appendChild( labelBlock );
+				}
 
-			field.insertBefore( toggle, list );
+				if ( control ) {
+					while ( control.firstChild ) {
+						field.appendChild( control.firstChild );
+					}
+				}
 
-			function recount() {
-				count.textContent = field.querySelectorAll( 'input[type="checkbox"]:checked' ).length + '/' + boxes.length;
+				card.body.appendChild( field );
+				row.remove();
+			} );
+
+			card.open( card.remembered(), false );
+		} );
+	}
+
+	var CARD_STORE = 'hpnfCards';
+
+	function readCardStore() {
+		try {
+			return JSON.parse( window.localStorage.getItem( CARD_STORE ) ) || {};
+		} catch ( error ) {
+			return {};
+		}
+	}
+
+	function writeCardStore( store ) {
+		try {
+			window.localStorage.setItem( CARD_STORE, JSON.stringify( store ) );
+		} catch ( error ) {
+			// Storage blocked or full; the cards still fold, they just forget on the next load.
+		}
+	}
+
+	/**
+	 * Builds one card: a header bar (chevron, icon, title, count) over a body, in a settings row
+	 * of the same shape as every other on the tab so it lines up with the controls around it and
+	 * stacks correctly at 782px where core drops the label column. Deliberately the card Account
+	 * Menu Enhancer draws for its placeholder pages, so the two screens read as one family.
+	 *
+	 * @param {string} key      Store key for the remembered fold state.
+	 * @param {string} title    Card title.
+	 * @param {string} iconName Font Awesome name, or '' for no icon.
+	 * @param {string} kind     Modifier class naming which section the card belongs to.
+	 * @return {Object} row, body, count, open( open, remember ), remembered().
+	 */
+	function buildCard( key, title, iconName, kind ) {
+		var row = document.createElement( 'tr' ),
+			labelCell = document.createElement( 'th' ),
+			cell = document.createElement( 'td' ),
+			card = document.createElement( 'div' ),
+			button = document.createElement( 'button' ),
+			chevron = document.createElement( 'span' ),
+			icon = document.createElement( 'i' ),
+			name = document.createElement( 'span' ),
+			count = document.createElement( 'span' ),
+			body = document.createElement( 'div' );
+
+		row.className = 'hpnf-card-row';
+		labelCell.className = 'hpnf-card-row__label';
+		card.className = 'hpnf-card ' + kind;
+
+		button.type = 'button';
+		button.className = 'hpnf-card__toggle';
+		button.setAttribute( 'aria-expanded', 'true' );
+
+		chevron.className = 'dashicons dashicons-arrow-up-alt2';
+		chevron.setAttribute( 'aria-hidden', 'true' );
+
+		// The family class is not chosen here: the shared icon library's admin script replaces
+		// this element with inline SVG and reads the icon's real style from its own index.
+		icon.className = iconName ? 'hpnf-card__icon fa-fw fa-solid fa-' + iconName : 'hpnf-card__icon';
+		icon.setAttribute( 'aria-hidden', 'true' );
+
+		name.className = 'hpnf-card__title';
+		name.textContent = title;
+
+		count.className = 'hpnf-card__count';
+		body.className = 'hpnf-card__body';
+
+		button.appendChild( chevron );
+		button.appendChild( icon );
+		button.appendChild( name );
+		button.appendChild( count );
+		card.appendChild( button );
+		card.appendChild( body );
+		cell.appendChild( card );
+		row.appendChild( labelCell );
+		row.appendChild( cell );
+
+		function open( isOpen, remember ) {
+			button.setAttribute( 'aria-expanded', isOpen ? 'true' : 'false' );
+			chevron.className = 'dashicons ' + ( isOpen ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2' );
+			body.hidden = ! isOpen;
+
+			if ( remember ) {
+				var state = readCardStore();
+
+				state[ key ] = isOpen ? 1 : 0;
+				writeCardStore( state );
+			}
+		}
+
+		button.addEventListener( 'click', function() {
+			open( 'false' === button.getAttribute( 'aria-expanded' ), true );
+		} );
+
+		return {
+			row: row,
+			body: body,
+			count: count,
+			open: open,
+
+			// Folded by default: eleven groups of a dozen boxes is a wall, and this is the reason
+			// the cards exist. A card the owner opened stays open on the next visit.
+			remembered: function() {
+				var store = readCardStore();
+
+				return 'undefined' !== typeof store[ key ] ? !! store[ key ] : false;
+			},
+		};
+	}
+
+	/**
+	 * Draws each marked Types field as a card and folds its checkbox list inside it.
+	 *
+	 * The row's label block and its control are MOVED into the card, never rebuilt: the <label>
+	 * core associated with the field, the tooltip beside it and every checkbox keep their
+	 * registered names and stay inside the form, which is the whole of what makes them post.
+	 *
+	 * @param {Element} form Settings form.
+	 */
+	function initTypeCards( form ) {
+		Array.prototype.forEach.call( form.querySelectorAll( '.hp-field[data-hpnf-card]' ), function( field ) {
+			var list = field.querySelector( 'ul' ),
+				row = field.closest( 'tr' );
+
+			if ( ! list || ! row || ! row.parentElement ) {
+				return;
 			}
 
-			function setOpen( open ) {
-				toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
-				toggle.classList.toggle( 'hpnf-fold-toggle--open', open );
-				text.textContent = open ? ( strings.hide || 'Hide options' ) : ( strings.show || 'Show options' );
-				list.hidden = ! open;
+			var key = field.getAttribute( 'data-hpnf-card' ),
+				iconName = ( field.getAttribute( 'data-hpnf-card-icon' ) || '' ).trim(),
+				boxes = field.querySelectorAll( 'input[type="checkbox"]' ),
+				labelBlock = row.querySelector( 'th > div' ) || row.querySelector( 'th' ),
+				labelText = labelBlock ? labelBlock.querySelector( 'label' ) : null;
+
+			// The label's own words only. Core appends "(optional)" to the label text itself, and a
+			// card called "Listings (optional)" is not what anyone asked for.
+			var title = labelText ? labelText.textContent.replace( /\s*\([^)]*\)\s*$/, '' ).trim() || labelText.textContent.trim() : key;
+
+			var card = buildCard( 'types:' + key, title, iconName, 'hpnf-card--types' );
+
+			row.parentElement.insertBefore( card.row, row );
+
+			// The tooltip travels with the label block; the visible label text is now the card's
+			// title, so the block is kept only for what it carries and its label hidden by CSS.
+			if ( labelBlock ) {
+				labelBlock.classList.add( 'hpnf-card__label' );
+				card.body.appendChild( labelBlock );
+			}
+
+			card.body.appendChild( field );
+			row.remove();
+
+			// "3/12" on the bar, so a folded card still says how much of it is on.
+			function recount() {
+				card.count.textContent = field.querySelectorAll( 'input[type="checkbox"]:checked' ).length + '/' + boxes.length;
 			}
 
 			recount();
-			setOpen( false );
-
-			toggle.addEventListener( 'click', function() {
-				setOpen( 'false' === toggle.getAttribute( 'aria-expanded' ) );
-			} );
-
+			card.open( card.remembered(), false );
 			field.addEventListener( 'change', recount );
 		} );
 	}
@@ -552,7 +660,7 @@
 		addSettingsChrome();
 
 		initTextGroups( form );
-		initCheckboxFolds( form );
+		initTypeCards( form );
 	}
 
 	if ( 'loading' === document.readyState ) {

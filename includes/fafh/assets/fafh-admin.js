@@ -129,6 +129,9 @@
 		element.classList.add( 'fafh-icon' );
 		element.appendChild( svg );
 		element.setAttribute( 'data-fafh', 'drawn' );
+
+		// Remembered so a later class change can be told apart from a repaint of the same icon.
+		element.setAttribute( 'data-fafh-name', nameOf( element ) || '' );
 	}
 
 	/**
@@ -199,11 +202,27 @@
 	 * Converts one element, fetching its glyph if this is the first sighting.
 	 */
 	function convert( element ) {
-		if ( 'drawn' === element.getAttribute( 'data-fafh' ) ) {
-			return;
-		}
-
 		var name = nameOf( element );
+
+		if ( 'drawn' === element.getAttribute( 'data-fafh' ) ) {
+			// Already drawn, and drawn as the icon its class still names: nothing to do.
+			if ( name === element.getAttribute( 'data-fafh-name' ) ) {
+				return;
+			}
+
+			// The class changed underneath a finished glyph. A settings screen does this when the
+			// owner picks a different icon and the script rewrites className on the same element.
+			// Before this handled it, the old <svg> stayed inside, the fafh-icon class that sizes it
+			// was gone, and the owner saw the OLD icon at the browser's 300x150 fallback size -
+			// reported by Chris on 2026-09-02 as "the Stripe S increased in size on the card".
+			while ( element.firstChild ) {
+				element.removeChild( element.firstChild );
+			}
+
+			element.removeAttribute( 'data-fafh' );
+			element.removeAttribute( 'data-fafh-name' );
+			element.classList.remove( 'fafh-icon' );
+		}
 
 		if ( ! name ) {
 			return;
@@ -259,13 +278,24 @@
 
 		new window.MutationObserver( function( mutations ) {
 			for ( var i = 0; i < mutations.length; i++ ) {
+				// A class rewritten on an element that is already drawn. Watched for the same
+				// reason new nodes are: a script that changes an icon in place changes only the
+				// class, and nothing is added for the childList branch below to see.
+				if ( 'attributes' === mutations[ i ].type ) {
+					if ( 'I' === mutations[ i ].target.tagName ) {
+						convert( mutations[ i ].target );
+					}
+
+					continue;
+				}
+
 				var added = mutations[ i ].addedNodes;
 
 				for ( var j = 0; j < added.length; j++ ) {
 					scan( added[ j ] );
 				}
 			}
-		} ).observe( document.body, { childList: true, subtree: true } );
+		} ).observe( document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
 	}
 
 	if ( 'loading' === document.readyState ) {

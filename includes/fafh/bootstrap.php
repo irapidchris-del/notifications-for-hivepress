@@ -35,4 +35,4 @@ if ( ! class_exists( 'FAFH_Loader', false ) ) {
  * library is shared by several plugins and so cannot carry any one of their
  * prefixes, and tools\sync-fafh.ps1 reads the version straight out of this call.
  */
-FAFH_Loader::register( '1.2.1', __DIR__ );
+FAFH_Loader::register( '1.2.2', __DIR__ );
