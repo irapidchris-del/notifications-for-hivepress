@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.6
+Stable tag: 1.7.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -177,6 +177,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.7.7 =
+* Fixed: the sticky header only worked for signed-in people. Visitors, and anyone in a private browsing window, scrolled the header off the screen. It now pins for everyone when the setting is on; nothing changes for sites with it off.
 
 = 1.7.6 =
 * New: each notification on the Notifications page has a tick box, with Select all in the toolbar and a Clear selected button that removes the ticked ones.

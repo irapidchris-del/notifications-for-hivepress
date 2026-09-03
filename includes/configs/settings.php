@@ -216,7 +216,7 @@ return [
 					'notification_sticky_header'           => [
 						'label'       => esc_html__( 'Sticky Header', 'notifications-for-hivepress' ),
 						'caption'     => esc_html__( 'Keep the header on screen when scrolling', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'Keeps your whole site header at the top of the screen while signed-in people scroll. It follows the bell setting above, and leave it off if your theme already pins its header, or you will get two.', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'Keeps your whole site header at the top of the screen while people scroll, whether or not they are signed in. It follows the bell setting above, and leave it off if your theme already pins its header, or you will get two.', 'notifications-for-hivepress' ),
 						'type'        => 'checkbox',
 						'_parent'     => 'notification_bell',
 						'_order'      => 52,

@@ -152,6 +152,10 @@ final class Hpnf_Notification extends Component {
 
 			// Enqueue assets.
 			add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_scripts' ], 20 );
+
+			// The sticky header is for every visitor, so it has its own assets outside the
+			// signed-in gate above. See enqueue_sticky().
+			add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_sticky' ], 20 );
 		}
 
 		parent::__construct( $args );
@@ -4263,6 +4267,98 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Enqueues the sticky header assets, for signed-in users and visitors alike.
+	 *
+	 * Deliberately NOT inside enqueue_scripts(): that returns early for signed-out visitors,
+	 * because everything else on the front end is per user, and the sticky header used to ride
+	 * along with it. The result was a header that stuck for the site owner, who is always signed
+	 * in while testing, and never for a visitor - reported on 3 September 2026 as "the sticky
+	 * header doesn't work in an incognito browser". Nothing about pinning the header needs a
+	 * user, so it gets its own script and stylesheet, gated only on the settings.
+	 *
+	 * Gated on the bell, like the two hide-counter settings. The Sticky Header row is a
+	 * "_parent" child of Header Bell, so it disappears from the screen when the bell is switched
+	 * off, but the stored value stays behind: without this check an admin who tried the bell with
+	 * a sticky header and then changed their mind kept a header pinned to the top of every page,
+	 * with the tick box that would undo it no longer on the screen.
+	 */
+	public function enqueue_sticky() {
+		if ( ! get_option( 'hp_notification_bell' ) || ! get_option( 'hp_notification_sticky_header' ) ) {
+			return;
+		}
+
+		$url  = plugin_dir_url( HP_NOTIFICATIONS_FILE );
+		$path = plugin_dir_path( HP_NOTIFICATIONS_FILE );
+
+		// The file time rides along so browser and page caches refresh whenever the file
+		// changes, not only on version bumps.
+		wp_enqueue_style( 'hp-notification-sticky', $url . 'assets/css/sticky.css', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/css/sticky.css' ) );
+		wp_enqueue_script( 'hp-notification-sticky', $url . 'assets/js/sticky.js', [], HP_NOTIFICATIONS_VERSION . '.' . (int) filemtime( $path . 'assets/js/sticky.js' ), true );
+
+		$styles = $this->get_sticky_styles();
+
+		if ( $styles ) {
+			wp_add_inline_style( 'hp-notification-sticky', $styles );
+		}
+
+		// Nested under "config" for the same reason as hpNotificationsData: wp_localize_script()
+		// casts every top-level scalar to a string, and values one level down keep their types.
+		wp_localize_script(
+			'hp-notification-sticky',
+			'hpNotificationsSticky',
+			[
+				'config' => [
+					'sticky'       => true,
+					'stickyGlass'  => (bool) get_option( 'hp_notification_sticky_glass' ),
+					'glassOpacity' => max( 10, min( 100, (int) get_option( 'hp_notification_sticky_glass_opacity', 72 ) ) ),
+					'glassBlur'    => max( 0, min( 60, (int) get_option( 'hp_notification_sticky_glass_blur', 20 ) ) ),
+				],
+			]
+		);
+	}
+
+	/**
+	 * Builds the inline CSS for the pinned header.
+	 *
+	 * Only the corner radii live here. The caller has already checked the two options that
+	 * switch the sticky header on, so this reads the corners alone.
+	 *
+	 * @return string
+	 */
+	protected function get_sticky_styles() {
+		$output = '';
+
+		/*
+		 * The pinned header's corner radii, one option per corner because one linked value cannot
+		 * round only the visible bottom edge. Emitted as a whole rule only when a corner is set,
+		 * so an untouched site ships no rule at all - same reasoning as the button radius above.
+		 * A cleared number field stores '', so anything non-numeric counts as 0. The glass
+		 * overlay follows via border-radius:inherit in the stylesheet.
+		 */
+		$corners = [];
+
+		// Shorthand order: top-left, top-right, bottom-right, bottom-left.
+		foreach ( [
+			'hp_notification_sticky_radius_top_left',
+			'hp_notification_sticky_radius_top_right',
+			'hp_notification_sticky_radius_bottom_right',
+			'hp_notification_sticky_radius_bottom_left',
+		] as $option ) {
+			$value = get_option( $option, 0 );
+
+			$corners[] = ( is_numeric( $value ) ? max( 0, min( 40, (int) $value ) ) : 0 ) . 'px';
+		}
+
+		$radius = implode( ' ', $corners );
+
+		if ( '0px 0px 0px 0px' !== $radius ) {
+			$output .= '.hp-nfh-sticky{border-radius:' . $radius . ';}';
+		}
+
+		return $output;
+	}
+
+	/**
 	 * Enqueues the notification assets.
 	 *
 	 * The pop-up data can't be printed into the page because a page cache would serve one user's
@@ -4317,15 +4413,6 @@ final class Hpnf_Notification extends Component {
 					'toasts'         => (bool) get_option( 'hp_notification_toasts', true ),
 					'position'       => (string) get_option( 'hp_notification_toast_position', 'bottom-left' ),
 					'positionMobile' => (string) get_option( 'hp_notification_toast_position_mobile', 'bottom' ),
-					// Gated on the bell, like the two hide-counter settings. Its row is a "_parent" child
-					// of Header Bell, so it disappears from the screen when the bell is switched off,
-					// but the stored value stays behind: without this check an admin who tried the bell
-					// with a sticky header and then changed their mind kept a header pinned to the top
-					// of every page, with the tick box that would undo it no longer on the screen.
-					'sticky'         => (bool) get_option( 'hp_notification_bell' ) && (bool) get_option( 'hp_notification_sticky_header' ),
-					'stickyGlass'    => (bool) get_option( 'hp_notification_bell' ) && (bool) get_option( 'hp_notification_sticky_header' ) && (bool) get_option( 'hp_notification_sticky_glass' ),
-					'glassOpacity'   => max( 10, min( 100, (int) get_option( 'hp_notification_sticky_glass_opacity', 72 ) ) ),
-					'glassBlur'      => max( 0, min( 60, (int) get_option( 'hp_notification_sticky_glass_blur', 20 ) ) ),
 					'autohide'       => (bool) get_option( 'hp_notification_toast_autohide', true ),
 					'duration'       => max( 1, absint( get_option( 'hp_notification_toast_duration', 6 ) ) ),
 					'limit'          => max( 1, absint( get_option( 'hp_notification_toast_limit', 3 ) ) ),
@@ -4625,35 +4712,6 @@ final class Hpnf_Notification extends Component {
 			 * "0 0 W 512") and 0.3px would be invisible.
 			 */
 			$output .= '.hp-notification-bell .hp-notification-bell__toggle i{-webkit-text-stroke:' . $strokes[ $weight_option ] . ' currentColor;stroke:currentColor;stroke-width:' . $strokes[ $weight_option ] . ';paint-order:stroke fill;}';
-		}
-
-		/*
-		 * The pinned header's corner radii, one option per corner because one linked value cannot
-		 * round only the visible bottom edge. Emitted as a whole rule only when a corner is set,
-		 * so an untouched site ships no rule at all - same reasoning as the button radius above.
-		 * A cleared number field stores '', so anything non-numeric counts as 0. The glass
-		 * overlay follows via border-radius:inherit in the stylesheet.
-		 */
-		if ( get_option( 'hp_notification_bell' ) && get_option( 'hp_notification_sticky_header' ) ) {
-			$corners = [];
-
-			// Shorthand order: top-left, top-right, bottom-right, bottom-left.
-			foreach ( [
-				'hp_notification_sticky_radius_top_left',
-				'hp_notification_sticky_radius_top_right',
-				'hp_notification_sticky_radius_bottom_right',
-				'hp_notification_sticky_radius_bottom_left',
-			] as $option ) {
-				$value = get_option( $option, 0 );
-
-				$corners[] = ( is_numeric( $value ) ? max( 0, min( 40, (int) $value ) ) : 0 ) . 'px';
-			}
-
-			$radius = implode( ' ', $corners );
-
-			if ( '0px 0px 0px 0px' !== $radius ) {
-				$output .= '.hp-nfh-sticky{border-radius:' . $radius . ';}';
-			}
 		}
 
 		// Recolour the account menu count, but only when the admin has actually chosen a colour
