@@ -256,10 +256,9 @@ a.hp-notification-toast__text:focus {
 }
 
 /*
- * The actions never wrap. Select all, Clear selected, Mark all as read, Clear read and Settings
- * are one row; when the header runs out of room the whole row drops under the count instead of
- * breaking in the middle, which had left Select all on one line and the buttons on the next.
- * On a narrow screen the row scrolls sideways rather than wrapping.
+ * The actions never wrap. Select all, Clear selected, Mark all as read and Clear read are one
+ * row; when the header runs out of room the whole row drops under the count instead of breaking
+ * in the middle. Settings is not in this row: it is pinned beside the page title below.
  */
 .hp-notifications__actions {
 	display: flex;
@@ -267,20 +266,46 @@ a.hp-notification-toast__text:focus {
 	align-items: center;
 	gap: 0.5rem;
 	max-width: 100%;
-	overflow-x: auto;
 }
 
 .hp-notifications__actions > * {
 	flex: 0 0 auto;
 }
 
-/* The row scrolls without showing a scrollbar: a visible bar under the buttons read as a fault. */
-.hp-notifications__actions {
-	scrollbar-width: none;
+/*
+ * Settings sits at the top right of the page content, level with the page title. The title is
+ * printed by the account page template above this block, so the link is positioned against the
+ * content column rather than the header, and the title keeps clear of it.
+ */
+.hp-template--notifications-view-page .hp-page__content {
+	position: relative;
 }
 
-.hp-notifications__actions::-webkit-scrollbar {
-	display: none;
+.hp-template--notifications-view-page .hp-page__title {
+	padding-right: 8rem;
+}
+
+.hp-notifications__actions .hp-notifications__action--settings {
+	position: absolute;
+	top: 0.75rem;
+	right: 0;
+}
+
+/* A phone column cannot hold four buttons side by side, so the row may wrap there and Settings
+ * comes back into the flow rather than crowding the title. */
+@media only screen and (max-width: 767px) {
+
+	.hp-notifications__actions {
+		flex-wrap: wrap;
+	}
+
+	.hp-template--notifications-view-page .hp-page__title {
+		padding-right: 0;
+	}
+
+	.hp-notifications__actions .hp-notifications__action--settings {
+		position: static;
+	}
 }
 
 .hp-notifications__filter {

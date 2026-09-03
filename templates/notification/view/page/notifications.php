@@ -80,7 +80,11 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 				<span><?php esc_html_e( 'Clear read', 'notifications-for-hivepress' ); ?></span>
 			</button>
 
-			<a class="hp-button button button--secondary hp-notifications__action" href="<?php echo esc_url( hivepress()->router->get_url( 'notification_settings_page' ) ); ?>">
+			<?php
+			// Settings is not an action on the list, so it leaves the row: the stylesheet pins it
+			// to the top right of the page content, level with the page title.
+			?>
+			<a class="hp-button button button--secondary hp-notifications__action hp-notifications__action--settings" href="<?php echo esc_url( hivepress()->router->get_url( 'notification_settings_page' ) ); ?>">
 				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'cog' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 				<span><?php esc_html_e( 'Settings', 'notifications-for-hivepress' ); ?></span>
 			</a>
