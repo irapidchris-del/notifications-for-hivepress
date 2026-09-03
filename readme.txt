@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.8
+Stable tag: 1.7.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -177,6 +177,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.7.9 =
+* Fixed: the buttons above the notifications list stay on one row. When Clear selected appeared, Select all was left on one line and the buttons on the next; the row now moves under the unread count as a whole.
 
 = 1.7.8 =
 * Changed: on the Notification Settings page, the sentence explaining what On-site, Email, Push and Texts mean is now page text above the form rather than a note under the first group, and it no longer counts the tick boxes.

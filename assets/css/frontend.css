@@ -255,11 +255,32 @@ a.hp-notification-toast__text:focus {
 	opacity: 0.6;
 }
 
+/*
+ * The actions never wrap. Select all, Clear selected, Mark all as read, Clear read and Settings
+ * are one row; when the header runs out of room the whole row drops under the count instead of
+ * breaking in the middle, which had left Select all on one line and the buttons on the next.
+ * On a narrow screen the row scrolls sideways rather than wrapping.
+ */
 .hp-notifications__actions {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	align-items: center;
 	gap: 0.5rem;
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.hp-notifications__actions > * {
+	flex: 0 0 auto;
+}
+
+/* The row scrolls without showing a scrollbar: a visible bar under the buttons read as a fault. */
+.hp-notifications__actions {
+	scrollbar-width: none;
+}
+
+.hp-notifications__actions::-webkit-scrollbar {
+	display: none;
 }
 
 .hp-notifications__filter {
@@ -1202,10 +1223,15 @@ a.hp-notifications__action.button--secondary:focus {
 	margin: 0;
 }
 
-.hp-notifications__select-all {
+/*
+ * Select all is a label wearing the theme's button classes, so it reads as one of the row's
+ * buttons; the tick box sits inside it in the button's own text colour. Restated as inline-flex
+ * because some themes give .button a block display for labels.
+ */
+.hp-notifications__actions .hp-notifications__select-all {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.4rem;
+	gap: 0.5rem;
 	margin: 0;
 	cursor: pointer;
 	white-space: nowrap;
@@ -1213,6 +1239,10 @@ a.hp-notifications__action.button--secondary:focus {
 
 .hp-notifications__select-all input[type="checkbox"] {
 	margin: 0;
+	width: 1em;
+	height: 1em;
+	accent-color: currentColor;
+	cursor: pointer;
 }
 
 .hp-notifications__select-all[hidden],

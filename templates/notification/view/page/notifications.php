@@ -60,7 +60,7 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 			// Select all pairs with the box on each row; Clear selected appears once any is ticked.
 			// Both act on the rows the script can see, so a filtered page clears only what it shows.
 			?>
-			<label class="hp-notifications__select-all" <?php echo $notification_total ? '' : 'hidden'; ?>>
+			<label class="hp-button button button--secondary hp-notifications__select-all" <?php echo $notification_total ? '' : 'hidden'; ?>>
 				<input type="checkbox" data-component="notifications-select-all">
 				<span><?php esc_html_e( 'Select all', 'notifications-for-hivepress' ); ?></span>
 			</label>
