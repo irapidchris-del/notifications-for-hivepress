@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.4
+Stable tag: 1.7.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -177,6 +177,15 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.7.6 =
+* New: each notification on the Notifications page has a tick box, with Select all in the toolbar and a Clear selected button that removes the ticked ones.
+* New: Mark all as read and Clear read ask before they act, as does Clear selected; a bulk change has no Undo.
+* Changed: the unread counter on the header bell is now the same 24px circle with bold 12px text as the account-menu counters, so every counter in the header reads as one family. A Bell Counter Size setting under Delivery brings back the smaller 16px overlay if you prefer it.
+* Changed: the notifications page now lays out its own search row: the field, the type list and the Search button share a line on wider screens and each take a full row on phones, with no theme rules needed.
+
+= 1.7.5 =
+* Changed: the Search button on the notifications page now carries a magnifying-glass icon, drawn the same way as the Mark all as read and Clear read buttons beside it. Themes that use a button's pseudo-elements for hover and loading effects (ListingHive does) left no room for a CSS-drawn glyph, so the icon is real markup.
 
 = 1.7.4 =
 * Fixed: tooltips inside the cards were cut off at the card's edge, and the ones on the Text section's fields had dropped below their labels; each now sits at the end of its label row and opens in full.

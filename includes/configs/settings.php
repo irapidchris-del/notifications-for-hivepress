@@ -126,6 +126,21 @@ return [
 						'_order'      => 43,
 					],
 
+					'notification_bell_badge_size'         => [
+						'label'       => esc_html__( 'Bell Counter Size', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The unread counter on the bell. Standard is the same 24px circle as the counters in the account menu, so every counter in your header reads as one family. Compact is the smaller 16px overlay earlier versions drew.', 'notifications-for-hivepress' ),
+						'type'        => 'select',
+						'default'     => 'standard',
+						'required'    => true,
+						'_parent'     => 'notification_bell',
+						'_order'      => 43,
+
+						'options'     => [
+							'standard' => esc_html__( 'Standard (24px, matches the menu counters)', 'notifications-for-hivepress' ),
+							'compact'  => esc_html__( 'Compact (16px)', 'notifications-for-hivepress' ),
+						],
+					],
+
 					'notification_bell_offset_x'           => [
 						'label'       => esc_html__( 'Nudge Sideways (px)', 'notifications-for-hivepress' ),
 						'description' => esc_html__( 'Shifts the bell without moving anything else in your header: negative moves it left, positive right. Only needed if it does not quite line up with the buttons beside it.', 'notifications-for-hivepress' ),

@@ -273,6 +273,34 @@
 	 *
 	 * @param {number} count Unread count.
 	 */
+	/**
+	 * Builds the selection box a row carries for the Clear selected action.
+	 *
+	 * Labelled for screen readers and bound by delegation on the list, so a row built here for
+	 * a notification that arrives while the page is open behaves like one the template printed.
+	 *
+	 * @param {number} id Notification ID.
+	 * @return {Element}
+	 */
+	function buildSelect( id ) {
+		var label = document.createElement( 'label' );
+		label.className = 'hp-notification__select';
+
+		var box = document.createElement( 'input' );
+		box.type = 'checkbox';
+		box.value = String( id );
+		box.setAttribute( 'data-component', 'notification-select' );
+
+		var text = document.createElement( 'span' );
+		text.className = 'screen-reader-text';
+		text.textContent = settings.selectText || '';
+
+		label.appendChild( box );
+		label.appendChild( text );
+
+		return label;
+	}
+
 	function setBadge( count ) {
 
 		// Put the unread count in the tab title, so a backgrounded tab still says so.
@@ -911,6 +939,7 @@
 			var row = document.createElement( 'li' );
 			row.className = 'hp-notification hp-notification--unread';
 			row.setAttribute( 'data-id', String( id ) );
+			row.appendChild( buildSelect( id ) );
 
 			// The same builder the pop-ups use, so a badge award shows its own icon and colour here
 			// too rather than the shared accent.
@@ -1955,6 +1984,11 @@
 
 		if ( readAll ) {
 			readAll.addEventListener( 'click', function() {
+				// Asked first: it touches every notification the person has, not just the page.
+				if ( ! window.confirm( settings.confirmAll ) ) {
+					return;
+				}
+
 				readAll.disabled = true;
 
 				request( '/notifications/read', {} ).then( function( response ) {
@@ -1981,6 +2015,11 @@
 
 		if ( clearRead ) {
 			clearRead.addEventListener( 'click', function() {
+				// Asked first: there is no Undo for a bulk delete, unlike the single-row cross.
+				if ( ! window.confirm( settings.confirmClear ) ) {
+					return;
+				}
+
 				clearRead.disabled = true;
 
 				request( '/notifications/delete', { read: 1 } ).then( function() {
@@ -1990,6 +2029,86 @@
 				} );
 			} );
 		}
+
+		// Select rows and clear them together. The state lives in the boxes themselves: Clear
+		// selected shows while any is ticked, and Select all follows the rows (indeterminate for
+		// a partial selection). Rows built for arriving notifications carry the same box, and the
+		// list binds them by delegation like every other row control.
+		var selectAll = list.querySelector( '[data-component="notifications-select-all"]' );
+		var clearSelected = list.querySelector( '[data-component="notifications-delete-selected"]' );
+
+		function selectBoxes() {
+			return Array.prototype.slice.call( list.querySelectorAll( '[data-component="notification-select"]' ) ).filter( function( box ) {
+				// A row hidden by a pending single delete is not on offer.
+				return box.closest( '.hp-notification' ) && 'none' !== box.closest( '.hp-notification' ).style.display;
+			} );
+		}
+
+		function syncSelection() {
+			var boxes = selectBoxes();
+			var ticked = boxes.filter( function( box ) {
+				return box.checked;
+			} );
+
+			if ( clearSelected ) {
+				clearSelected.hidden = ! ticked.length;
+			}
+
+			if ( selectAll ) {
+				selectAll.checked = boxes.length > 0 && ticked.length === boxes.length;
+				selectAll.indeterminate = ticked.length > 0 && ticked.length < boxes.length;
+
+				var wrapper = selectAll.closest( 'label' );
+
+				if ( wrapper ) {
+					wrapper.hidden = ! boxes.length;
+				}
+			}
+		}
+
+		if ( selectAll ) {
+			selectAll.addEventListener( 'change', function() {
+				selectBoxes().forEach( function( box ) {
+					box.checked = selectAll.checked;
+				} );
+
+				syncSelection();
+			} );
+		}
+
+		list.addEventListener( 'change', function( event ) {
+			if ( event.target && event.target.matches && event.target.matches( '[data-component="notification-select"]' ) ) {
+				syncSelection();
+			}
+		} );
+
+		if ( clearSelected ) {
+			clearSelected.addEventListener( 'click', function() {
+				var ids = selectBoxes().filter( function( box ) {
+					return box.checked;
+				} ).map( function( box ) {
+					return parseInt( box.value, 10 );
+				} ).filter( function( id ) {
+					return id > 0;
+				} );
+
+				if ( ! ids.length || ! window.confirm( settings.confirmPicked ) ) {
+					return;
+				}
+
+				clearSelected.disabled = true;
+
+				// The page reloads afterwards, as Clear read does, so the grouping and the page
+				// count stay honest.
+				request( '/notifications/delete', { ids: ids } ).then( function() {
+					window.location.reload();
+				} ).catch( function() {
+					clearSelected.disabled = false;
+				} );
+			} );
+		}
+
+		syncSelection();
 
 		list.addEventListener( 'click', function( event ) {
 

@@ -577,24 +577,41 @@ a.hp-notification-toast__text:focus {
  * Core's own menu count is 1.5rem square at 80% (frontend.less, hp-menu__item small). This is the
  * same construction one step down the golden-ratio scale - 1rem square at 62% - because it is a
  * superscript on an icon rather than a badge at the end of a menu row. */
+/* The counter: the same 1.5rem circle, 0.75rem bold text, 0 .4rem padding as HivePress's own
+ * account-menu counters (.hp-menu__item small), so every counter in a header reads as one family
+ * (Freestylr review, 3 September 2026: the bell's 16px overlay sat beside 24px menu counters).
+ * Still an overlay on the icon, pulled up and out to the corner. --compact is the Bell Counter
+ * Size setting's other choice: the 16px overlay earlier versions drew. */
 .hp-notification-bell__toggle small {
 	position: absolute;
-	top: 1px;
-	right: 0;
+	top: -0.25rem;
+	right: -0.35rem;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	min-width: 1rem;
-	min-height: 1rem;
-	padding: 0 0.25rem;
+	min-width: 1.5rem;
+	height: 1.5rem;
+	min-height: 1.5rem;
+	padding: 0 0.4rem;
 	border-radius: 9999px;
 	background-color: var(--hp-notification-badge, #ff5a5f);
 	color: #ffffff;
-	font-size: 62%;
+	font-size: 0.75rem;
 	font-weight: 700;
 	line-height: 1;
 	text-align: center;
+	white-space: nowrap;
 	box-sizing: border-box;
+}
+
+.hp-notification-bell--compact .hp-notification-bell__toggle small {
+	top: 1px;
+	right: 0;
+	min-width: 1rem;
+	height: auto;
+	min-height: 1rem;
+	padding: 0 0.25rem;
+	font-size: 62%;
 }
 
 .hp-notification-bell__panel {
@@ -875,6 +892,26 @@ a.hp-notifications__action.button--secondary:focus {
 .hp-notifications__filters input[type="search"] {
 	flex: 1;
 	min-width: 160px;
+}
+
+/* The Search button sits in the row with the field and the type select on wider screens and
+ * takes a row of its own on phones, like every button on the page there. The plugin owns this
+ * layout so a theme need not (Freestylr review, 3 September 2026). */
+.hp-notifications__filter-submit {
+	flex: 0 0 auto;
+}
+
+@media only screen and (max-width: 767px) {
+
+	.hp-notifications__filters input[type="search"],
+	.hp-notifications__filters select,
+	.hp-notifications__filters .hp-notifications__filter-submit {
+		flex: 1 1 100%;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+	}
 }
 
 .hp-notifications__reset {
@@ -1280,3 +1317,41 @@ a.hp-notifications__action.button--secondary:focus {
 }
 
 /* The Undo control carries the theme's own button classes, so nothing is styled here. */
+
+/* --------------------------------------------------------------------------
+ * Selecting rows for Clear selected
+ * ----------------------------------------------------------------------- */
+
+/* The box is the row's first item, on the icon's centre line, and stays the browser's own
+ * control so it matches every other checkbox on the site. */
+.hp-notification__select {
+	display: flex;
+	align-items: center;
+	align-self: flex-start;
+	flex: 0 0 auto;
+	min-height: 2.5rem;
+	margin: 0;
+	cursor: pointer;
+}
+
+.hp-notification__select input[type="checkbox"] {
+	margin: 0;
+}
+
+.hp-notifications__select-all {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin: 0;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.hp-notifications__select-all input[type="checkbox"] {
+	margin: 0;
+}
+
+.hp-notifications__select-all[hidden],
+.hp-notifications__action[hidden] {
+	display: none;
+}

@@ -4357,6 +4357,13 @@ final class Hpnf_Notification extends Component {
 					'todayText'      => esc_html__( 'Today', 'notifications-for-hivepress' ),
 					'deletedText'    => esc_html__( 'Notification deleted.', 'notifications-for-hivepress' ),
 					'undoText'       => esc_html__( 'Undo', 'notifications-for-hivepress' ),
+
+					// The confirm steps and the row box's label. Asked before anything bulk, because
+					// those have no Undo.
+					'selectText'     => esc_html__( 'Select this notification', 'notifications-for-hivepress' ),
+					'confirmAll'     => esc_html__( 'Mark all notifications as read?', 'notifications-for-hivepress' ),
+					'confirmClear'   => esc_html__( 'Clear all read notifications? This cannot be undone.', 'notifications-for-hivepress' ),
+					'confirmPicked'  => esc_html__( 'Clear the selected notifications? This cannot be undone.', 'notifications-for-hivepress' ),
 					'soundStyle'     => (string) get_option( 'hp_notification_sound_style', 'chime' ),
 					'emptyText'      => esc_html__( 'Nothing new.', 'notifications-for-hivepress' ),
 					'errorText'      => esc_html__( 'These could not be loaded. Please try again in a moment.', 'notifications-for-hivepress' ),
@@ -4419,8 +4426,15 @@ final class Hpnf_Notification extends Component {
 		// Get count.
 		$count = $this->get_unread_count( get_current_user_id() );
 
-		// Render bell.
-		$output .= '<div class="hp-notification-bell" data-component="notification-bell">';
+		// Render bell. The counter is the 24px circle the account-menu counters use unless the
+		// owner chose Compact, which is the 16px overlay earlier versions drew.
+		$bell_class = 'hp-notification-bell';
+
+		if ( 'compact' === get_option( 'hp_notification_bell_badge_size', 'standard' ) ) {
+			$bell_class .= ' hp-notification-bell--compact';
+		}
+
+		$output .= '<div class="' . esc_attr( $bell_class ) . '" data-component="notification-bell">';
 
 		$output .= '<a href="' . esc_url( hivepress()->router->get_url( 'notifications_view_page' ) ) . '" class="hp-notification-bell__toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . esc_attr__( 'Notifications', 'notifications-for-hivepress' ) . '">';
 		$output .= $this->get_icon_markup( $this->get_bell_icon() );

@@ -56,6 +56,20 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 			// because a notification arriving while the page is open makes them useful again and
 			// the script has no way to rebuild one that was never printed.
 			?>
+			<?php
+			// Select all pairs with the box on each row; Clear selected appears once any is ticked.
+			// Both act on the rows the script can see, so a filtered page clears only what it shows.
+			?>
+			<label class="hp-notifications__select-all" <?php echo $notification_total ? '' : 'hidden'; ?>>
+				<input type="checkbox" data-component="notifications-select-all">
+				<span><?php esc_html_e( 'Select all', 'notifications-for-hivepress' ); ?></span>
+			</label>
+
+			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-delete-selected" hidden>
+				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'trash' ), hivepress()->hpnf_notification->icon_kses() ); ?>
+				<span><?php esc_html_e( 'Clear selected', 'notifications-for-hivepress' ); ?></span>
+			</button>
+
 			<button type="button" class="hp-button button button--secondary hp-notifications__action" data-component="notifications-read-all" <?php echo $notification_unread ? '' : 'hidden'; ?>>
 				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'check-double' ), hivepress()->hpnf_notification->icon_kses() ); ?>
 				<span><?php esc_html_e( 'Mark all as read', 'notifications-for-hivepress' ); ?></span>
@@ -90,7 +104,10 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 				</select>
 			<?php endif; ?>
 
-			<button type="submit" class="hp-button button button--primary hp-notifications__filter-submit"><?php esc_html_e( 'Search', 'notifications-for-hivepress' ); ?></button>
+			<button type="submit" class="hp-button button button--primary hp-notifications__filter-submit">
+				<?php echo wp_kses( hivepress()->hpnf_notification->get_icon_markup( 'search' ), hivepress()->hpnf_notification->icon_kses() ); ?>
+				<span><?php esc_html_e( 'Search', 'notifications-for-hivepress' ); ?></span>
+			</button>
 
 			<?php if ( $hp_filtered ) : ?>
 				<a class="hp-notifications__reset" href="<?php echo esc_url( $hp_page_url ); ?>"><?php esc_html_e( 'Reset', 'notifications-for-hivepress' ); ?></a>
@@ -124,6 +141,11 @@ $hp_live = ! $hp_filtered && $notification_page < 2;
 						$hp_text = hivepress()->hpnf_notification->decode_text( $hp_notification->get_text() );
 						?>
 						<li class="hp-notification <?php echo $hp_read ? '' : 'hp-notification--unread'; ?>" data-id="<?php echo absint( $hp_notification->get_id() ); ?>">
+							<label class="hp-notification__select">
+								<input type="checkbox" data-component="notification-select" value="<?php echo esc_attr( $hp_notification->get_id() ); ?>">
+								<span class="screen-reader-text"><?php esc_html_e( 'Select this notification', 'notifications-for-hivepress' ); ?></span>
+							</label>
+
 							<div class="hp-notification__icon"<?php echo $hp_style ? ' style="' . esc_attr( $hp_style ) . '"' : ''; ?>>
 								<?php if ( $hp_image ) : ?>
 									<img src="<?php echo esc_url( $hp_image ); ?>" alt="" loading="lazy">
