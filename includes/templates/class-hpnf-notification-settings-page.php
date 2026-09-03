@@ -24,7 +24,19 @@ class Hpnf_Notification_Settings_Page extends User_Account_Page {
 	 */
 	public function __construct( $args = [] ) {
 		$blocks = [
-			'notification_update_form' => [
+
+			/*
+			 * What each tick box means, as page text above the form rather than as the note of
+			 * whichever group happens to come first: that note read as if it belonged to Listings
+			 * alone, and it counted the boxes ("those two") while a member sees three or four.
+			 */
+			'notification_channels_intro' => [
+				'type'    => 'content',
+				'_order'  => 8,
+				'content' => '<p class="hp-notification-settings__intro">' . esc_html( hivepress()->hpnf_notification->get_channels_intro() ) . '</p>',
+			],
+
+			'notification_update_form'    => [
 				'type'   => 'form',
 				'form'   => 'hpnf_notification_update',
 				'values' => hivepress()->hpnf_notification->get_user_preferences( get_current_user_id() ),

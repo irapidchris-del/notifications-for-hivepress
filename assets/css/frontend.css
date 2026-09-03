@@ -1219,3 +1219,10 @@ a.hp-notifications__action.button--secondary:focus {
 .hp-notifications__action[hidden] {
 	display: none;
 }
+
+/* --------------------------------------------------------------------------
+ * Settings page: the sentence above the form
+ * ----------------------------------------------------------------------- */
+.hp-notification-settings__intro {
+	margin: 0 0 1.5rem;
+}

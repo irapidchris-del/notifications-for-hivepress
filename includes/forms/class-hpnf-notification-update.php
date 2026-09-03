@@ -50,14 +50,6 @@ class Hpnf_Notification_Update extends Form {
 		// Get fields.
 		$fields = [];
 		$order  = 10;
-		$note   = esc_html__( 'On-site means your notifications list, the bell menu and pop-ups while you browse. Not every notification has an email or a push behind it, so those two only apply where one exists.', 'notifications-for-hivepress' );
-
-		// The SMS channel only exists when another plugin registers it, so its caveat only renders
-		// when the boxes it explains are on the screen. It matters because texting is gated twice:
-		// by the member's tick here, and by the event having an SMS message saved by the admin.
-		if ( isset( $labels['sms'] ) ) {
-			$note .= ' ' . esc_html__( 'Texts apply only where an event has an SMS message set up.', 'notifications-for-hivepress' );
-		}
 
 		/**
 		 * Filters the capability a member needs to be offered the owner-only groups.
@@ -152,11 +144,6 @@ class Hpnf_Notification_Update extends Form {
 				'default' => array_keys( $channels ),
 				'_order'  => $order,
 			];
-
-			if ( $note ) {
-				$fields[ $group ]['description'] = $note;
-				$note                            = '';
-			}
 
 			$order += 10;
 		}

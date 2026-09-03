@@ -3573,6 +3573,25 @@ final class Hpnf_Notification extends Component {
 	}
 
 	/**
+	 * Gets the sentence that explains the channel tick boxes on the settings page.
+	 *
+	 * On-site is always there; email and push only apply to notifications that have one behind
+	 * them; texts are mentioned only while the SMS channel is registered, and they depend on the
+	 * event having an SMS message set up by the site owner as well as the member's tick.
+	 *
+	 * @return string Plain text.
+	 */
+	public function get_channels_intro() {
+		$text = __( 'On-site means your notifications list, the bell menu and pop-ups while you browse. Not every notification has an email or a push notification behind it, so those choices only apply where one exists.', 'notifications-for-hivepress' );
+
+		if ( isset( $this->get_channels()['sms'] ) ) {
+			$text .= ' ' . __( 'Texts apply only where an event has an SMS message set up.', 'notifications-for-hivepress' );
+		}
+
+		return $text;
+	}
+
+	/**
 	 * Gets the channels a user's role starts with.
 	 *
 	 * A stylist and a client want different things by default, and neither should have to go and
