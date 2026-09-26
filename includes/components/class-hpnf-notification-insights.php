@@ -559,17 +559,12 @@ final class Hpnf_Notification_Insights extends Component {
 	/**
 	 * Queues the next batch.
 	 *
-	 * The position is passed as an argument rather than kept in an option, and that is not a style
-	 * choice. HivePress's scheduler refuses to queue a hook that already has an action with the
-	 * same arguments, and `as_has_scheduled_action()` counts RUNNING as well as PENDING
-	 * (action-scheduler/functions.php, verified) - so a batch queueing its own successor with no
-	 * arguments was matching *itself*, mid-run, and quietly queueing nothing. The pass would do one
-	 * batch a night and stop, leaving every vendor past the first batch unlooked-at for ever, with
-	 * no error anywhere. A site small enough to fit in one batch, which is every test site, could
-	 * never show it.
-	 *
-	 * Each batch starts at a different vendor, so the arguments differ and the dedupe lets it
-	 * through - while still doing its real job of refusing an exact duplicate.
+	 * The position is passed as an argument rather than kept in an option on purpose. HivePress's
+	 * scheduler refuses to queue a hook that already has an action with the same arguments, and
+	 * `as_has_scheduled_action()` counts RUNNING as well as PENDING (action-scheduler/functions.php),
+	 * so a batch queueing its successor with no arguments matched *itself* and queued nothing: one
+	 * batch a night, every later vendor never looked at, no error. Each batch starts at a different
+	 * vendor, so the arguments differ and the dedupe still refuses exact duplicates.
 	 *
 	 * @param int $after Last vendor ID seen.
 	 * @param int $done How many vendors this night has looked at.

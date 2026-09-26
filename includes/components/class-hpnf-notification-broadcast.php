@@ -453,7 +453,7 @@ final class Hpnf_Notification_Broadcast extends Component {
 				<?php echo $compact ? '<div class="hp-broadcast__row" id="hp-broadcast-users-row">' : '<tr id="hp-broadcast-users-row">'; ?>
 					<?php $this->render_label( 'hp-broadcast-users', esc_html__( 'Users', 'notifications-for-hivepress' ), $hints['users'], $compact ); ?>
 					<?php echo $compact ? '<div class="hp-broadcast__control">' : '<td>'; ?>
-						<input type="text" name="users" id="hp-broadcast-users" class="large-text" list="hp-broadcast-users-list" placeholder="chris, jo@example.com" autocomplete="off">
+						<input type="text" name="users" id="hp-broadcast-users" class="large-text" list="hp-broadcast-users-list" placeholder="username, name@example.com" autocomplete="off">
 						<?php $this->render_user_datalist(); ?>
 					<?php echo $compact ? '</div>' : '</td>'; ?>
 				<?php echo wp_kses_post( $row_x ); ?>

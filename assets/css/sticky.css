@@ -80,15 +80,34 @@
 	 * stacking context (z-index 1000 and 1010), so the negative-z overlay stays inside them, and
 	 * the bell panel's overflow:hidden clips the overlay to its rounded corners.
 	 */
-	/* No position of their own here: both panels are already positioned by their own rules -
-	 * absolute for the submenus, absolute-then-fixed-on-phones for the bell panel - and that is
-	 * all the ::before overlay needs. */
-	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul,
+	/*
+	 * ONLY menus that float get the glass, and "floats" is decided by sticky.js, not here.
+	 *
+	 * The overlay is position:absolute, so it fills the nearest POSITIONED ancestor. A list the
+	 * theme positions (a dropdown, a side flyout) is that ancestor, and the pane fills the list.
+	 * A list that sits in the flow is not: its pane escapes to the next positioned box up. Until
+	 * 1.7.12 this rule was ".header-navbar__menu li ul", which also caught the child list of an
+	 * Account Menu Enhancer parent item - rendered INLINE in the account dropdown and
+	 * position:static on purpose - and the pane resolved against the parent row's
+	 * position:relative li, laying a blurred patch over the parent's own label (plus a second
+	 * tint inside the dropdown's). Nothing in the markup tells the two kinds of nested list
+	 * apart, so markPanes() in sticky.js reads each list's computed position and adds
+	 * .hp-nfh-sticky__pane to the absolute and fixed ones only. Never widen this back to a
+	 * structural selector.
+	 *
+	 * No position of their own here: both kinds of panel are already positioned by their own
+	 * rules - absolute for the submenus, absolute-then-fixed-on-phones for the bell panel - and
+	 * that is all the ::before overlay needs. `isolation: isolate` makes each one a stacking
+	 * context, so the negative-z overlay stays inside its panel even on a theme whose dropdowns
+	 * have no z-index; unlike backdrop-filter it does not change anyone's containing block.
+	 */
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-nfh-sticky__pane,
 	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel {
+		isolation: isolate;
 		background-color: var(--hp-nfh-glass-background) !important;
 	}
 
-	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul::before,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-nfh-sticky__pane::before,
 	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel::before {
 		content: "";
 		position: absolute;
@@ -128,13 +147,14 @@
 		display: none;
 	}
 
-	/* The dropdowns follow the bar: opaque fallback colour, blur pane removed. */
-	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul,
+	/* The dropdowns follow the bar: opaque fallback colour, blur pane removed. Same marker class
+	 * as above, so an inline nested list is left to its own (transparent) background here too. */
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-nfh-sticky__pane,
 	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel {
 		background-color: var(--hp-nfh-opaque-background, var(--hp-nfh-glass-background)) !important;
 	}
 
-	.hp-nfh-sticky.hp-nfh-sticky--glass .header-navbar__menu li ul::before,
+	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-nfh-sticky__pane::before,
 	.hp-nfh-sticky.hp-nfh-sticky--glass .hp-notification-bell__panel::before {
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;

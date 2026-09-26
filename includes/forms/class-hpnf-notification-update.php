@@ -65,18 +65,12 @@ class Hpnf_Notification_Update extends Form {
 			/*
 			 * "For Site Owners" is not a feature area, it is an audience: every type in it reaches
 			 * whoever runs the site, not the member reading this form. Offering them here let every
-			 * signed-in member see, and switch, preferences for notifications they can never receive
-			 * - reported by Chris on 2026-09-02 and present since at least v1.3.4, so it is a
-			 * long-standing gap rather than a new one.
+			 * signed-in member see and switch preferences for notifications they can never receive.
 			 *
-			 * The group holds sixteen types, not the three it held when this guard was written.
-			 * Thirteen more were found on 2026-09-02 by reading the recipient at each send site:
-			 * they all go to `get_option( 'admin_email' )` but were filed by name prefix under
-			 * Listings, Orders and Requests. See Hpnf_Notification::OWNER_TYPES.
-			 *
-			 * Gated on the group rather than on the individual types, because the group IS the
-			 * statement about audience; a type declaring `'group' => 'admin'` is declaring who
-			 * reads it. See Hpnf_Notification::get_groups().
+			 * The group holds sixteen types: every type sent to `get_option( 'admin_email' )`, whatever
+			 * its name prefix. See Hpnf_Notification::OWNER_TYPES. Gated on the group rather than on the
+			 * types, because a type declaring `'group' => 'admin'` is declaring who reads it. See
+			 * Hpnf_Notification::get_groups().
 			 *
 			 * The save path needs no separate guard: a member's form never carries these fields, so
 			 * HivePress has nothing to accept for them even if a crafted POST names them.
@@ -128,14 +122,10 @@ class Hpnf_Notification_Update extends Form {
 
 			/*
 			 * A group covers several kinds of notification, and they don't all support the same
-			 * channels: Listings, for instance, holds both the HivePress listing emails and our own
-			 * "Review Received", which has no email behind it at all. The tick box list is the union
-			 * of what the group can do, so ticking Email here does not promise an email for every
-			 * event in the group. Saying so stops the gap reading as a fault - a staging tester
-			 * spent twenty minutes on a "missing" review email that was never going to exist.
-			 *
-			 * It is said once, on the first group only. Repeating it under all seven turned the page
-			 * into the same wall of identical paragraphs that the dashboard widget was pulled up on.
+			 * channels: Listings holds both the HivePress listing emails and our own "Review Received",
+			 * which has no email at all. The tick box list is the union of what the group can do, so
+			 * ticking Email does not promise an email for every event. Saying so stops the gap reading
+			 * as a fault. Said once, on the first group only, to avoid a wall of identical paragraphs.
 			 */
 			$fields[ $group ] = [
 				'label'   => $group_label,

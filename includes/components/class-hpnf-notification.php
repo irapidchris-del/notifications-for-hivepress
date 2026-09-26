@@ -628,11 +628,9 @@ final class Hpnf_Notification extends Component {
 	 * Checks whether a user sells on this site.
 	 *
 	 * Any vendor profile counts, whatever its status. Core's own lookup adds `'status' => 'publish'`
-	 * (controllers/class-user.php:1055), which is right for "is there a profile page to link to" and
-	 * wrong here: a profile awaiting approval belongs to somebody who has already registered as a
-	 * vendor, and taking their notification settings away while they wait - then handing them back
-	 * on approval - is a worse answer than showing them settings a little early. Chris chose this on
-	 * 2026-09-02.
+	 * (controllers/class-user.php), which is right for "is there a profile page to link to" and
+	 * wrong here: a vendor awaiting approval should not lose their notification settings and get
+	 * them back on approval.
 	 *
 	 * Cached per user for the request. The settings form asks once, but the types are looped for
 	 * every group on the page.
@@ -1096,33 +1094,20 @@ final class Hpnf_Notification extends Component {
 		 * already HTML-escaped, and nothing in the pipeline decodes them: replace_tokens() only
 		 * substitutes and wp_strip_all_tags() removes tags without touching entities.
 		 *
-		 * The order emails are the clearest case. HivePress builds %order_amount% with
-		 * format_price(), which is wp_strip_all_tags( wc_price( $total ) )
-		 * (reference/hivepress/includes/components/class-woocommerce.php:194), and WooCommerce
-		 * writes the currency symbol as an entity - so the markup around it is stripped and a bare
-		 * "&pound;10.00" is what gets stored. The site name does the same thing through
-		 * get_bloginfo( 'name' ), and any esc_html'd listing title or display name will too.
+		 * The order emails are the clearest case: %order_amount% comes from format_price(), which is
+		 * wp_strip_all_tags( wc_price( $total ) ) (hivepress/includes/components/class-woocommerce.php),
+		 * and WooCommerce writes the currency symbol as an entity, so "&pound;10.00" is stored. The site
+		 * name (get_bloginfo) and any esc_html'd title do the same. The notifications page happens to
+		 * render it correctly through esc_html(); the pop-up, the bell and the OS notification use
+		 * textContent and showed "Total &pound;10.00".
 		 *
-		 * Only one of the two renderers ever showed it. The notifications page prints the string
-		 * with esc_html(), which does not double-encode, so "&pound;" survives into the HTML and
-		 * the browser paints "£" - correct entirely by accident. The pop-up, the bell and the
-		 * service worker's OS notification assign the same string to textContent, where an entity
-		 * is just characters, and the reader saw "Total &pound;10.00" (staging, 18 Aug 2026).
+		 * So the decode belongs here, where each surface is served, not where the string is written:
+		 * existing notifications are repaired with no migration. Decoding anywhere else as well would
+		 * be a second decode. html_entity_decode() rather than wp_specialchars_decode(), which knows
+		 * only the five specialchars and would leave "&pound;". ENT_HTML5 is needed for "&apos;".
 		 *
-		 * So the decode belongs here, at the point each surface serves the string, not at the
-		 * point it is written: every notification already in the database is repaired by it, with
-		 * no migration. Decoding it once anywhere else as well would be a second decode.
-		 *
-		 * html_entity_decode() rather than wp_specialchars_decode(), because the latter knows only
-		 * the five specialchars and would leave "&pound;" - the actual symptom - untouched.
-		 * ENT_QUOTES covers both quote forms, ENT_HTML5 is needed for "&apos;", and the charset is
-		 * named rather than left to the PHP default.
-		 *
-		 * This cannot open an escaping hole, and the check is that every consumer still escapes
-		 * for its own context afterwards: the page escapes with esc_html(), the exporter's values
-		 * go through core's own esc_html(), and the three JSON payloads are read into textContent
-		 * by the script - never innerHTML. A stored "&lt;script&gt;" therefore decodes to a
-		 * literal "<script>" that every surface shows as visible characters.
+		 * No escaping hole: every consumer still escapes for its own context (esc_html() on the page
+		 * and in the exporter, textContent in the script, never innerHTML).
 		 */
 		return html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 	}
@@ -1538,13 +1523,11 @@ final class Hpnf_Notification extends Component {
 		 * Filters whether an email becomes an on-site notification at all.
 		 *
 		 * This hook exists because "an email was sent" is not always "something happened to a
-		 * member". An email can be sent as a TEST - Email Studio's previews and test sends go
-		 * through HivePress's real send path on purpose, so that what an owner checks is exactly
-		 * what a member would receive - and those must not land in anybody's notifications feed.
-		 * Chris saw his own Email Studio test sends appear there on 2026-09-02.
+		 * member". Email Studio's previews and test sends go through HivePress's real send path on
+		 * purpose, and those must not land in anybody's notifications feed.
 		 *
 		 * Returning false skips the email entirely: no notification, no feed entry, no delivery.
-		 * The plugin doing the unusual thing is the one that should say so, so the veto lives here
+		 * The plugin doing the unusual thing is the one that should say so, so the veto lives there
 		 * rather than this component carrying a list of other plugins it knows about.
 		 *
 		 * @hook hpnf_notification_process_email
@@ -2027,7 +2010,7 @@ final class Hpnf_Notification extends Component {
 	 * Adds a notification for something that happened to a listing.
 	 *
 	 * The notification goes to the listing owner, and never to the person who caused it, so a
-	 * stylist favouriting their own listing doesn't notify themselves.
+	 * vendor favouriting their own listing is not notified.
 	 *
 	 * @param string $type Notification type.
 	 * @param object $object Model object.
@@ -2507,12 +2490,9 @@ final class Hpnf_Notification extends Component {
 		 */
 
 		/*
-		 * "On-site" rather than "Pop-up", which is what this said in development and was wrong in a
-		 * way that mattered. Turning this off does not just stop the pop-up: the notification is
-		 * never created at all (see the onsite checks in add_notification and its callers), so the
-		 * person loses the entry in their list and the bell as well. Somebody unticking "Pop-up" to
-		 * stop things appearing over the page would have silently lost their notification history.
-		 * It also confused two rounds of staging testing, where "Pop-up only" read as "toasts only".
+		 * "On-site" rather than "Pop-up": turning this off does not just stop the pop-up, the
+		 * notification is never created at all (see the onsite checks in add_notification and its
+		 * callers), so the list entry and the bell go too. "Pop-up" read as "toasts only".
 		 */
 		$channels = [
 			'onsite' => esc_html__( 'On-site', 'notifications-for-hivepress' ),
@@ -2826,30 +2806,16 @@ final class Hpnf_Notification extends Component {
 	 * additions interleave alphabetically rather than trailing at the end.
 	 *
 	 * SCOPED ON PURPOSE - do not remove the gate. `hivepress/v1/icons` filters the SHARED icons
-	 * config (reference/hivepress/includes/class-core.php:412-433), which feeds every
-	 * "options => icons" picker on the site: this plugin's bell, core's listing-attribute icons
-	 * and the listing-category Icon field that ExpertHive, JobHive and MeetingHive add
-	 * (themes/experthive/includes/components/class-theme.php:253-280). This plugin only enqueues
-	 * its bundled Font Awesome 7 on its own settings tab and, on the front end, when the BELL
-	 * itself uses an extended name - so anywhere else the names were offered they could not be
-	 * drawn.
+	 * config (hivepress/includes/class-core.php), which feeds every "options => icons" picker on
+	 * the site: this plugin's bell, core's listing-attribute icons and the category Icon field that
+	 * ExpertHive, JobHive and MeetingHive add. This plugin only loads its bundled Font Awesome 7 on
+	 * its own settings tab and, on the front end, when the BELL uses an extended name, so elsewhere
+	 * an extended name renders an EMPTY icon (Font Awesome 5 has no rule for it), or not, depending
+	 * on which sibling plugin happens to load the shared `fafh-fontawesome` handle.
 	 *
-	 * Measured on hivepress-dev 2026-08-30, ExpertHive, front page, logged out, with the sibling
-	 * plugins that also bundle Font Awesome switched off: a category set to `house-chimney`
-	 * rendered `<i class="hp-icon fas fa-house-chimney">` whose ::before computed
-	 * `content: none` - Font Awesome 5 has no such rule, so the element was EMPTY. A category set
-	 * to the brand `stripe` did have a rule (the FA5 CSS carries the brand codepoints) but drew
-	 * into "Font Awesome 5 Free" weight 900, which holds no glyph there: an inked-pixel count of
-	 * the rendered character came back at 0 px, against 1,038 px for the FA5 control `home`. Both
-	 * cards showed an empty tile on the front page. The bug hid on this site for a day because
-	 * Action Bar enqueues the SAME shared `fafh-fontawesome` handle on the front end, so
-	 * whichever sibling happens to be active decided whether another plugin's icons appeared.
-	 *
-	 * The theme hard-codes `fas fa-{name}` in its category template, so a brand name could never
-	 * render there even with the stylesheet loaded - it would need the `fa-brands` family too.
-	 * That is why the fix is to stop offering the names rather than to load the font site-wide:
-	 * offering a choice that cannot be drawn is the defect, and 307 KB of fonts on every page of
-	 * every site would not have fixed the brand half of it anyway.
+	 * The theme also hard-codes `fas fa-{name}` in its category template, so a brand name could
+	 * never render there. Offering a choice that cannot be drawn is the defect, so the fix is to
+	 * stop offering the names rather than load 307 KB of fonts site-wide.
 	 *
 	 * @param array $icons Icons config.
 	 * @return array
@@ -3594,19 +3560,14 @@ final class Hpnf_Notification extends Component {
 	/**
 	 * Gets the channels a user's role starts with.
 	 *
-	 * A stylist and a client want different things by default, and neither should have to go and
-	 * set that up before the site behaves sensibly.
+	 * A vendor and a customer want different things by default, and neither should have to set
+	 * that up before the site behaves sensibly.
 	 *
 	 * The screen is taken at its word. Three states, not two: a saved list means those channels, a
-	 * saved-but-empty list means none of them, and no saved value at all means the role has never
-	 * been configured and gets everything.
-	 *
-	 * The middle one used to be missing. Unticking every box for a role posts nothing, so the option
-	 * stores as an empty string rather than an empty array, is_array( '' ) is false, and the role
-	 * fell through to the last line and got every channel - the exact opposite of what the admin had
-	 * just set, and in the noisier direction. It was documented in a tooltip rather than fixed,
-	 * which is not the same thing: a settings screen that needs a footnote to explain why it does
-	 * the reverse of what it shows is a broken settings screen.
+	 * saved-but-empty list means none, and no saved value means the role was never configured and
+	 * gets everything. Unticking every box posts nothing, so the option stores an empty string, not
+	 * an empty array; treating that as "unset" gave the role every channel, the opposite of what
+	 * the admin had just set.
 	 *
 	 * Opt-in channels are excluded throughout: a role default can never grant one.
 	 *
@@ -3760,11 +3721,9 @@ final class Hpnf_Notification extends Component {
 		}
 
 		/*
-		 * Said once and said generally. This used to name every email-less type the site had, built
-		 * at runtime so it could never mention a checkbox that was not on the screen - and on a site
-		 * with the gallery, holiday and insight extensions active that was thirty-three names in one
-		 * sentence. Chris asked for it to go on 2026-09-02: "It's a wall of text which we want to
-		 * avoid." The runtime gate stays, so a site with no such type is not told about one.
+		 * Said once and said generally. Naming every email-less type the site had ran to thirty-three
+		 * names in one sentence with the gallery, holiday and insight extensions active. The runtime
+		 * gate stays, so a site with no such type is not told about one.
 		 */
 		$hp_has_emailless = false;
 
@@ -4182,16 +4141,12 @@ final class Hpnf_Notification extends Component {
 	/**
 	 * Answers 200 rather than 404 on page two of the notification list.
 	 *
-	 * WordPress decides the status long before HivePress renders anything. The rewrite rule for
-	 * "/page/{n}/" sets "paged", the main query then finds no posts because the route is served by
-	 * a virtual page rather than an archive, and WP::handle_404() sets a 404 during wp(). HivePress
-	 * only clears the flag later, on "template_include" (class-router.php:596), which fixes the body
-	 * class and the template but is far too late for the header. The page then serves twenty real
-	 * notifications under a 404, which caching layers and crawlers are entitled to treat as missing.
-	 *
-	 * Core HivePress account pages have the same behaviour, confirmed on staging 2026-07-31 for
-	 * /account/listings/page/2/. This corrects it only for the routes this plugin owns; fixing it
-	 * everywhere is core's to do.
+	 * WordPress decides the status long before HivePress renders anything: the "/page/{n}/" rule
+	 * sets "paged", the main query finds no posts on a virtual page, and WP::handle_404() sets a 404
+	 * during wp(). HivePress only clears the flag on "template_include"
+	 * (hivepress/includes/components/class-router.php), too late for the header, so twenty real
+	 * notifications were served under a 404. Core account pages behave the same; this corrects only
+	 * the routes this plugin owns.
 	 *
 	 * Runs at priority 1 on template_redirect, which is after wp() has decided and before any
 	 * output, so status_header() still reaches the browser.
@@ -4290,9 +4245,8 @@ final class Hpnf_Notification extends Component {
 	 *
 	 * Deliberately NOT inside enqueue_scripts(): that returns early for signed-out visitors,
 	 * because everything else on the front end is per user, and the sticky header used to ride
-	 * along with it. The result was a header that stuck for the site owner, who is always signed
-	 * in while testing, and never for a visitor - reported on 3 September 2026 as "the sticky
-	 * header doesn't work in an incognito browser". Nothing about pinning the header needs a
+	 * along with it. The result was a header that stuck for a signed-in owner and never for a
+	 * visitor. Nothing about pinning the header needs a
 	 * user, so it gets its own script and stylesheet, gated only on the settings.
 	 *
 	 * Gated on the bell, like the two hide-counter settings. The Sticky Header row is a

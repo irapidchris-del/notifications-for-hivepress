@@ -16,9 +16,8 @@
  * 3. The Types section's checkbox lists become cards, one per group: a header bar carrying the
  *    group's icon, name and an on/total count, folding the list beneath it. Those fields are
  *    stamped data-hpnf-card (the group key) and data-hpnf-card-icon server-side. The card is the
- *    same one Account Menu Enhancer draws for its placeholder pages - Chris asked for the two
- *    screens to match on 2026-09-02 - and the fold is remembered per group in localStorage, as
- *    that plugin remembers its cards.
+ * same one Account Menu Enhancer draws for its placeholder pages, so the two screens match,
+ * and the fold is remembered per group in localStorage, as that plugin remembers its cards.
  *
  * Everything stays in the DOM, merely hidden, so the settings form still posts every value.
  * Without this script the tab renders fully expanded, which is the right fallback.
@@ -510,7 +509,7 @@
 
 	/**
 	 * Shows wording fields only for the notifications ticked in Types, following the boxes as
-	 * they change (Chris, 2026-09-02). An unticked type never sends, so its title and wording
+	 * they change. An unticked type never sends, so its title and wording
 	 * were noise between the ones that matter. A type with no box in Types - registered by an
 	 * extension without a group field - is left alone. Hidden, not removed: the fields still post
 	 * and keep their wording for when the box is ticked again.
@@ -618,9 +617,9 @@
 		count.className = 'hpnf-card__count';
 		body.className = 'hpnf-card__body';
 
-		// The bar: the button holds only its words, so a tooltip can follow the title (the house
-		// rule for tooltips, Chris 2026-09-02) and the count sits at the end. The whole bar still
-		// folds the card, except the tooltip itself.
+		// The bar: the button holds only its words, so a tooltip can follow the title (the shared
+		// tooltip placement) and the count sits at the end. The whole bar still folds the card,
+		// except the tooltip itself.
 		var bar = document.createElement( 'div' );
 
 		bar.className = 'hpnf-card__bar';
@@ -718,10 +717,9 @@
 				labelBlock.classList.add( 'hpnf-card__label' );
 				card.body.appendChild( labelBlock );
 
-				// The group's tooltip follows the title on the bar, the house placement for every
-				// tooltip (Chris, 2026-09-02), rather than sitting inside the folded body where
-				// nothing pointed at it. Beside the toggle button, not inside it, so opening the
-				// tooltip cannot fold the card.
+				// The group's tooltip follows the title on the bar, the shared placement for every tooltip,
+				// rather than sitting inside the folded body where nothing pointed at it. Beside the toggle
+				// button, not inside it, so opening the tooltip cannot fold the card.
 				var tip = labelBlock.querySelector( '.hp-tooltip' );
 
 				if ( tip ) {

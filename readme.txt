@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.11
+Stable tag: 1.7.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.7.12 =
+* Fixed: with the glass header on, a parent item made in Account Menu Enhancer no longer shows a blurred patch in the account menu.
 
 = 1.7.11 =
 * Fixed: updating two of these extensions one after the other could fail on the second with "up to date" until Check for updates was pressed again. WordPress rebuilds its update list after each update by asking wordpress.org first, and gives up on the whole list when that call is slow; the plugin now keeps its own update in the list regardless.

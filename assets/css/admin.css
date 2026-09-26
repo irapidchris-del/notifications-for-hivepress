@@ -139,8 +139,8 @@
 
 /*
  * Above 1200px the panel becomes a column beside the settings, and follows the reader down the page.
- * The threshold was 1400px until 2026-08-30, which is wider than a typical laptop, so the panel
- * stayed stacked on top for most people and the owner reported it as misplaced. 1200px matches the
+ * The threshold was 1400px, which is wider than a typical laptop, so the panel stayed stacked
+ * on top for most people and looked misplaced. 1200px matches the
  * width Social Proof's own side-by-side preview targets (a 320px panel against a ~640px form).
  *
  * Both rules hang off the same :has() test so they can only ever apply together. That matters: the
@@ -568,10 +568,9 @@ form.hp-form--table:has([name^="hp_notification_"]) .hp-tooltip__text::after {
 	border: 1px solid #dcdcde;
 	border-radius: 6px;
 	background: #fff;
-	/* Not overflow: hidden. A tooltip bubble is positioned outside the icon it belongs to, and a
-	 * clipped card cut every bubble off at the edge (Chris, 2026-09-02: "the tooltips are no
-	 * longer readable as they're stuck inside their cards"). The toggle bar rounds its own top
-	 * corners instead, which is all the clipping ever did. */
+/* Not overflow: hidden. A tooltip bubble is positioned outside the icon it belongs to, and a
+	 * clipped card cut every bubble off at the edge. The toggle bar rounds its own top corners
+	 * instead, which is all the clipping ever did. */
 }
 
 .hpnf-card__toggle {
@@ -722,9 +721,8 @@ form.hp-form--table tr[hidden] {
 
 /* Inside a card the field's label block is no longer a th > div, so core's flex row for it
  * (`.hp-form--table th>div{display:flex;justify-content:space-between}`) stops applying and the
- * tooltip dropped onto its own line under the label. A row again, with the tooltip directly after
- * the label's "(optional)" rather than pushed to the far edge (Chris, 2026-09-02: "I wanted the
- * tooltip after where it shows (optional)"), and the bubble on top of whatever is beneath it. */
+ * tooltip dropped onto its own line. A row again, with the tooltip directly after the label's
+ * "(optional)" rather than at the far edge, and the bubble on top of whatever is beneath it. */
 .hpnf-card__field .hpnf-card__label {
 	display: flex;
 	justify-content: flex-start;
@@ -741,18 +739,16 @@ form.hp-form--table tr[hidden] {
 }
 
 /* The sibling-extension offers are part of the sentence, not controls: a linked verb, nothing
- * more (Chris, 2026-09-02: the buttons were "too big and feel intrusive"). */
+ * more (buttons were too big and felt intrusive). */
 .hpnf-offer__action {
 	font-weight: 600;
 	white-space: nowrap;
 }
 
-/* Tooltip placement, house rule (Chris, 2026-09-02). The help icon sits directly after the label
- * text, not at the far end of the label cell where core's justify-content: space-between puts it,
- * and the bubble opens to the RIGHT at 300px. Core anchors the bubble to the left of the icon at
- * 173px (hivepress/assets/css/backend.min.css, .hp-tooltip__text), which puts it under the admin
- * menu whenever the icon is early in the row and turns two sentences into a tall ribbon. The same
- * block sits in every extension with a settings tab; fix it in one and sweep the rest. */
+/* Tooltip placement, shared by every extension with a settings tab (sweep the siblings).
+ * The help icon sits right after the label text and the bubble opens to the RIGHT at 300px.
+ * Core anchors it left of the icon at 173px (hivepress/assets/css/backend.min.css,
+ * .hp-tooltip__text), which puts it under the admin menu and makes a tall ribbon. */
 .hp-page .hp-form--table th > div {
 	justify-content: flex-start;
 	gap: 6px;

@@ -304,19 +304,14 @@ final class Hpnf_Notification_Extensions extends Component {
 			 * The vendor's side of the two types above, as ONE notification a day rather than one per
 			 * buyer.
 			 *
-			 * Per-buyer would be the obvious shape and the wrong one. These events fire once for
-			 * every grant, so a vendor with fifty people holding access gets fifty separate notices
-			 * as they lapse - and because a member's preferences are set per group, the only way to
-			 * escape that is to switch off Gallery entirely, taking the notices about their own
-			 * photos and folders with it. Chris chose the digest on 2026-09-02.
+			 * Per-buyer would be the obvious shape and the wrong one: a vendor with fifty people holding
+			 * access would get fifty notices as they lapse, and the only escape (preferences are per
+			 * group) would be switching off Gallery entirely.
 			 *
-			 * On-site only. A digest is a summary of things that have already happened, so waking
-			 * somebody's phone for it is the wrong trade even where push is available.
-			 *
-			 * Two tokens rather than one assembled sentence, so an owner can still reword this in
-			 * Email Studio. %detail% carries the split because the sentence genuinely changes shape -
-			 * a day may bring only endings, only warnings, or both - and a template cannot choose
-			 * between those without gluing fragments together, which does not survive translation.
+			 * On-site only: a digest summarises things that already happened, so it should not wake a
+			 * phone. Two tokens rather than one assembled sentence, so an owner can still reword it in
+			 * Email Studio; %detail% carries the split (only endings, only warnings, or both) because
+			 * gluing fragments together does not survive translation.
 			 */
 			$types['gallery_access_digest'] = [
 				'label'     => esc_html__( 'Gallery Access Summary', 'notifications-for-hivepress' ),

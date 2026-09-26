@@ -2101,10 +2101,9 @@
 		// the page skips its own pop-up for that one and nothing is announced twice.
 		//
 		// Everything except the pop-up still has to happen. Bumping the count and adding the row
-		// used to ride along with the pop-up render, so skipping the pop-up silently stopped both
-		// and the page sat on a stale number - five behind, in one staging run - until it was
-		// reloaded. This listener is also outside the pop-ups check below, because a site with
-		// pop-ups switched off still has a count to keep honest.
+		// used to ride along with the pop-up render, so skipping the pop-up left the count stale
+		// until a reload. This listener is also outside the pop-ups check below, because a site
+		// with pop-ups switched off still has a count to keep honest.
 		if ( 'serviceWorker' in window.navigator ) {
 			window.navigator.serviceWorker.addEventListener( 'message', function( event ) {
 				if ( ! event.data || 'hp-notification-shown' !== event.data.type || ! event.data.id ) {

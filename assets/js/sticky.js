@@ -1,12 +1,10 @@
 /**
  * Sticky header.
  *
- * Its own file, loaded for EVERYONE when the Sticky Header setting is on, and that is the point of
- * the split. It used to live in frontend.js, which only signed-in users receive (the notification
- * data in that script is per user and the stylesheet and script are dropped for visitors in
- * alter_assets()), so the header stuck for a signed-in owner testing the site and never for a
- * visitor. Chris found it "not working in an incognito browser" on 3 September 2026. Nothing here
- * needs a user: it reads the theme's bar, a handful of settings and the admin bar height.
+ * Its own file, loaded for EVERYONE when the Sticky Header setting is on. In frontend.js, which
+ * only signed-in users receive (alter_assets() drops it for visitors), the header stuck for a
+ * signed-in owner and never for a visitor. Nothing here needs a user: it reads the theme's bar,
+ * a handful of settings and the admin bar height.
  *
  * @package HivePress
  */
@@ -154,6 +152,47 @@
 
 		var glassTint = glass();
 
+		/**
+		 * Marks the header's navigation lists that float, so only they are given the glass.
+		 *
+		 * The glass pane is a ::before overlay with position:absolute, placed against the nearest
+		 * POSITIONED ancestor. On a list the theme positions itself (a dropdown or flyout) that is the
+		 * list. On a list in the flow the pane escapes to a box further up and blurs it: Account Menu
+		 * Enhancer's nested child lists (position:static inside the account dropdown) blurred the
+		 * parent row's own label under the old "li ul" selector (fixed in 1.7.12).
+		 *
+		 * So the test is the one the overlay itself depends on, absolute or fixed position, read from
+		 * the computed style, which works for any theme or plugin. getComputedStyle() reports position
+		 * for a list that is display:none, so a closed dropdown is marked before it ever opens.
+		 */
+		function markPanes() {
+			var lists = bar.querySelectorAll( '.header-navbar__menu li ul' );
+
+			Array.prototype.forEach.call( lists, function( list ) {
+				var position = window.getComputedStyle( list ).position;
+
+				list.classList.toggle( 'hp-nfh-sticky__pane', 'absolute' === position || 'fixed' === position );
+			} );
+		}
+
+		var marking = false;
+
+		/**
+		 * Re-marks the lists once per frame, however many changes arrive together.
+		 */
+		function remark() {
+			if ( marking ) {
+				return;
+			}
+
+			marking = true;
+
+			window.requestAnimationFrame( function() {
+				marking = false;
+				markPanes();
+			} );
+		}
+
 		function offset() {
 			var admin = document.getElementById( 'wpadminbar' );
 
@@ -213,6 +252,7 @@
 					bar.style.setProperty( '--hp-nfh-glass-background', glassTint );
 					bar.style.setProperty( '--hp-nfh-glass-blur', config.glassBlur + 'px' );
 					bar.classList.add( 'hp-nfh-sticky--glass' );
+					markPanes();
 				}
 
 				bar.classList.add( 'hp-nfh-sticky' );
@@ -247,8 +287,22 @@
 		// place - so waiting for it to stick would be too late for the jump that needed it.
 		padScroll( true );
 
+		/*
+		 * Lists added or rebuilt after load (a menu re-rendered by script, a toggle inserted by
+		 * another plugin) are marked too. Child-list changes only: the marker is a class, and
+		 * watching attributes would have this observer answering its own writes.
+		 */
+		if ( glassTint && 'MutationObserver' in window ) {
+			new window.MutationObserver( remark ).observe( bar, { childList: true, subtree: true } );
+		}
+
 		window.addEventListener( 'resize', function() {
 			padScroll( true );
+
+			// A breakpoint can change how a theme positions its menus.
+			if ( glassTint ) {
+				remark();
+			}
 
 			if ( fixed ) {
 				holder.style.height = bar.offsetHeight + 'px';

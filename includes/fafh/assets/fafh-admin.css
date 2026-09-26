@@ -12,9 +12,8 @@
  * scope frontend+backend), so those classes still draw a ::before glyph -- and
  * the converted element ends up showing TWO icons, the font one beside the SVG.
  *
- * Seen in the Trust Signals icon picker on staging, 2026-09-01: every option in
- * the dropdown had a doubled glyph. Suppressing the pseudo-elements is the fix;
- * stripping the classes instead would take fa-fw's spacing with it. */
+ * Without this every option in an icon picker showed a doubled glyph. Suppressing the
+ * pseudo-elements is the fix; stripping the classes would take fa-fw's spacing with it. */
 .fafh-icon::before,
 .fafh-icon::after {
 	content: none !important;

@@ -207,10 +207,8 @@
 		if ( 'drawn' === element.getAttribute( 'data-fafh' ) ) {
 			// Already drawn, and drawn as the icon its class still names. The sizing class is put
 			// back before returning: a script that rewrites className whole (a card header
-			// re-reading its row on every keystroke in the label) strips it without changing the
-			// name, and without it core's Font Awesome 5 sheet draws a ::before glyph in a
-			// fallback font beside the SVG - reported by Chris on 2026-09-02 as "a broken icon
-			// next to the real one" while editing an Action Bar item's label. Guarded, because
+			// re-reading its row on every keystroke) strips it, and core's Font Awesome 5 sheet
+			// then draws a ::before glyph in a fallback font beside the SVG. Guarded, because
 			// adding a class re-sets the attribute and the observer would call this again.
 			if ( name === element.getAttribute( 'data-fafh-name' ) ) {
 				if ( ! element.classList.contains( 'fafh-icon' ) ) {
@@ -220,11 +218,9 @@
 				return;
 			}
 
-			// The class changed underneath a finished glyph. A settings screen does this when the
-			// owner picks a different icon and the script rewrites className on the same element.
-			// Before this handled it, the old <svg> stayed inside, the fafh-icon class that sizes it
-			// was gone, and the owner saw the OLD icon at the browser's 300x150 fallback size -
-			// reported by Chris on 2026-09-02 as "the Stripe S increased in size on the card".
+			// The class changed underneath a finished glyph (the owner picked a different icon and
+			// the script rewrote className on the same element). Without this the old <svg> stayed
+			// inside without the fafh-icon sizing class and showed at the 300x150 fallback size.
 			while ( element.firstChild ) {
 				element.removeChild( element.firstChild );
 			}
