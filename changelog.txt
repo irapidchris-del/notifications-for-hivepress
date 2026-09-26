@@ -332,7 +332,7 @@ First public release.
 
 The plugin has been through a long private development and testing programme before this release,
 so the changelog starts here rather than replaying that history. Everything below is what 1.0.0
-does, and every item was verified on a live staging site before release.
+does, and every item was verified on a live site before release.
 
 * Mirrors every email HivePress and its extensions send as an on-site notification, working from
   the email layer so it covers extensions installed later without any per-extension code.
