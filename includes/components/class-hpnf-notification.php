@@ -2590,19 +2590,30 @@ final class Hpnf_Notification extends Component {
 	 *
 	 * Admins enter a free solid icon name such as "inbox" or "bell". A pasted "fa-" or "fas fa-"
 	 * prefix is tolerated, and anything left after sanitising that isn't a usable class name falls
-	 * back to the default bell.
+	 * back to the default bell. An outline choice ("far fa-bell") keeps its style and comes back
+	 * as "far fa-{name}", which the icon library draws as the outline.
 	 *
 	 * @return string
 	 */
 	public function get_bell_icon() {
-		$icon = strtolower( trim( (string) get_option( 'hp_notification_bell_icon', 'bell' ) ) );
+		$icon    = strtolower( trim( (string) get_option( 'hp_notification_bell_icon', 'bell' ) ) );
+		$outline = (bool) preg_match( '/^(?:far|fa-regular)\s+fa-/', $icon );
 
 		// Drop a leading style prefix like "fas fa-" or "fa-" so a pasted full class still works.
-		$icon = (string) preg_replace( '/^(fa[a-z]{0,2}\s+)?fa-/', '', $icon );
+		$icon = (string) preg_replace( '/^(?:fa[a-z]{0,2}\s+|fa-(?:solid|regular|brands)\s+)?fa-/', '', $icon );
 
 		$icon = sanitize_html_class( $icon );
 
-		return $icon ? $icon : 'bell';
+		if ( ! $icon ) {
+			return 'bell';
+		}
+
+		// Only where an outline version exists; otherwise the bell stays as it was.
+		if ( $outline && ( ! class_exists( 'FAFH' ) || '' !== \FAFH::outline( $icon ) ) ) {
+			return 'far fa-' . $icon;
+		}
+
+		return $icon;
 	}
 
 	/**
@@ -2833,7 +2844,24 @@ final class Hpnf_Notification extends Component {
 
 		ksort( $icons );
 
-		return $icons;
+		if ( ! class_exists( 'FAFH' ) ) {
+			return $icons;
+		}
+
+		// The outline version of each icon that has one, stored as "far fa-{name}" and drawn by the
+		// icon library, listed straight after its solid entry.
+		$listed = [];
+
+		foreach ( $icons as $name => $label ) {
+			$listed[ $name ] = $label;
+
+			if ( is_string( $name ) && '' !== \FAFH::outline( $name ) ) {
+				/* translators: %s: icon name. */
+				$listed[ 'far fa-' . $name ] = sprintf( __( '%s (outline)', 'notifications-for-hivepress' ), $label );
+			}
+		}
+
+		return $listed;
 	}
 
 	/**
@@ -2903,7 +2931,7 @@ final class Hpnf_Notification extends Component {
 	 * @return bool
 	 */
 	public function is_extended_icon( $icon ) {
-		return $this->is_brand_icon( $icon ) || in_array( $icon, $this->get_extra_solid_icons(), true );
+		return 0 === strpos( (string) $icon, 'far fa-' ) || $this->is_brand_icon( $icon ) || in_array( $icon, $this->get_extra_solid_icons(), true );
 	}
 
 	/**
@@ -3054,6 +3082,10 @@ final class Hpnf_Notification extends Component {
 	 */
 	public function get_bell_icon_class() {
 		$icon = $this->get_bell_icon();
+
+		if ( 0 === strpos( $icon, 'far fa-' ) ) {
+			return 'fa-regular fa-' . substr( $icon, 7 );
+		}
 
 		if ( $this->is_brand_icon( $icon ) ) {
 			return 'fa-brands fa-' . $icon;

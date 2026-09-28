@@ -4,7 +4,7 @@ Contributors: ChrisB
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.12
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,9 @@ Pop-ups; browsers only allow it after the person has interacted with the page.
 `... cleanup` (runs the storage-period deletion now).
 
 == Changelog ==
+
+= 1.8.0 =
+* Added: the Bell Icon dropdown also offers the outline version of each icon that has one, marked (outline) in the list. A bell already chosen keeps its solid look.
 
 = 1.7.12 =
 * Fixed: with the glass header on, a parent item made in Account Menu Enhancer no longer shows a blurred patch in the account menu.

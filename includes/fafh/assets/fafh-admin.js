@@ -60,27 +60,46 @@
 		'fa-rotate-180': 1,
 		'fa-rotate-270': 1,
 		'fa-flip-horizontal': 1,
-		'fa-flip-vertical': 1
+		'fa-flip-vertical': 1,
+		'fa-fas': 1,
+		'fa-fab': 1
+	};
+
+	// Tokens asking for the outline (regular) style. `fa-far` is what core's picker template makes of
+	// a stored "far fa-heart", since it prefixes the whole value with `fa-`. Other style tokens are
+	// ignored on purpose: a bare name already resolves solid, then brands.
+	var OUTLINE = {
+		'far': 1,
+		'fa-far': 1,
+		'fa-regular': 1
 	};
 
 	/**
-	 * Reads the icon name out of an element's classes.
+	 * Reads the icon out of an element's classes, as the value the server is asked for.
 	 *
-	 * Returns null when there is no name, which is the common case: `fas` on its
-	 * own, or a sizing helper with no icon.
+	 * A bare name, or "far fa-{name}" for an outline. Returns null when there is no name, which is
+	 * the common case: `fas` on its own, or a sizing helper with no icon.
 	 */
 	function nameOf( element ) {
-		var tokens = String( element.className || '' ).split( /\s+/ );
+		var tokens = String( element.className || '' ).split( /\s+/ ),
+			name = null,
+			outline = false;
 
 		for ( var i = 0; i < tokens.length; i++ ) {
 			var token = tokens[ i ];
 
-			if ( 0 === token.indexOf( 'fa-' ) && ! NOT_A_NAME[ token ] ) {
-				return token.slice( 3 );
+			if ( OUTLINE[ token ] ) {
+				outline = true;
+			} else if ( ! name && 0 === token.indexOf( 'fa-' ) && ! NOT_A_NAME[ token ] ) {
+				name = token.slice( 3 );
 			}
 		}
 
-		return null;
+		if ( ! name ) {
+			return null;
+		}
+
+		return outline ? 'far fa-' + name : name;
 	}
 
 	/**

@@ -76,7 +76,7 @@ return [
 
 					'notification_bell_icon'               => [
 						'label'       => esc_html__( 'Bell Icon', 'notifications-for-hivepress' ),
-						'description' => esc_html__( 'The icon used for the bell. Click the box and type to search, such as "inbox" or "envelope"; the newer Font Awesome icons and the brand icons load their own stylesheet on your site automatically.', 'notifications-for-hivepress' ),
+						'description' => esc_html__( 'The icon used for the bell. Click the box and type to search, such as "inbox" or "envelope"; the newer Font Awesome icons and the brand icons load their own stylesheet on your site automatically. Icons marked (outline) show the outline version.', 'notifications-for-hivepress' ),
 						'type'        => 'select',
 						'default'     => 'bell',
 						'required'    => true,

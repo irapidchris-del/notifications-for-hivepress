@@ -9,10 +9,14 @@
  * is not a font). The webfont is still bundled, for the admin icon pickers
  * only, where 1,918 inline SVGs in one control would be the worse trade.
  *
- * Icons are addressed by NAME, not by style, because in Font Awesome 7 Free
- * only `font-awesome` and `web-awesome` exist in more than one family. Every
- * saved setting that already holds a bare icon slug therefore keeps working,
- * and brand icons resolve on their own without anything being migrated.
+ * Icons are addressed by NAME, and a bare name resolves solid first, then
+ * brands, then regular. Every saved setting that holds a bare icon slug
+ * therefore keeps working, and brand icons resolve on their own.
+ *
+ * The one style a name cannot select is the outline (regular) version of an
+ * icon that also exists in solid. Pickers store that as the class pair
+ * "far fa-{name}" (see outline()), which parse() already reads, so every
+ * renderer honours it and a bare name keeps meaning exactly what it did.
  *
  * @package FAFH
  */
@@ -70,6 +74,17 @@ final class FAFH {
 	 * @var int
 	 */
 	const SEARCH_LIMIT = 30;
+
+	/**
+	 * Prefix of a stored outline value, as in "far fa-heart".
+	 *
+	 * The Font Awesome class pair rather than a new syntax: parse() already
+	 * reads it, it survives sanitize_text_field(), and it means the same thing
+	 * to a Font Awesome stylesheet if a font path ever draws it.
+	 *
+	 * @var string
+	 */
+	const OUTLINE_PREFIX = 'far fa-';
 
 	/**
 	 * Single-letter style codes used inside data/index.json.
@@ -183,7 +198,7 @@ final class FAFH {
 	/**
 	 * Styles a given icon exists in.
 	 *
-	 * @param string $name Icon name, canonical or aliased.
+	 * @param string $name Icon name, canonical or aliased, or a class string.
 	 * @return array Style names, in STYLES order. Empty if the icon is unknown.
 	 */
 	public static function styles( $name ) {
@@ -207,12 +222,19 @@ final class FAFH {
 	/**
 	 * Whether an icon exists, optionally in a specific style.
 	 *
-	 * @param string      $name  Icon name, canonical or aliased.
+	 * A class string that names a style ("far fa-heart") requires that style,
+	 * so this answers whether svg() will draw the value as given.
+	 *
+	 * @param string      $name  Icon name, canonical or aliased, or a class string.
 	 * @param string|null $style Style to require, or null for any.
 	 * @return bool
 	 */
 	public static function has( $name, $style = null ) {
 		$styles = self::styles( $name );
+
+		if ( null === $style ) {
+			$style = self::parse( $name )[1];
+		}
 
 		if ( null === $style ) {
 			return (bool) $styles;
@@ -224,25 +246,76 @@ final class FAFH {
 	/**
 	 * Human label for an icon, for use in a picker.
 	 *
-	 * @param string $name Icon name, canonical or aliased.
+	 * An outline value gets the outline suffix, so a picker can tell the two
+	 * versions of an icon apart.
+	 *
+	 * @param string $name Icon name, canonical or aliased, or a class string.
 	 * @return string Label, or '' if the icon is unknown.
 	 */
 	public static function label( $name ) {
 		$entry = self::entry( $name );
 
-		return $entry ? $entry[1] : '';
+		if ( ! $entry ) {
+			return '';
+		}
+
+		return self::is_outline( $name ) ? self::outline_label( $entry[1] ) : $entry[1];
 	}
 
 	/**
-	 * Icon choices for a settings field, as canonical name => label.
+	 * Stored value for an icon's outline version.
+	 *
+	 * Only offered where the icon exists in BOTH solid and regular: a bare name
+	 * already draws a regular-only icon as its outline, and a brand has none.
+	 *
+	 * @param string $name Icon name, canonical or aliased, or a class string.
+	 * @return string "far fa-{canonical name}", or '' if there is no outline version.
+	 */
+	public static function outline( $name ) {
+		$name   = self::resolve( self::parse( $name )[0] );
+		$styles = self::styles( $name );
+
+		if ( ! in_array( 'solid', $styles, true ) || ! in_array( 'regular', $styles, true ) ) {
+			return '';
+		}
+
+		return self::OUTLINE_PREFIX . $name;
+	}
+
+	/**
+	 * Whether a stored value asks for the outline (regular) style.
+	 *
+	 * @param string $value Stored value or class string.
+	 * @return bool
+	 */
+	public static function is_outline( $value ) {
+		return 'regular' === self::parse( $value )[1];
+	}
+
+	/**
+	 * Picker label for an outline entry.
+	 *
+	 * Plain English like the Font Awesome labels it extends: the library is
+	 * shared by several plugins and has no text domain of its own.
+	 *
+	 * @param string $label Icon label.
+	 * @return string
+	 */
+	public static function outline_label( $label ) {
+		return $label . ' (outline)';
+	}
+
+	/**
+	 * Icon choices for a settings field, as stored value => label.
 	 *
 	 * This is the one canonical list. Plugins should use it rather than
 	 * maintaining their own, so that an icon added here appears everywhere.
 	 *
-	 * @param array|null $styles Styles to include, or null for all of them.
+	 * @param array|null $styles  Styles to include, or null for all of them.
+	 * @param bool       $outline Also offer "far fa-{name}" outline entries.
 	 * @return array Sorted by label.
 	 */
-	public static function choices( $styles = null ) {
+	public static function choices( $styles = null, $outline = false ) {
 		$styles = null === $styles ? self::STYLES : (array) $styles;
 		$wanted = '';
 
@@ -262,6 +335,10 @@ final class FAFH {
 			}
 
 			$choices[ $name ] = $entry[1];
+
+			if ( $outline && false !== strpos( $entry[0], 's' ) && false !== strpos( $entry[0], 'r' ) ) {
+				$choices[ self::OUTLINE_PREFIX . $name ] = self::outline_label( $entry[1] );
+			}
 		}
 
 		natcasesort( $choices );
@@ -689,6 +766,10 @@ final class FAFH {
 	 * setup in hivepress/assets/js/common.js:264 reads. Exact and prefix matches
 	 * come first, so typing "star" offers `star` before `star-and-crescent`.
 	 *
+	 * An icon that exists in both solid and regular is offered twice: its bare
+	 * name (solid, as always) and, straight after it, "far fa-{name}" labelled
+	 * as the outline. Typing "outline" lists only the outline entries.
+	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return array
 	 */
@@ -701,16 +782,23 @@ final class FAFH {
 		$rest   = [];
 
 		foreach ( $index as $name => $entry ) {
-			$label = isset( $entry[1] ) ? $entry[1] : $name;
+			$label    = isset( $entry[1] ) ? $entry[1] : (string) $name;
+			$variants = [ (string) $name => $label ];
 
-			if ( '' === $term ) {
-				$prefix[ $name ] = $label;
-			} elseif ( $name === $term ) {
-				$exact[ $name ] = $label;
-			} elseif ( 0 === strpos( $name, $term ) ) {
-				$prefix[ $name ] = $label;
-			} elseif ( false !== strpos( $name, $term ) || false !== stripos( $label, $term ) ) {
-				$rest[ $name ] = $label;
+			if ( false !== strpos( $entry[0], 's' ) && false !== strpos( $entry[0], 'r' ) ) {
+				$variants[ self::OUTLINE_PREFIX . $name ] = self::outline_label( $label );
+			}
+
+			foreach ( $variants as $id => $text ) {
+				if ( '' === $term ) {
+					$prefix[ $id ] = $text;
+				} elseif ( (string) $name === $term || $id === $term ) {
+					$exact[ $id ] = $text;
+				} elseif ( 0 === strpos( (string) $name, $term ) ) {
+					$prefix[ $id ] = $text;
+				} elseif ( false !== strpos( $id, $term ) || false !== stripos( $text, $term ) ) {
+					$rest[ $id ] = $text;
+				}
 			}
 
 			if ( count( $exact ) + count( $prefix ) + count( $rest ) >= self::SEARCH_LIMIT * 4 ) {
@@ -725,7 +813,7 @@ final class FAFH {
 
 		foreach ( $matches as $name => $label ) {
 			$results[] = [
-				'id'   => $name,
+				'id'   => (string) $name,
 
 				// The label alone. Core's select2 template prepends
 				// `<i class="fas fa-fw fa-{id}">` itself, which the admin shim
@@ -874,7 +962,7 @@ final class FAFH {
 				continue;
 			}
 
-			$name = sanitize_key( (string) $name );
+			$name = self::clean_value( (string) $name );
 
 			if ( '' !== $name ) {
 				$wanted[] = $name;
@@ -916,12 +1004,12 @@ final class FAFH {
 	/**
 	 * Index entry for an icon, resolving aliases.
 	 *
-	 * @param string $name Icon name, canonical or aliased.
+	 * @param string $name Icon name, canonical or aliased, or a class string.
 	 * @return array|null [ style codes, label ], or null if unknown.
 	 */
 	private static function entry( $name ) {
 		$index = self::index();
-		$name  = self::resolve( $name );
+		$name  = self::resolve( self::parse( $name )[0] );
 
 		return isset( $index[ $name ] ) ? $index[ $name ] : null;
 	}
@@ -993,6 +1081,19 @@ final class FAFH {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Sanitises a requested icon value to icon-name characters and single spaces.
+	 *
+	 * Not sanitize_key(): it strips the space from an outline value
+	 * ("far fa-heart"), which then matches no icon at all.
+	 *
+	 * @param string $value Raw value.
+	 * @return string
+	 */
+	private static function clean_value( $value ) {
+		return trim( (string) preg_replace( '/\s+/', ' ', (string) preg_replace( '/[^a-z0-9\s-]/', '', strtolower( (string) $value ) ) ) );
 	}
 
 	/**
